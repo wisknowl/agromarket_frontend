@@ -34,17 +34,18 @@ export default function TabLayout() {
           shadowOpacity: 0.05,
           shadowRadius: 4,
           height: TAB_BAR_BASE_HEIGHT + insets.bottom,
-          paddingBottom: insets.bottom > 0 ? insets.bottom + 4 : Platform.OS === 'android' ? 10 : 6,
-          paddingTop: 6,
+          paddingTop: 8,
+          paddingBottom: insets.bottom > 0 ? insets.bottom + 8 : 8,
         },
         tabBarLabelStyle: {
           fontFamily: Fonts.bodyMedium,
           fontSize: 11,
           letterSpacing: 0.1,
-          marginBottom: 4,
-        },
-        tabBarIconStyle: {
           marginTop: 2,
+        },
+        tabBarItemStyle: {
+          justifyContent: 'center',
+          alignItems: 'center',
         },
         headerStyle: {
           backgroundColor: Colors.white,
