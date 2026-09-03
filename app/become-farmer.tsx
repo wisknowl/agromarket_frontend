@@ -19,7 +19,7 @@ export default function BecomeFarmerScreen() {
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Become a Farmer</Text>
       <Text style={styles.subtitle}>
-        Fill in the details below to apply as a farmer on AgroLink.
+        Fill in the details below to apply as a farmer on agromarket.
       </Text>
 
       <Text style={styles.label}>Farm Name</Text>

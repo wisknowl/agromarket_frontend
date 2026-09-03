@@ -2,9 +2,9 @@
 
 export const en = {
   common: {
-    appName: "AgroBazaar",
-    taglineMain: "Grow More, Earn More.",
-    taglineSub: "Direct Farm to Market in Cameroon",
+    appName: "agromarket",
+    taglineMain: "From farm to hand.",
+    taglineSub: "Direct agricultural marketplace across Cameroon",
     currency: "FCFA",
     searchPlaceholder: "Search crops, farms, Foumbot tomatoes, plantains...",
     loading: "Loading harvest data...",
@@ -32,11 +32,11 @@ export const en = {
     admin: "Platform Administrator",
   },
   auth: {
-    welcome: "Welcome to AgroBazaar",
+    welcome: "Welcome to agromarket",
     subtitle: "Connecting farmers, Buyam-Sellams, & consumers across Cameroon",
     selectRole: "Select Your Account Type",
     loginTitle: "Sign in to your account",
-    registerTitle: "Create your AgroBazaar Account",
+    registerTitle: "Create your agromarket Account",
     fullName: "Full Name / Organization Name",
     emailOrPhone: "Email or Phone (+237...)",
     phone: "Cameroon Phone Number (MTN / Orange)",
@@ -101,7 +101,7 @@ export const en = {
     loanAmount: "Requested Amount (FCFA)",
     loanDuration: "Repayment Period",
     repaymentNotice: "Repay automatically via 20% deduction on future yield sales",
-    escrowGuaranteed: "🛡️ Protected by AgroBazaar Escrow Payment",
+    escrowGuaranteed: "🛡️ Protected by agromarket Escrow Payment",
     escrowDescription: "Your funds are held safely until you inspect your fresh harvest delivery.",
   },
   farmer: {

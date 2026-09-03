@@ -45,7 +45,7 @@ const AdminDashboard = () => {
         <TouchableOpacity onPress={toggleSidebar} style={styles.menuBtn} accessibilityLabel="Toggle sidebar">
           <Ionicons name="menu" size={28} color="#fff" />
         </TouchableOpacity>
-        {/* <Text style={styles.logo}>AgroLink <Text style={{color: ADMIN_ACCENT}}>Admin</Text></Text> */}
+        {/* <Text style={styles.logo}>agromarket <Text style={{color: ADMIN_ACCENT}}>Admin</Text></Text> */}
         <View style={styles.userInfo}>
           <FontAwesome5 name="user-shield" size={20} color={ADMIN_ACCENT} />
           <Text style={styles.userName}>Super Admin</Text>

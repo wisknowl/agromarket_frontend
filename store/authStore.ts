@@ -62,7 +62,7 @@ export const useAuthStore = create<AuthState>()(
       },
     }),
     {
-      name: 'agrobazaar-auth-storage',
+      name: 'agromarket-auth-storage',
       storage: createJSONStorage(() => AsyncStorage),
     }
   )

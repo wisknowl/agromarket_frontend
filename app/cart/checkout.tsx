@@ -53,14 +53,14 @@ export default function CheckoutScreen() {
       clearCart();
       Alert.alert(
         'Order Placed! 🛡️',
-        'Your payment is held safely in AgroBazaar Escrow. Funds will only be released to the farmer after you inspect your fresh delivery.',
+        'Your payment is held safely in agromarket Escrow. Funds will only be released to the farmer after you inspect your fresh delivery.',
         [{ text: 'View Marketplace', onPress: () => router.replace('/(tabs)') }]
       );
     } catch (e) {
       clearCart();
       Alert.alert(
         'Order Placed! 🛡️',
-        'Your payment is held safely in AgroBazaar Escrow. Funds will only be released after you inspect your fresh delivery.',
+        'Your payment is held safely in agromarket Escrow. Funds will only be released after you inspect your fresh delivery.',
         [{ text: 'Done', onPress: () => router.replace('/(tabs)') }]
       );
     } finally {

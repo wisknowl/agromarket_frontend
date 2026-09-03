@@ -1,9 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, FlatList, StyleSheet, Animated, Pressable, Image, Easing, Dimensions } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  FlatList,
+  StyleSheet,
+  Animated,
+  Pressable,
+  Image,
+  Easing,
+  Dimensions,
+} from 'react-native';
 import { useCartStore } from '@/store/cartStore';
-import Colors from '@/constants/colors';
-import { ShoppingBag, ChevronDown, Plus, Minus, Trash2 } from 'lucide-react-native';
-import Svg, { Path, Line } from 'react-native-svg';
+import Colors, { Radii, Shadows } from '@/constants/colors';
+import { Fonts } from '@/constants/typography';
+import { ShoppingBag, Plus, Minus, Trash2, ArrowRight } from 'lucide-react-native';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const FREE_DELIVERY_COUNT = 10;
@@ -17,7 +28,7 @@ interface BasketProps {
 
 export default function Basket({ onGoToCart, lastAddedItem }: BasketProps) {
   const [expanded, setExpanded] = useState(false);
-  const animation = useRef(new Animated.Value(0)).current; // 0 = collapsed, 1 = expanded
+  const animation = useRef(new Animated.Value(0)).current;
   const badgeScale = useRef(new Animated.Value(1)).current;
   const [removingId, setRemovingId] = useState<string | null>(null);
   const { items, getTotal, updateQuantity, removeFromCart } = useCartStore();
@@ -32,7 +43,6 @@ export default function Basket({ onGoToCart, lastAddedItem }: BasketProps) {
   const totalAmount = getTotal();
   const progress = Math.min(totalItems / FREE_DELIVERY_COUNT, 1);
 
-  // Shared shake animation function
   const triggerShake = () => {
     Animated.sequence([
       Animated.timing(shakeAnim, { toValue: 1, duration: 50, useNativeDriver: true }),
@@ -42,24 +52,14 @@ export default function Basket({ onGoToCart, lastAddedItem }: BasketProps) {
     ]).start();
   };
 
-  // Badge pulse and shake when items are added
   useEffect(() => {
     Animated.sequence([
       Animated.timing(badgeScale, { toValue: 1.3, duration: 120, useNativeDriver: true }),
-      Animated.timing(badgeScale, { toValue: 1, duration: 120, useNativeDriver: true })
+      Animated.timing(badgeScale, { toValue: 1, duration: 120, useNativeDriver: true }),
     ]).start();
     triggerShake();
   }, [totalItems]);
 
-  // Shake every 10 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      triggerShake();
-    }, 10000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Animate progress bar
   useEffect(() => {
     Animated.timing(progressAnim, {
       toValue: progress,
@@ -68,35 +68,21 @@ export default function Basket({ onGoToCart, lastAddedItem }: BasketProps) {
     }).start();
   }, [progress]);
 
-  // Staggered item reveal
   useEffect(() => {
     if (expanded && items.length) {
       const anims = items.map(() => new Animated.Value(0));
       setStaggerAnims(anims);
-      Animated.stagger(80, anims.map(anim =>
-        Animated.timing(anim, { toValue: 1, duration: 350, useNativeDriver: true })
-      )).start();
+      Animated.stagger(
+        70,
+        anims.map((anim) =>
+          Animated.timing(anim, { toValue: 1, duration: 300, useNativeDriver: true })
+        )
+      ).start();
     }
   }, [expanded, items.length]);
 
-  // Add-to-basket fly animation (demo: triggers if lastAddedItem prop changes)
-  useEffect(() => {
-  console.log('lastAddedItem:', lastAddedItem);
-  if (lastAddedItem && !expanded) {
-    setFlyImageUri(lastAddedItem.yield.image);
-    setShowFlyImage(true);
-    flyAnim.setValue({ x: 0, y: 0 });
-    Animated.timing(flyAnim, {
-      toValue: { x: SCREEN_WIDTH - 80, y: -60 },
-      duration: 600,
-      useNativeDriver: true,
-      easing: Easing.inOut(Easing.quad),
-    }).start(() => setShowFlyImage(false));
-  }
-}, [lastAddedItem]);
-
   const handleQuantity = (id: string, delta: number) => {
-    const item = items.find(i => i.id === id);
+    const item = items.find((i) => i.id === id);
     if (!item) return;
     const newQty = item.quantity + delta;
     if (newQty < 1) return;
@@ -122,10 +108,9 @@ export default function Basket({ onGoToCart, lastAddedItem }: BasketProps) {
     }).start(() => setExpanded(false));
   };
 
-  // Interpolate height for animation
   const containerHeight = animation.interpolate({
     inputRange: [0, 1],
-    outputRange: [80, 400],
+    outputRange: [76, 420],
   });
   const collapsedOpacity = animation.interpolate({
     inputRange: [0, 0.5],
@@ -138,172 +123,82 @@ export default function Basket({ onGoToCart, lastAddedItem }: BasketProps) {
     extrapolate: 'clamp',
   });
 
-  
   const handleDelete = (id: string) => {
     setRemovingId(id);
-    Animated.timing(staggerAnims[items.findIndex(i => i.id === id)], {
-      toValue: 0,
-      duration: 250,
-      useNativeDriver: true,
-    }).start(() => {
+    const itemIndex = items.findIndex((i) => i.id === id);
+    if (staggerAnims[itemIndex]) {
+      Animated.timing(staggerAnims[itemIndex], {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start(() => {
+        removeFromCart(id);
+        setRemovingId(null);
+      });
+    } else {
       removeFromCart(id);
       setRemovingId(null);
-    });
+    }
   };
-
-  // Collapse basket on screen change/unmount
-  useEffect(() => {
-    return () => {
-      setExpanded(false);
-    };
-  }, []);
 
   if (items.length === 0) return null;
 
   return (
     <>
-      {/* Background Blur/Dim - now Pressable to collapse basket */}
       {expanded && (
-        <Pressable style={styles.blurOverlay} pointerEvents="auto" onPress={handleCollapse} />
-      )}
-      {/* Add-to-basket fly image */}
-      {showFlyImage && flyImageUri && (
-        <Animated.Image
-          source={{ uri: flyImageUri }}
-          style={{
-            position: 'absolute',
-            left: 20,
-            bottom: 80,
-            width: 40,
-            height: 40,
-            borderRadius: 8,
-            zIndex: 200,
-            transform: flyAnim.getTranslateTransform(),
-          }}
+        <Pressable
+          style={styles.blurOverlay}
+          pointerEvents="auto"
+          onPress={handleCollapse}
         />
       )}
-      {/* Outer Animated.View for height only (JS driver) */}
-      <Animated.View style={[styles.container, { height: containerHeight }]}> 
-        {/* Basket Handle - black, semi-circle, full width, now animated */}
-        <Animated.View
-          style={[
-            styles.basketHandleContainer,
-            {
-              transform: [{
-                translateX: shakeAnim.interpolate({ inputRange: [-1, 1], outputRange: [-10, 10] })
-              }],
-            },
-          ]}
-          pointerEvents="none"
-        >
-          <View style={styles.basketHandle} />
-        </Animated.View>
-        {/* Inner Animated.View for shake only (native driver) */}
-        <Animated.View style={{ flex: 1, transform: [{
-          translateX: shakeAnim.interpolate({ inputRange: [-1, 1], outputRange: [-10, 10] })
-        }] }}>
-          {/* Basket grid background */}
-          <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-            {/* Main grid: straight lines */}
-            {/* Vertical lines */}
-            {Array.from({ length: 12 }).map((_, i) => (
-              <View
-                key={`v-${i}`}
-                style={{
-                  position: 'absolute',
-                  left: `${(i / 11) * 100}%`,
-                  top: 0,
-                  bottom: 0,
-                  width: 2,
-                  backgroundColor: 'rgba(255,255,255,0.18)',
-                }}
-              />
-            ))}
-            {/* Horizontal lines */}
-            {Array.from({ length: 8 }).map((_, i) => (
-              <View
-                key={`h-${i}`}
-                style={{
-                  position: 'absolute',
-                  top: `${(i / 7) * 100}%`,
-                  left: 0,
-                  right: 0,
-                  height: 2,
-                  backgroundColor: 'rgba(255,255,255,0.18)',
-                }}
-              />
-            ))}
 
-            {/* Overlay grid: extra straight horizontal and vertical lines for woven effect */}
-            {/* Extra vertical lines (overlay) */}
-            {Array.from({ length: 8 }).map((_, i) => (
-              <View
-                key={`overlay-v-${i}`}
-                style={{
-                  position: 'absolute',
-                  left: `${(i / 7) * 100}%`,
-                  top: 0,
-                  bottom: 0,
-                  width: 1,
-                  backgroundColor: 'rgba(255,255,255,0.28)',
-                  zIndex: 999,
-                }}
-              />
-            ))}
-            {/* Extra horizontal lines (overlay) */}
-            {Array.from({ length: 5 }).map((_, i) => (
-              <View
-                key={`overlay-h-${i}`}
-                style={{
-                  position: 'absolute',
-                  top: `${(i / 4) * 100}%`,
-                  left: 0,
-                  right: 0,
-                  height: 1,
-                  backgroundColor: 'rgba(255,255,255,0.28)',
-                  zIndex: 999,
-                }}
-              />
-            ))}
-          </View>
+      <Animated.View style={[styles.container, { height: containerHeight }]}>
+        <Animated.View
+          style={{
+            flex: 1,
+            transform: [
+              {
+                translateX: shakeAnim.interpolate({
+                  inputRange: [-1, 1],
+                  outputRange: [-6, 6],
+                }),
+              },
+            ],
+          }}
+        >
           {expanded && (
             <View style={styles.progressBarContainer}>
-              <Animated.View style={[
-                styles.progressBar,
-                { width: progressAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }), height: 18, zIndex: 1 }
-              ]} />
-              <Animated.Text
+              <Animated.View
                 style={[
-                  styles.progressText,
+                  styles.progressBar,
                   {
-                    color: progressAnim.interpolate({
-                      inputRange: [0, 0.5, 1],
-                      outputRange: [Colors.primary, Colors.primary, '#fff'],
+                    width: progressAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ['0%', '100%'],
                     }),
-                    position: 'absolute',
-                    left: 0,
-                    right: 0,
-                    textAlign: 'center',
-                    zIndex: 2,
-                    fontWeight: 'bold',
-                    fontSize: 12,
                   },
                 ]}
-              >
-                {totalItems} / {FREE_DELIVERY_COUNT} for Free Delivery
-              </Animated.Text>
+              />
+              <Text style={styles.progressText}>
+                {totalItems} / {FREE_DELIVERY_COUNT} for Direct Cooperative Delivery
+              </Text>
             </View>
           )}
+
           {!expanded && (
             <Animated.View style={{ opacity: collapsedOpacity }}>
               <View style={styles.row}>
                 <FlatList
                   horizontal
                   data={items}
-                  keyExtractor={item => item.id}
+                  keyExtractor={(item) => item.id}
                   renderItem={({ item }) => (
                     <View style={styles.itemRow}>
-                      <Image source={{ uri: item.yield.image }} style={styles.itemImage} />
+                      <Image
+                        source={{ uri: item.yield.image }}
+                        style={styles.itemImage}
+                      />
                       <View style={styles.badge}>
                         <Text style={styles.badgeText}>{item.quantity}</Text>
                       </View>
@@ -311,24 +206,30 @@ export default function Basket({ onGoToCart, lastAddedItem }: BasketProps) {
                   )}
                   showsHorizontalScrollIndicator={false}
                 />
-                <TouchableOpacity style={styles.viewBasket} onPress={handleExpand}>
-                  <Text style={styles.viewBasketText}>View Basket</Text>
+                <TouchableOpacity
+                  style={styles.viewBasket}
+                  onPress={handleExpand}
+                >
+                  <Text style={styles.viewBasketText}>Open Basket</Text>
                   <Animated.View style={{ transform: [{ scale: badgeScale }] }}>
-                    <ShoppingBag size={24} color={Colors.primary} />
-                    <View style={styles.iconBadge}>
-                      <Text style={styles.iconBadgeText}>{totalItems}</Text>
+                    <View style={styles.basketIconCircle}>
+                      <ShoppingBag size={18} color={Colors.espresso} strokeWidth={2.2} />
+                      <View style={styles.iconBadge}>
+                        <Text style={styles.iconBadgeText}>{totalItems}</Text>
+                      </View>
                     </View>
                   </Animated.View>
                 </TouchableOpacity>
               </View>
             </Animated.View>
           )}
+
           {expanded && (
             <Animated.View style={{ flex: 1, opacity: expandedOpacity }}>
               <View style={styles.expandedContent}>
                 <FlatList
                   data={items}
-                  keyExtractor={item => item.id}
+                  keyExtractor={(item) => item.id}
                   renderItem={({ item, index }) => (
                     <Animated.View
                       style={[
@@ -339,35 +240,53 @@ export default function Basket({ onGoToCart, lastAddedItem }: BasketProps) {
                         },
                       ]}
                     >
-                      <Image source={{ uri: item.yield.image }} style={styles.expandedItemImage} />
+                      <Image
+                        source={{ uri: item.yield.image }}
+                        style={styles.expandedItemImage}
+                      />
                       <View style={styles.expandedItemInfo}>
-                        <Text style={styles.expandedItemTitle}>{item.yield.title}</Text>
-                        <Text style={styles.expandedItemDesc}>{item.yield.description}</Text>
+                        <Text style={styles.expandedItemTitle} numberOfLines={1}>
+                          {item.yield.title}
+                        </Text>
+                        <Text style={styles.expandedItemPrice}>
+                          {item.yield.price} FCFA / {item.yield.unit}
+                        </Text>
                       </View>
                       <View style={styles.quantityControls}>
-                        <Pressable onPress={() => handleQuantity(item.id, -1)}>
-                          <Minus size={20} color={Colors.primary} />
+                        <Pressable
+                          style={styles.qtyBtn}
+                          onPress={() => handleQuantity(item.id, -1)}
+                        >
+                          <Minus size={14} color={Colors.espresso} />
                         </Pressable>
                         <Text style={styles.quantityText}>{item.quantity}</Text>
-                        <Pressable onPress={() => handleQuantity(item.id, 1)}>
-                          <Plus size={20} color={Colors.primary} />
+                        <Pressable
+                          style={styles.qtyBtn}
+                          onPress={() => handleQuantity(item.id, 1)}
+                        >
+                          <Plus size={14} color={Colors.espresso} />
                         </Pressable>
                       </View>
-                      <TouchableOpacity onPress={() => handleDelete(item.id)} style={{ marginLeft: 8 }}>
-                        <Trash2 size={24} color={Colors.error} />
+                      <TouchableOpacity
+                        onPress={() => handleDelete(item.id)}
+                        style={{ marginLeft: 10 }}
+                      >
+                        <Trash2 size={18} color={Colors.clay} />
                       </TouchableOpacity>
                     </Animated.View>
                   )}
                 />
-                <View style={[styles.bottomRow, { justifyContent: 'center' }]}> 
-                  <TouchableOpacity 
-                    style={[styles.goToCartButton, { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', minWidth: 180 }]} 
+
+                <View style={styles.bottomRow}>
+                  <TouchableOpacity
+                    style={styles.goToCartButton}
                     onPress={onGoToCart}
                   >
-                    <ShoppingBag size={22} color={'#fff'} style={{ marginRight: 8 }} />
+                    <ShoppingBag size={18} color={Colors.espresso} />
                     <Text style={styles.goToCartText}>
-                      Go to Cart <Text style={{ fontWeight: 'normal' }}>({totalAmount} FCFA)</Text>
+                      Proceed to Checkout ({totalAmount.toLocaleString()} FCFA)
                     </Text>
+                    <ArrowRight size={16} color={Colors.espresso} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -385,40 +304,41 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#1fd656',
-    // backgroundColor: '#56c596',
-    // backgroundColor: '#56c596',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    elevation: 10,
-    padding: 10,
+    backgroundColor: Colors.canopy,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 12,
     zIndex: 100,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(246, 238, 221, 0.2)',
+    ...Shadows.card,
   },
   blurOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.18)',
+    backgroundColor: 'rgba(14, 37, 21, 0.6)',
     zIndex: 99,
   },
   progressBarContainer: {
-    height: 'auto',
-    backgroundColor: Colors.card,
-    borderRadius: 8,
-    marginBottom: 6,
+    height: 22,
+    backgroundColor: 'rgba(246, 238, 221, 0.15)',
+    borderRadius: Radii.pill,
+    marginBottom: 10,
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   progressBar: {
-    position: 'relative',
+    position: 'absolute',
     left: 0,
     top: 0,
     bottom: 0,
-    backgroundColor: Colors.primary,
-    borderRadius: 8,
+    backgroundColor: Colors.cultivated,
+    borderRadius: Radii.pill,
   },
   progressText: {
     alignSelf: 'center',
-    color: Colors.primary,
-    fontWeight: 'bold',
-    fontSize: 10,
+    color: Colors.parchment,
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 11,
     zIndex: 2,
   },
   row: {
@@ -427,58 +347,71 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   itemRow: {
-    marginRight: 12,
-    backgroundColor: Colors.card,
-    borderRadius: 8,
-    padding: 8,
+    marginRight: 10,
+    backgroundColor: Colors.white,
+    borderRadius: Radii.chip,
+    padding: 3,
     position: 'relative',
   },
   itemImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 6,
   },
   badge: {
     position: 'absolute',
-    top: -6,
-    right: -6,
-    backgroundColor: Colors.primary,
-    borderRadius: 8,
+    top: -4,
+    right: -4,
+    backgroundColor: Colors.gold,
+    borderRadius: Radii.pill,
     paddingHorizontal: 5,
-    paddingVertical: 2,
+    paddingVertical: 1,
     minWidth: 16,
     alignItems: 'center',
   },
   badgeText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
+    color: Colors.espresso,
+    fontSize: 10,
+    fontFamily: Fonts.monoBold,
   },
   viewBasket: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 16,
+    backgroundColor: 'rgba(246, 238, 221, 0.12)',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: Radii.pill,
+    marginLeft: 12,
+    gap: 8,
   },
   viewBasketText: {
-    fontWeight: 'bold',
-    marginRight: 6,
-    color: Colors.primary,
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 13,
+    color: Colors.parchment,
+  },
+  basketIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
   },
   iconBadge: {
     position: 'absolute',
-    top: -6,
-    right: -6,
-    backgroundColor: Colors.secondary,
-    borderRadius: 8,
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-    minWidth: 16,
+    top: -4,
+    right: -4,
+    backgroundColor: Colors.soil,
+    borderRadius: Radii.pill,
+    paddingHorizontal: 4,
+    minWidth: 14,
     alignItems: 'center',
   },
   iconBadgeText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
+    color: Colors.parchment,
+    fontSize: 9,
+    fontFamily: Fonts.monoBold,
   },
   expandedContent: {
     flex: 1,
@@ -486,85 +419,68 @@ const styles = StyleSheet.create({
   expandedItemRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 8,
+    marginVertical: 6,
     justifyContent: 'space-between',
-    backgroundColor: Colors.card,
-    borderRadius: 8,
-    padding: 8,
+    backgroundColor: Colors.white,
+    borderRadius: Radii.card,
+    padding: 10,
   },
   expandedItemImage: {
-    width: 48,
-    height: 48,
+    width: 46,
+    height: 46,
     borderRadius: 8,
-    marginRight: 8,
   },
   expandedItemInfo: {
     flex: 1,
-    marginLeft: 8,
+    marginLeft: 10,
   },
   expandedItemTitle: {
-    fontWeight: 'bold',
-    fontSize: 16,
-    color: Colors.primary,
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 14,
+    color: Colors.espresso,
   },
-  expandedItemDesc: {
-    color: Colors.text.secondary,
-    fontSize: 13,
+  expandedItemPrice: {
+    fontFamily: Fonts.monoBold,
+    color: Colors.soil,
+    fontSize: 12,
     marginTop: 2,
   },
   quantityControls: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 8,
+    gap: 6,
+  },
+  qtyBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: Colors.parchment,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   quantityText: {
-    marginHorizontal: 8,
-    fontWeight: 'bold',
-    fontSize: 16,
+    fontFamily: Fonts.monoBold,
+    fontSize: 14,
+    color: Colors.espresso,
+    minWidth: 18,
+    textAlign: 'center',
   },
   bottomRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 16,
-    paddingHorizontal: 8,
+    marginTop: 12,
   },
   goToCartButton: {
-    backgroundColor: Colors.primary,
-    padding: 10,
-    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.gold,
+    borderRadius: Radii.pill,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    gap: 8,
   },
   goToCartText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  totalAmount: {
-    fontWeight: 'bold',
-    fontSize: 18,
-    color: Colors.primary,
-  },
-  basketHandleContainer: {
-    position: 'absolute',
-    top: -32,
-    left: 0,
-    right: 0,
-    height: 32,
-    alignItems: 'center',
-    zIndex: 101,
-    width: '100%',
-    justifyContent: 'flex-start',
-  },
-  basketHandle: {
-    width: 80,
-    height: 40,
-    borderTopLeftRadius: 40,
-    borderTopRightRadius: 40,
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
-    borderWidth: 5,
-    borderColor: '#111', // black border for holo effect
-    backgroundColor: 'transparent',
-    borderBottomWidth: 0,
-    alignSelf: 'center',
+    fontFamily: Fonts.bodyBold,
+    fontSize: 14,
+    color: Colors.espresso,
   },
 });

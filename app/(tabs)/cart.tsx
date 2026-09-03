@@ -1,12 +1,13 @@
 import React from 'react';
 import { View, Text, StyleSheet, FlatList, Pressable } from 'react-native';
-import { ShoppingBag } from 'lucide-react-native';
+import { ShoppingBag, Truck } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import CartItem from '@/components/CartItem';
 import { useCartStore } from '@/store/cartStore';
 import { useTranslation } from '@/constants/translations';
-import Colors from '@/constants/colors';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import Colors, { Radii, Shadows } from '@/constants/colors';
+import { Fonts } from '@/constants/typography';
+import BrandButton from '@/components/ui/BrandButton';
 
 export default function CartScreen() {
   const router = useRouter();
@@ -22,9 +23,18 @@ export default function CartScreen() {
   if (items.length === 0) {
     return (
       <View style={styles.emptyContainer}>
-        <ShoppingBag size={64} color={Colors.text.secondary} />
+        <View style={styles.emptyIconCircle}>
+          <ShoppingBag size={48} color={Colors.soil} strokeWidth={1.8} />
+        </View>
         <Text style={styles.emptyText}>{t.basket.emptyBasketTitle}</Text>
         <Text style={styles.emptySubtext}>{t.basket.emptyBasketSubtitle}</Text>
+        <BrandButton
+          title="Browse Harvests"
+          variant="primary"
+          size="md"
+          onPress={() => router.replace('/(tabs)')}
+          style={{ marginTop: 20 }}
+        />
       </View>
     );
   }
@@ -33,23 +43,23 @@ export default function CartScreen() {
     <View style={styles.container}>
       {/* Free Delivery Gamified Progress Bar */}
       <View style={styles.freeDeliveryBanner}>
-        <MaterialCommunityIcons
-          name={isFreeDelivery ? 'truck-check' : 'truck-fast'}
+        <Truck
           size={20}
-          color={isFreeDelivery ? '#10B981' : '#F59E0B'}
+          color={isFreeDelivery ? Colors.cultivated : Colors.gold}
+          strokeWidth={2.2}
         />
         <View style={{ flex: 1, marginLeft: 10 }}>
           <Text style={styles.deliveryProgressTitle}>
             {isFreeDelivery
               ? t.basket.freeDeliveryUnlocked
-              : `Add ${10 - itemCount} more ${t.basket.freeDeliveryThreshold}`}
+              : `Add ${10 - itemCount} more for free cooperative delivery`}
           </Text>
           <View style={styles.progressBarBg}>
             <View
               style={[
                 styles.progressBarFill,
                 { width: `${Math.min((itemCount / 10) * 100, 100)}%` },
-                isFreeDelivery && { backgroundColor: '#10B981' },
+                isFreeDelivery && { backgroundColor: Colors.cultivated },
               ]}
             />
           </View>
@@ -68,31 +78,48 @@ export default function CartScreen() {
                 <Text style={styles.summaryLabel}>
                   {t.basket.subtotal} ({itemCount} items)
                 </Text>
-                <Text style={styles.summaryValue}>{subtotal} FCFA</Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>{t.basket.deliveryFee}</Text>
-                <Text style={[styles.summaryValue, isFreeDelivery && { color: '#10B981' }]}>
-                  {isFreeDelivery ? 'FREE' : `${deliveryFee} FCFA`}
+                <Text style={styles.summaryValue}>
+                  {subtotal.toLocaleString()} FCFA
                 </Text>
               </View>
+
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>{t.basket.deliveryFee}</Text>
+                <Text
+                  style={[
+                    styles.summaryValue,
+                    isFreeDelivery && { color: Colors.cultivated },
+                  ]}
+                >
+                  {isFreeDelivery ? 'FREE' : `${deliveryFee.toLocaleString()} FCFA`}
+                </Text>
+              </View>
+
               <View style={styles.divider} />
+
               <View style={styles.summaryRow}>
                 <Text style={styles.totalLabel}>{t.basket.totalAmount}</Text>
-                <Text style={styles.totalValue}>{totalAmount} FCFA</Text>
+                <Text style={styles.totalValue}>
+                  {totalAmount.toLocaleString()} FCFA
+                </Text>
               </View>
             </View>
 
             <View style={styles.actionsContainer}>
-              <Pressable style={styles.clearButton} onPress={clearCart}>
-                <Text style={styles.clearButtonText}>Clear Basket</Text>
-              </Pressable>
-              <Pressable
-                style={styles.checkoutButton}
+              <BrandButton
+                title="Clear"
+                variant="alert"
+                size="md"
+                onPress={clearCart}
+                style={{ flex: 1 }}
+              />
+              <BrandButton
+                title={t.basket.goToCheckout}
+                variant="primary"
+                size="md"
                 onPress={() => router.push('/cart/checkout')}
-              >
-                <Text style={styles.checkoutButtonText}>{t.basket.goToCheckout}</Text>
-              </Pressable>
+                style={{ flex: 2 }}
+              />
             </View>
           </View>
         )}
@@ -104,129 +131,112 @@ export default function CartScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
-  },
-  freeDeliveryBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-  },
-  deliveryProgressTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#0F172A',
-    marginBottom: 4,
-  },
-  progressBarBg: {
-    height: 6,
-    backgroundColor: '#E2E8F0',
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: '#F59E0B',
-    borderRadius: 3,
+    backgroundColor: Colors.white,
   },
   listContent: {
     padding: 16,
   },
   emptyContainer: {
     flex: 1,
-    alignItems: 'center',
+    backgroundColor: Colors.white,
     justifyContent: 'center',
+    alignItems: 'center',
     padding: 24,
   },
+  emptyIconCircle: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: Colors.parchment,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
   emptyText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.text.primary,
-    marginTop: 16,
-    marginBottom: 8,
+    fontFamily: Fonts.displayItalic,
+    fontSize: 22,
+    color: Colors.espresso,
+    marginBottom: 6,
   },
   emptySubtext: {
+    fontFamily: Fonts.body,
     fontSize: 14,
     color: Colors.text.secondary,
     textAlign: 'center',
-    maxWidth: '80%',
-    lineHeight: 20,
+    maxWidth: 280,
+  },
+  freeDeliveryBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.parchment,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.parchmentDim,
+  },
+  deliveryProgressTitle: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 12,
+    color: Colors.espresso,
+    marginBottom: 4,
+  },
+  progressBarBg: {
+    height: 6,
+    backgroundColor: 'rgba(36, 26, 18, 0.1)',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: Colors.gold,
+    borderRadius: 3,
   },
   footer: {
-    marginTop: 16,
+    marginTop: 12,
+    marginBottom: 40,
   },
   summaryContainer: {
-    backgroundColor: Colors.card,
-    borderRadius: 16,
-    padding: 18,
-    marginBottom: 16,
+    backgroundColor: Colors.white,
+    borderRadius: Radii.card,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Colors.parchmentDim,
+    padding: 16,
+    marginBottom: 16,
+    ...Shadows.subtle,
   },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    alignItems: 'center',
+    marginBottom: 8,
   },
   summaryLabel: {
-    fontSize: 13,
+    fontFamily: Fonts.body,
+    fontSize: 14,
     color: Colors.text.secondary,
   },
   summaryValue: {
+    fontFamily: Fonts.monoBold,
     fontSize: 14,
-    fontWeight: '700',
-    color: Colors.text.primary,
+    color: Colors.espresso,
   },
   divider: {
     height: 1,
-    backgroundColor: Colors.border,
+    backgroundColor: Colors.parchmentDim,
     marginVertical: 10,
   },
   totalLabel: {
+    fontFamily: Fonts.bodyBold,
     fontSize: 16,
-    fontWeight: '800',
-    color: Colors.primary,
+    color: Colors.espresso,
   },
   totalValue: {
+    fontFamily: Fonts.monoBold,
     fontSize: 18,
-    fontWeight: '900',
-    color: Colors.primary,
+    color: Colors.canopy,
   },
   actionsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 32,
-  },
-  clearButton: {
-    flex: 1,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-  },
-  clearButtonText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#64748B',
-  },
-  checkoutButton: {
-    flex: 2,
-    backgroundColor: '#0D5C3A',
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginLeft: 8,
-    elevation: 2,
-  },
-  checkoutButtonText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    gap: 12,
   },
 });

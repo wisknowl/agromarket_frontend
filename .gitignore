@@ -9,7 +9,9 @@ dist/
 web-build/
 expo-env.d.ts
 
-# Native
+# Native folders (Managed Expo Workflow: EAS builds fresh from app.json)
+android/
+ios/
 .kotlin/
 *.orig.*
 *.jks

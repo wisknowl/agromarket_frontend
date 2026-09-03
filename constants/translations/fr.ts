@@ -2,9 +2,9 @@
 
 export const fr = {
   common: {
-    appName: "AgroBazaar",
-    taglineMain: "Cultivez Plus, Gagnez Plus.",
-    taglineSub: "Du Champ au Marché en direct au Cameroun",
+    appName: "agromarket",
+    taglineMain: "Du champ à la main.",
+    taglineSub: "Marché agricole direct à travers le Cameroun",
     currency: "FCFA",
     searchPlaceholder: "Rechercher récoltes, fermes, tomates de Foumbot, plantains...",
     loading: "Chargement des récoltes...",
@@ -32,11 +32,11 @@ export const fr = {
     admin: "Administrateur Plateforme",
   },
   auth: {
-    welcome: "Bienvenue sur AgroBazaar",
+    welcome: "Bienvenue sur agromarket",
     subtitle: "Connecter producteurs, Bayam-Selams et consommateurs au Cameroun",
     selectRole: "Sélectionnez votre profil",
     loginTitle: "Connexion à votre compte",
-    registerTitle: "Créer votre compte AgroBazaar",
+    registerTitle: "Créer votre compte agromarket",
     fullName: "Nom complet / Raison Sociale",
     emailOrPhone: "Email ou Téléphone (+237...)",
     phone: "Numéro de téléphone (MTN MoMo / Orange Money)",
@@ -101,7 +101,7 @@ export const fr = {
     loanAmount: "Montant demandé (FCFA)",
     loanDuration: "Période de remboursement",
     repaymentNotice: "Remboursement automatique via retenue de 20% sur vos ventes futures",
-    escrowGuaranteed: "🛡️ Paiement Sécurisé sous Séquestre AgroBazaar",
+    escrowGuaranteed: "🛡️ Paiement Sécurisé sous Séquestre agromarket",
     escrowDescription: "Vos fonds sont bloqués en sécurité jusqu'à vérification de la fraîcheur à réception.",
   },
   farmer: {

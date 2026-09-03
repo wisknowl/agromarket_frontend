@@ -63,7 +63,7 @@ export default function SettingsScreen() {
       {/* Logout button */}
       <Pressable style={styles.logoutButton} onPress={handleLogout}>
         <LogOut size={20} color="#EF4444" />
-        <Text style={styles.logoutText}>Log Out of AgroBazaar</Text>
+        <Text style={styles.logoutText}>Log Out of agromarket</Text>
       </Pressable>
     </SafeAreaView>
   );

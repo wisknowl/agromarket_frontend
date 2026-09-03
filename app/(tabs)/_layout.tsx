@@ -1,76 +1,89 @@
-import React from "react";
-import { Tabs } from "expo-router";
-import { Home, Inbox, ShoppingBag, ShoppingCart, User } from "lucide-react-native";
-import { Leaf, Sprout, Wheat, Trees } from "lucide-react-native";
-import Colors from "@/constants/colors";
-import { useCartStore } from "@/store/cartStore";
-import { View, Text, StyleSheet } from "react-native";
+import React from 'react';
+import { Tabs } from 'expo-router';
+import {
+  Home,
+  MessageSquare,
+  Sprout,
+  ShoppingBag,
+  User,
+} from 'lucide-react-native';
+import Colors from '@/constants/colors';
+import { Fonts } from '@/constants/typography';
+import { useCartStore } from '@/store/cartStore';
+import { View, Text, StyleSheet, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
-  const cartItemCount = useCartStore(state => state.getItemCount());
+  const cartItemCount = useCartStore((state) => state.getItemCount());
+  const insets = useSafeAreaInsets();
+
+  const TAB_BAR_BASE_HEIGHT = 56;
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: Colors.text.secondary,
+        tabBarActiveTintColor: Colors.cultivated,
+        tabBarInactiveTintColor: 'rgba(36, 26, 18, 0.45)',
         tabBarStyle: {
-          backgroundColor: Colors.background,
-          borderTopColor: Colors.border,
-          elevation: 0,
-          shadowOpacity: 0,
-          height: 60,
-          paddingBottom: 8,
+          backgroundColor: Colors.white,
+          borderTopColor: Colors.parchmentDim,
+          borderTopWidth: 1,
+          elevation: 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.05,
+          shadowRadius: 4,
+          height: TAB_BAR_BASE_HEIGHT + insets.bottom,
+          paddingBottom: insets.bottom > 0 ? insets.bottom : Platform.OS === 'android' ? 8 : 4,
+          paddingTop: 6,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '500',
+          fontFamily: Fonts.bodyMedium,
+          fontSize: 11,
+          letterSpacing: 0.1,
+          marginBottom: 3,
+        },
+        tabBarIconStyle: {
+          marginTop: 2,
         },
         headerStyle: {
-          backgroundColor: Colors.background,
+          backgroundColor: Colors.white,
           elevation: 0,
           shadowOpacity: 0,
           borderBottomWidth: 1,
-          borderBottomColor: Colors.border,
+          borderBottomColor: Colors.parchmentDim,
         },
         headerTitleStyle: {
-          fontWeight: '600',
-          fontSize: 18,
+          fontFamily: Fonts.displayItalic,
+          fontSize: 19,
+          color: Colors.canopy,
         },
+        headerTintColor: Colors.espresso,
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: "Home",
-          tabBarIcon: ({ color }) => <Home size={24} color={color} />,
-          headerTitle: "AgroLink Cameroon",
-          headerShown: false
-        }}
-      />
-      <Tabs.Screen
-        name="inbox"
-        options={{
-          title: "Inbox",
-          tabBarIcon: ({ color }) => <Inbox size={24} color={color} />,
-          headerTitle: "Messages",
+          title: 'AgroFeed',
+          tabBarIcon: ({ color }) => <Home size={22} color={color} strokeWidth={2.2} />,
+          headerShown: false,
         }}
       />
       <Tabs.Screen
         name="agro-yields"
         options={{
-          title: "AgroYields",
-          tabBarIcon: ({ color }) => <Sprout size={24} color={color} />,
-          headerTitle: "AgroYields Marketplace",
+          title: 'Harvests',
+          tabBarIcon: ({ color }) => <Sprout size={22} color={color} strokeWidth={2.2} />,
+          headerTitle: 'Direct Harvests',
         }}
       />
       <Tabs.Screen
         name="cart"
         options={{
-          title: "Cart",
+          title: 'Basket',
           tabBarIcon: ({ color }) => (
             <View style={{ position: 'relative' }}>
-              <ShoppingCart size={24} color={color} />
+              <ShoppingBag size={22} color={color} strokeWidth={2.2} />
               {cartItemCount > 0 && (
                 <View style={styles.badge}>
                   <Text style={styles.badgeText}>
@@ -80,15 +93,23 @@ export default function TabLayout() {
               )}
             </View>
           ),
-          headerTitle: "Shopping Cart",
+          headerTitle: 'Your Basket',
+        }}
+      />
+      <Tabs.Screen
+        name="inbox"
+        options={{
+          title: 'Inbox',
+          tabBarIcon: ({ color }) => <MessageSquare size={22} color={color} strokeWidth={2.2} />,
+          headerTitle: 'Messages',
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Profile",
-          tabBarIcon: ({ color }) => <User size={24} color={color} />,
-          headerTitle: "My Profile",
+          title: 'Profile',
+          tabBarIcon: ({ color }) => <User size={22} color={color} strokeWidth={2.2} />,
+          headerTitle: 'Profile & Farm',
         }}
       />
     </Tabs>
@@ -99,9 +120,9 @@ const styles = StyleSheet.create({
   badge: {
     position: 'absolute',
     right: -8,
-    top: -6,
-    backgroundColor: Colors.primary,
-    borderRadius: 10,
+    top: -4,
+    backgroundColor: Colors.gold,
+    borderRadius: 9,
     minWidth: 18,
     height: 18,
     alignItems: 'center',
@@ -109,8 +130,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   badgeText: {
-    color: Colors.text.light,
+    color: Colors.espresso,
     fontSize: 10,
-    fontWeight: '700',
+    fontFamily: Fonts.monoBold,
   },
 });

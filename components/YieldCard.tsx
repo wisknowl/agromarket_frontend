@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ShoppingCart, MoreVertical, Heart, HeartOff } from 'lucide-react-native';
+import { ShoppingBag, MoreVertical, Heart, HeartOff, Star } from 'lucide-react-native';
 import { AgroYield } from '@/types';
 import { useCartStore } from '@/store/cartStore';
 import { useFavoritesStore } from '@/store/favoritesStore';
-import Colors from '@/constants/colors';
-import { Post } from '@/types';
+import Colors, { Radii, Shadows } from '@/constants/colors';
+import { Fonts } from '@/constants/typography';
 import { farmers } from '@/mocks/data';
 import Popover, { PopoverPlacement } from 'react-native-popover-view';
-
+import PriceTag from './ui/PriceTag';
+import FarmerBadge from './ui/FarmerBadge';
 
 interface YieldCardProps {
   item: AgroYield;
@@ -18,7 +19,12 @@ interface YieldCardProps {
   onClosePopover: () => void;
 }
 
-export default function YieldCard({ item, popoverVisible, onOpenPopover, onClosePopover }: YieldCardProps) {
+export default function YieldCard({
+  item,
+  popoverVisible,
+  onOpenPopover,
+  onClosePopover,
+}: YieldCardProps) {
   const router = useRouter();
   const { addToCart } = useCartStore();
   const { addYield, removeYield, isYieldFavorite } = useFavoritesStore();
@@ -26,7 +32,9 @@ export default function YieldCard({ item, popoverVisible, onOpenPopover, onClose
 
   const moreButtonRef = React.useRef<View>(null);
   const cardRef = React.useRef<View>(null);
-  const [displayArea, setDisplayArea] = React.useState<{ x: number; y: number; width: number; height: number } | undefined>();
+  const [displayArea, setDisplayArea] = React.useState<
+    { x: number; y: number; width: number; height: number } | undefined
+  >();
 
   React.useEffect(() => {
     if (popoverVisible && cardRef.current) {
@@ -51,70 +59,100 @@ export default function YieldCard({ item, popoverVisible, onOpenPopover, onClose
       addYield(item.id);
     }
   };
-  const handleChatWithFarmer = () => {
-  if (farmer?.id) {
-    onClosePopover();
-    router.push(`/chat/${farmer.id}`);
-  }
-};
 
-  const farmer = farmers.find(f => f.id === item.farmerId);
+  const handleChatWithFarmer = () => {
+    if (farmer?.id) {
+      onClosePopover();
+      router.push(`/chat/${farmer.id}`);
+    }
+  };
+
+  const farmer = farmers.find((f) => f.id === item.farmerId);
 
   return (
     <View style={styles.container} ref={cardRef}>
-      <Pressable onPress={handlePress}>
+      <Pressable onPress={handlePress} style={styles.imageContainer}>
         <Image source={{ uri: item.image }} style={styles.image} />
+        {farmer?.creditScore && farmer.creditScore >= 700 ? (
+          <View style={styles.floatingBadge}>
+            <FarmerBadge tier="GOLD" label="Gold" size="sm" />
+          </View>
+        ) : null}
       </Pressable>
+
       <View style={styles.content}>
+        <Text style={styles.title} numberOfLines={1}>
+          {item.title || (typeof item.category === 'object' ? item.category?.name : item.category)}
+        </Text>
+
         <View style={styles.priceRow}>
-          <Text style={styles.price}>{item.price} FCFA/{item.unit}</Text>
+          <PriceTag
+            amount={item.price}
+            unit={item.unit}
+            size="md"
+            color={Colors.canopy}
+          />
           {item.oldPrice && (
             <Text style={styles.oldPrice}>{item.oldPrice} FCFA</Text>
           )}
         </View>
-        <Text style={styles.category}>
-          {typeof item.category === 'object' ? item.category?.name : (item.category || 'Fresh Produce')}
+
+        <Text style={styles.locationText} numberOfLines={1}>
+          📍 {farmer?.location || 'Cameroon'}
         </Text>
       </View>
+
       <View style={styles.actions}>
         <View style={styles.ratingContainer}>
-          {[1,2,3,4,5].map((star) => (
-            <Text key={star} style={star <= Math.round(item.rating ?? 0) ? styles.starFilled : styles.starEmpty}>★</Text>
-          ))}
-          <Text style={styles.ratingText}>{item.rating?.toFixed(1) ?? '0.0'}</Text>
+          <Star size={13} color={Colors.gold} fill={Colors.gold} />
+          <Text style={styles.ratingText}>
+            {item.rating?.toFixed(1) ?? '4.8'}
+          </Text>
         </View>
+
         <View style={styles.actionButtonsRow}>
           <Pressable style={styles.cartButton} onPress={handleAddToCart}>
-            <ShoppingCart size={13} color={Colors.text.light} />
+            <ShoppingBag size={14} color={Colors.espresso} strokeWidth={2.2} />
           </Pressable>
+
           <Popover
             isVisible={popoverVisible}
-            from={(
-              <Pressable ref={moreButtonRef} style={styles.moreButton} onPress={onOpenPopover}>
+            from={
+              <Pressable
+                ref={moreButtonRef}
+                style={styles.moreButton}
+                onPress={onOpenPopover}
+              >
                 <MoreVertical size={18} color={Colors.text.secondary} />
               </Pressable>
-            )}
+            }
             onRequestClose={onClosePopover}
             placement={PopoverPlacement.TOP}
             displayArea={displayArea}
-            backgroundStyle={{ backgroundColor: 'rgba(0,0,0,0.15)' }}
-            arrowSize={{ width: 16, height: 8 }}
+            backgroundStyle={{ backgroundColor: 'rgba(23, 58, 32, 0.25)' }}
+            arrowSize={{ width: 14, height: 7 }}
           >
             <View style={styles.modalContent}>
               <Pressable style={styles.modalRow} onPress={toggleFavorite}>
                 <Heart
-                  size={22}
-                  color={isFavorite ? Colors.error : Colors.text.secondary}
-                  fill={isFavorite ? Colors.error : 'none'}
+                  size={18}
+                  color={isFavorite ? Colors.clay : Colors.text.secondary}
+                  fill={isFavorite ? Colors.clay : 'none'}
                 />
-                <Text style={styles.modalText}>{isFavorite ? 'Remove from wish list' : 'Add to wish list'}</Text>
+                <Text style={styles.modalText}>
+                  {isFavorite ? 'Remove from wishlist' : 'Add to wishlist'}
+                </Text>
               </Pressable>
-              <Pressable style={styles.modalRow} onPress={() => {/* handle don't like */}}>
-                <HeartOff size={22} color={Colors.error} />
-                <Text style={styles.modalText}>Don't like this product</Text>
-              </Pressable>
+
               <Pressable style={styles.modalRow} onPress={handleChatWithFarmer}>
-                <Image source={{ uri: farmer?.profilePhoto }} style={styles.farmerAvatar} />
+                {farmer?.profilePhoto ? (
+                  <Image
+                    source={{ uri: farmer.profilePhoto }}
+                    style={styles.farmerAvatar}
+                  />
+                ) : (
+                  <View style={styles.farmerAvatarPlaceholder} />
+                )}
                 <Text style={styles.modalText}>Chat with Farmer</Text>
               </Pressable>
             </View>
@@ -128,127 +166,118 @@ export default function YieldCard({ item, popoverVisible, onOpenPopover, onClose
 const styles = StyleSheet.create({
   container: {
     width: '48%',
-    backgroundColor: Colors.card,
-    borderRadius: 12,
+    backgroundColor: Colors.white,
+    borderRadius: Radii.card,
+    borderWidth: 1,
+    borderColor: Colors.parchmentDim,
     overflow: 'hidden',
     marginBottom: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    position: 'relative', // Needed for local overlay
+    ...Shadows.subtle,
+  },
+  imageContainer: {
+    position: 'relative',
+    width: '100%',
+    height: 140,
+    backgroundColor: Colors.parchment,
   },
   image: {
     width: '100%',
-    height: 200,
+    height: '100%',
     resizeMode: 'cover',
   },
+  floatingBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+  },
   content: {
-    padding: 12,
+    padding: 10,
+    paddingBottom: 6,
+  },
+  title: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 14,
+    color: Colors.espresso,
+    marginBottom: 4,
   },
   priceRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'baseline',
     justifyContent: 'space-between',
     marginBottom: 4,
   },
-  price: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: Colors.primary,
-  },
   oldPrice: {
-    fontSize: 13,
-    color: Colors.text.secondary,
+    fontFamily: Fonts.mono,
+    fontSize: 11,
+    color: Colors.text.muted,
     textDecorationLine: 'line-through',
-    marginLeft: 8,
   },
-  category: {
-    fontSize: 13,
+  locationText: {
+    fontFamily: Fonts.body,
+    fontSize: 11,
     color: Colors.text.secondary,
   },
   actions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    padding: 12,
-    paddingTop: 0,
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingBottom: 10,
+    paddingTop: 4,
   },
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  starFilled: {
-    color: '#FFD700', // gold
-    fontSize: 10,
-    marginRight: 1,
-  },
-  starEmpty: {
-    color: '#ccc',
-    fontSize: 10,
-    marginRight: 1,
+    gap: 4,
   },
   ratingText: {
+    fontFamily: Fonts.monoBold,
     fontSize: 12,
-    color: Colors.text.secondary,
-    marginLeft: 4,
-    fontWeight: '600',
-  },
-  cartButton: {
-    backgroundColor: Colors.primary,
-    borderRadius: 6, 
-    padding: 6,      
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,  
-    width: 45, 
-  },
-  moreButton: {
-    padding: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
+    color: Colors.espresso,
   },
   actionButtonsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  fullScreenOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.15)',
-    justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 999,
+    gap: 6,
+  },
+  cartButton: {
+    backgroundColor: Colors.gold,
+    borderRadius: Radii.pill,
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  moreButton: {
+    padding: 4,
   },
   modalContent: {
-    flexDirection: 'column',
-    justifyContent: 'center',
-    backgroundColor: Colors.card,
+    backgroundColor: Colors.white,
     padding: 8,
-    minWidth: 220,
-    alignItems: 'center',
-    elevation: 5,
+    minWidth: 190,
+    borderRadius: Radii.card,
   },
   modalRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    width: '100%',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    gap: 10,
   },
   modalText: {
+    fontFamily: Fonts.bodyMedium,
     fontSize: 13,
-    color: Colors.text.primary,
-    marginLeft: 10,
-    fontWeight: '500',
-    width:'auto',
+    color: Colors.espresso,
   },
   farmerAvatar: {
     width: 22,
     height: 22,
-    borderRadius: 14,
-    marginRight: 0,
+    borderRadius: 11,
+  },
+  farmerAvatarPlaceholder: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: Colors.cultivated,
   },
 });

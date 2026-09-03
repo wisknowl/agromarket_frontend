@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, FlatList, ScrollView, Dimensions } from 'react-native';
+import React, { useState } from 'react';
+import { View, StyleSheet, FlatList, ScrollView, LayoutChangeEvent } from 'react-native';
 import { useRouter } from 'expo-router';
-import TabHeader from '@/components/TabHeader';
+import HomeTabBar from '@/components/HomeTabBar';
 import YieldCard from '@/components/YieldCard';
 import PostCard from '@/components/PostCard';
 import { agroYields, posts } from '@/mocks/data';
@@ -15,13 +15,15 @@ export default function HomeScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('AgroFeed');
   const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
+  const [feedHeight, setFeedHeight] = useState(0);
+
   useFocusEffect(
     React.useCallback(() => {
       setActiveTab('AgroFeed');
     }, [])
   );
   const { yields: favoriteYields, posts: favoritePosts } = useFavoritesStore();
-  
+
   const tabs = ['AgroFeed', 'AgroYields', 'Favorites'];
 
   const renderYieldItem = ({ item }: { item: AgroYield }) => (
@@ -37,33 +39,36 @@ export default function HomeScreen() {
     <PostCard post={item} />
   );
 
-  const filteredYields = activeTab === 'Favorites' 
-    ? agroYields.filter(item => favoriteYields.includes(item.id))
-    : agroYields;
+  const filteredYields =
+    activeTab === 'Favorites'
+      ? agroYields.filter((item) => favoriteYields.includes(item.id))
+      : agroYields;
 
-  const filteredPosts = activeTab === 'Favorites'
-    ? posts.filter(post => favoritePosts.includes(post.id))
-    : posts;
+  const filteredPosts =
+    activeTab === 'Favorites'
+      ? posts.filter((post) => favoritePosts.includes(post.id))
+      : posts;
 
-  // Calculate available height for the card
-  const windowHeight = Dimensions.get('window').height;
-  const headerHeight = 56; // Approximate TabHeader height (adjust as needed)
-  const tabBarHeight = 64; // Approximate bottom tab bar height (adjust as needed)
-  const cardHeight = windowHeight - headerHeight - tabBarHeight;
+  const onFeedLayout = (e: LayoutChangeEvent) => {
+    const { height } = e.nativeEvent.layout;
+    if (height > 0 && height !== feedHeight) {
+      setFeedHeight(height);
+    }
+  };
 
   return (
     <View style={styles.container}>
-      <TabHeader 
-        tabs={tabs} 
-        activeTab={activeTab} 
-        onTabChange={setActiveTab} 
+      <HomeTabBar
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
       />
 
       {activeTab === 'AgroYields' && (
         <FlatList
           data={filteredYields}
           renderItem={renderYieldItem}
-          keyExtractor={item => item.id}
+          keyExtractor={(item) => item.id}
           numColumns={2}
           columnWrapperStyle={styles.columnWrapper}
           contentContainerStyle={styles.listContent}
@@ -72,20 +77,24 @@ export default function HomeScreen() {
       )}
 
       {activeTab === 'AgroFeed' && (
-        <FlatList
-          data={filteredPosts}
-          renderItem={({ item }) => (
-            <View style={{ height: cardHeight }}>
-              <PostCard post={item} fullScreen />
-            </View>
+        <View style={{ flex: 1 }} onLayout={onFeedLayout}>
+          {feedHeight > 0 && (
+            <FlatList
+              data={filteredPosts}
+              renderItem={({ item }) => (
+                <View style={{ height: feedHeight }}>
+                  <PostCard post={item} fullScreen />
+                </View>
+              )}
+              keyExtractor={(item) => item.id}
+              pagingEnabled
+              snapToInterval={feedHeight}
+              decelerationRate="fast"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ padding: 0 }}
+            />
           )}
-          keyExtractor={item => item.id}
-          pagingEnabled
-          snapToInterval={cardHeight}
-          decelerationRate="fast"
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ padding: 0 }}
-        />
+        </View>
       )}
 
       {activeTab === 'Favorites' && (
@@ -94,7 +103,7 @@ export default function HomeScreen() {
             <FlatList
               data={filteredPosts}
               renderItem={renderPostItem}
-              keyExtractor={item => item.id}
+              keyExtractor={(item) => item.id}
               scrollEnabled={false}
             />
           )}
@@ -102,7 +111,7 @@ export default function HomeScreen() {
             <FlatList
               data={filteredYields}
               renderItem={renderYieldItem}
-              keyExtractor={item => item.id}
+              keyExtractor={(item) => item.id}
               numColumns={2}
               columnWrapperStyle={styles.columnWrapper}
               scrollEnabled={false}
@@ -110,7 +119,7 @@ export default function HomeScreen() {
           )}
         </ScrollView>
       )}
-      {/* Only show Basket on AgroYields and Favorites tabs */}
+
       {(activeTab === 'AgroYields' || activeTab === 'Favorites') && <Basket />}
     </View>
   );
@@ -119,12 +128,14 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.white,
   },
   listContent: {
-    padding: 0,
+    padding: 12,
+    paddingBottom: 80,
   },
   columnWrapper: {
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
   },
 });

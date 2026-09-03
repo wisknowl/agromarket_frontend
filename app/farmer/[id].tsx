@@ -6,7 +6,7 @@ import { farmers, agroYields, posts } from '@/mocks/data';
 import { AgroYield } from '@/types';
 import YieldCard from '@/components/YieldCard';
 import PostCard from '@/components/PostCard';
-import TabHeader from '@/components/TabHeader';
+import HomeTabBar from '@/components/HomeTabBar';
 import Colors from '@/constants/colors';
 import Basket from '@/components/basket';
 
@@ -91,7 +91,7 @@ export default function FarmerProfileScreen() {
           </View>
         </View>
         
-        <TabHeader 
+        <HomeTabBar 
           tabs={tabs} 
           activeTab={activeTab} 
           onTabChange={setActiveTab} 

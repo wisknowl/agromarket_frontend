@@ -1,20 +1,38 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, Pressable, ScrollView, TouchableOpacity } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  Pressable,
+  ScrollView,
+  TouchableOpacity,
+} from 'react-native';
 import { useRouter } from 'expo-router';
-import { LogOut } from 'lucide-react-native';
+import {
+  LogOut,
+  Warehouse,
+  ShoppingBag,
+  Heart,
+  Bookmark,
+  Plus,
+  Settings,
+  ShieldCheck,
+  CreditCard,
+} from 'lucide-react-native';
 import { useAuthStore } from '@/store/authStore';
 import SettingsComponent from '@/components/settings';
 import FarmsList from '@/components/FarmsList';
-import Colors from '@/constants/colors';
-
-const badge = require('@/assets/images/badge.png');
+import Colors, { Radii, Shadows } from '@/constants/colors';
+import { Fonts } from '@/constants/typography';
+import MeetingLeafLogo from '@/components/MeetingLeafLogo';
+import BrandButton from '@/components/ui/BrandButton';
+import FarmerBadge from '@/components/ui/FarmerBadge';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, isAuthenticated, logout } = useAuthStore();
   const [activeTab, setActiveTab] = useState('farms');
-  // TODO: Replace with actual farm count logic
   const userHasFarm = user?.farms && user.farms.length > 0;
 
   const handleLogin = () => {
@@ -28,15 +46,19 @@ export default function ProfileScreen() {
   const handleLogout = () => {
     logout();
   };
+
   const handleBecomeFarmer = () => {
     router.push('/become-farmer');
   };
+
   const handleManageFarms = () => {
     router.push('/farmer/manage');
   };
+
   const handleNewFarm = () => {
     router.push('/farmer/new');
   };
+
   const handleSettings = () => {
     router.push('/settings/settings');
   };
@@ -48,23 +70,35 @@ export default function ProfileScreen() {
   if (!isAuthenticated) {
     return (
       <View style={styles.authContainer}>
-        <View style={styles.logoContainer}>
-          <Text style={styles.logoText}>AgroLink</Text>
-          <Text style={styles.logoSubtext}>Cameroon</Text>
+        <View style={styles.logoBadgeContainer}>
+          <MeetingLeafLogo
+            size={72}
+            showWordmark
+            wordmarkColor={Colors.canopy}
+            showTagline
+            variant="fullColor"
+          />
         </View>
-        
-        <Text style={styles.authTitle}>Welcome to AgroLink</Text>
+
+        <Text style={styles.authTitle}>From farm to hand</Text>
         <Text style={styles.authSubtitle}>
-          Connect with farmers, discover fresh produce, and share agricultural stories
+          Connect with verified cooperatives, discover fresh harvests, and trade fairly across Cameroon
         </Text>
-        
-        <Pressable style={styles.primaryButton} onPress={handleLogin}>
-          <Text style={styles.primaryButtonText}>Login</Text>
-        </Pressable>
-        
-        <Pressable style={styles.secondaryButton} onPress={handleRegister}>
-          <Text style={styles.secondaryButtonText}>Create Account</Text>
-        </Pressable>
+
+        <View style={styles.authButtonsWrapper}>
+          <BrandButton
+            title="Sign In"
+            variant="primary"
+            size="lg"
+            onPress={handleLogin}
+          />
+          <BrandButton
+            title="Create Account"
+            variant="secondary"
+            size="lg"
+            onPress={handleRegister}
+          />
+        </View>
       </View>
     );
   }
@@ -73,40 +107,22 @@ export default function ProfileScreen() {
     {
       key: 'farms',
       label: 'Farms',
-      icon: (color: string) => (
-        <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-          <Path d="M3 9.5L12 3l9 6.5V21a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9.5z" />
-          <Path d="M9 22V12h6v10" />
-        </Svg>
-      ),
+      icon: (color: string) => <Warehouse size={20} color={color} strokeWidth={2} />,
     },
     {
       key: 'orders',
       label: 'Orders',
-      icon: (color: string) => (
-        <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-          <Path d="M6 6h15l-1.5 9H6z" />
-          <Path d="M6 6V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2" />
-        </Svg>
-      ),
+      icon: (color: string) => <ShoppingBag size={20} color={color} strokeWidth={2} />,
     },
     {
       key: 'saves',
-      label: 'Saves',
-      icon: (color: string) => (
-        <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-          <Path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-        </Svg>
-      ),
+      label: 'Saved',
+      icon: (color: string) => <Bookmark size={20} color={color} strokeWidth={2} />,
     },
     {
       key: 'likes',
       label: 'Likes',
-      icon: (color: string) => (
-        <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-          <Path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21.3l7.8-7.8 1-1a5.5 5.5 0 0 0 0-7.8z" />
-        </Svg>
-      ),
+      icon: (color: string) => <Heart size={20} color={color} strokeWidth={2} />,
     },
   ];
 
@@ -114,72 +130,101 @@ export default function ProfileScreen() {
     <View style={styles.container}>
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
         <View style={styles.header}>
-          <Image 
-            source={{ 
-              uri: user?.avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8dXNlcnxlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=500&q=60' 
-            }} 
-            style={styles.avatar} 
-          />
-          <Text style={styles.name}>{user?.name || 'AgroBazaar User'}</Text>
-          <Text style={styles.email}>{user?.email || 'user@example.com'}</Text>
-
-          {/* Gold badge with credit score */}
-          <Pressable style={styles.badgeContainer} onPress={handleFintech}>
+          <View style={styles.avatarWrapper}>
             <Image
-              source={badge}
-              style={styles.goldBadge}
+              source={{
+                uri:
+                  user?.avatar ||
+                  'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=500&auto=format&fit=crop&q=60',
+              }}
+              style={styles.avatar}
             />
-
-            <Text style={styles.creditScoreText}>Njangi Credit: {user?.farmerProfile?.creditTier || 'Gold'} (Tap for Loans →)</Text>
-          </Pressable>
-
-          {/* Horizontal buttons under badge */}
-          <View style={styles.horizontalButtons}>
-            <Pressable style={styles.horizontalButton} onPress={handleSettings}>
-              <Text style={styles.horizontalButtonText}>Settings</Text>
-            </Pressable>
-            <Pressable
-              style={styles.horizontalButton}
-              onPress={user?.isFarmer ? handleManageFarms : handleBecomeFarmer}
-            >
-              <Text style={styles.horizontalButtonText}>
-                {user?.isFarmer ? 'Manage Farms' : 'Become a Farmer'}
-              </Text>
-            </Pressable>
+            <View style={styles.verifiedDot} />
           </View>
 
-          {/* Interactive tab bar */}
+          <Text style={styles.name}>{user?.name || 'agromarket Member'}</Text>
+          <Text style={styles.email}>{user?.email || 'user@agromarket.cm'}</Text>
+
+          {/* Credit Score & Tier Badge */}
+          <Pressable style={styles.badgeContainer} onPress={handleFintech}>
+            <FarmerBadge
+              tier={user?.farmerProfile?.creditTier || 'GOLD'}
+              label={`Njangi Credit: ${user?.farmerProfile?.creditTier || 'Gold'} Tier (Tap for Loans →)`}
+              size="md"
+            />
+          </Pressable>
+
+          {/* Horizontal Action Buttons */}
+          <View style={styles.horizontalButtons}>
+            <BrandButton
+              title="Settings"
+              variant="secondary"
+              size="sm"
+              onPress={handleSettings}
+              icon={<Settings size={14} color={Colors.cultivated} />}
+            />
+            <BrandButton
+              title={user?.isFarmer ? 'Manage Farms' : 'Become a Farmer'}
+              variant="primary"
+              size="sm"
+              onPress={user?.isFarmer ? handleManageFarms : handleBecomeFarmer}
+            />
+          </View>
+
+          {/* Sub-tab bar */}
           <View style={styles.tabBar}>
-            {tabData.map(tab => (
-              <Pressable
-                key={tab.key}
-                style={[styles.tabItem, activeTab === tab.key && styles.tabItemActive]}
-                onPress={() => setActiveTab(tab.key)}
-              >
-                {tab.icon(activeTab === tab.key ? Colors.primary : Colors.text.secondary)}
-                <Text style={[styles.tabLabel, activeTab === tab.key && styles.tabLabelActive]}>{tab.label}</Text>
-              </Pressable>
-            ))}
+            {tabData.map((tab) => {
+              const isActive = activeTab === tab.key;
+              return (
+                <Pressable
+                  key={tab.key}
+                  style={[styles.tabItem, isActive && styles.tabItemActive]}
+                  onPress={() => setActiveTab(tab.key)}
+                >
+                  {tab.icon(isActive ? Colors.cultivated : 'rgba(36, 26, 18, 0.45)')}
+                  <Text
+                    style={[
+                      styles.tabLabel,
+                      isActive && styles.tabLabelActive,
+                    ]}
+                  >
+                    {tab.label}
+                  </Text>
+                  {isActive && <View style={styles.tabIndicator} />}
+                </Pressable>
+              );
+            })}
           </View>
         </View>
 
-        {/* Other profile content based on activeTab */}
-        {/* {activeTab === 'farms' && <FarmsList />} */}
+        {/* Tab content */}
         {activeTab === 'farms' && !userHasFarm && (
           <View style={styles.emptyFarmContainer}>
-            <Image source={require('@/assets/images/farm.jpeg')} style={styles.emptyFarmImage} />
-            <Text style={styles.emptyFarmTitle}>No Farm Created yet</Text>
-            <Text style={styles.emptyFarmSubtitle}>Create your farm now to start selling</Text>
+            <View style={styles.emptyIconCircle}>
+              <Warehouse size={36} color={Colors.soil} strokeWidth={1.8} />
+            </View>
+            <Text style={styles.emptyFarmTitle}>No Farm Profile Yet</Text>
+            <Text style={styles.emptyFarmSubtitle}>
+              Register your farm to publish direct harvests and build your cooperative credit rating.
+            </Text>
+            <BrandButton
+              title="+ Create Your Farm"
+              variant="primary"
+              size="md"
+              onPress={handleNewFarm}
+              style={{ marginTop: 16 }}
+            />
           </View>
         )}
-  
-        {/* TODO: Add OrdersList, SavesList, LikesList for other tabs */}
+
+        {activeTab === 'farms' && userHasFarm && <FarmsList />}
       </ScrollView>
 
       {/* Floating + New Farm button */}
       {userHasFarm && (
         <TouchableOpacity style={styles.fab} onPress={handleNewFarm}>
-          <Text style={styles.fabText}>+ New Farm</Text>
+          <Plus size={18} color={Colors.espresso} strokeWidth={2.5} />
+          <Text style={styles.fabText}>New Farm</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -189,211 +234,170 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.white,
+  },
+  authContainer: {
+    flex: 1,
+    backgroundColor: Colors.white,
+    padding: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoBadgeContainer: {
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  authTitle: {
+    fontFamily: Fonts.displayItalic,
+    fontSize: 24,
+    color: Colors.canopy,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  authSubtitle: {
+    fontFamily: Fonts.body,
+    fontSize: 14,
+    color: Colors.text.secondary,
+    textAlign: 'center',
+    marginBottom: 28,
+    lineHeight: 20,
+  },
+  authButtonsWrapper: {
+    width: '100%',
+    gap: 12,
   },
   header: {
     alignItems: 'center',
-    padding: 24,
-    paddingBlockStart: 8,
-    paddingBlockEnd: 0,
-    backgroundColor: Colors.card,
+    paddingTop: 16,
+    paddingHorizontal: 20,
+    backgroundColor: Colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: Colors.parchmentDim,
+  },
+  avatarWrapper: {
+    position: 'relative',
+    marginBottom: 12,
   },
   avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    marginBottom: 16,
+    width: 86,
+    height: 86,
+    borderRadius: 43,
+    borderWidth: 2.5,
+    borderColor: Colors.gold,
+  },
+  verifiedDot: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: Colors.cultivated,
+    borderWidth: 2,
+    borderColor: Colors.white,
   },
   name: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: Colors.text.primary,
-    marginBottom: 4,
+    fontFamily: Fonts.bodyBold,
+    fontSize: 19,
+    color: Colors.espresso,
+    marginBottom: 2,
   },
   email: {
-    fontSize: 14,
+    fontFamily: Fonts.body,
+    fontSize: 13,
     color: Colors.text.secondary,
-    marginBottom: 16,
-  },
-  becomeButton: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  becomeButtonText: {
-    color: Colors.text.light,
-    fontWeight: '600',
-  },
-  badgeContainer: {
-    alignItems: 'center',
-    marginTop: 8,
     marginBottom: 8,
   },
-  goldBadge: {
-    width: 48,
-    height: 48,
-    marginBottom: 4,
-  },
-  creditScoreText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.primary,
+  badgeContainer: {
+    marginVertical: 6,
   },
   horizontalButtons: {
     flexDirection: 'row',
     justifyContent: 'center',
     marginTop: 8,
-    marginBottom: 8,
-    gap: 12,
-  },
-  horizontalButton: {
-  borderRadius: 20,
-  paddingVertical: 15,
-  paddingHorizontal: 30,
-  marginHorizontal: 6,
-  borderWidth: 1,
-  borderBottomWidth: 3,
-  borderColor: Colors.primary, // or any color you want
-  backgroundColor: 'transparent', // optional but good for clarity
-}
-,
-  horizontalButtonText: {
-    color: Colors.primary,
-    fontWeight: '600',
-    fontSize: 15,
-  },
-  fab: {
-    position: 'absolute',
-    right: 24,
-    bottom: 32,
-    backgroundColor: Colors.primary,
-    borderRadius: 28,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-  },
-  fabText: {
-    color: Colors.text.light,
-    fontWeight: '700',
-    fontSize: 16,
+    marginBottom: 16,
+    gap: 10,
   },
   tabBar: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
     width: '100%',
-    marginTop: 0,
-    marginBottom: 0,
-    borderRadius: 0,
-    backgroundColor: 'transparent',
-    paddingVertical: 0,
+    justifyContent: 'space-around',
+    borderTopWidth: 1,
+    borderTopColor: Colors.parchmentDim,
+    paddingTop: 10,
   },
   tabItem: {
     alignItems: 'center',
-    flex: 1,
-    paddingVertical: 4,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    position: 'relative',
+    gap: 4,
   },
-  tabItemActive: {
-    borderBottomColor: Colors.primary,
-  },
+  tabItemActive: {},
   tabLabel: {
+    fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.text.secondary,
-    marginTop: 2,
-    fontWeight: '500',
+    color: 'rgba(36, 26, 18, 0.45)',
   },
   tabLabelActive: {
-    color: Colors.primary,
-    fontWeight: '700',
+    fontFamily: Fonts.bodyBold,
+    color: Colors.cultivated,
   },
-  authContainer: {
-    flex: 1,
-    padding: 24,
-    justifyContent: 'center',
-    backgroundColor: Colors.background,
-  },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: 48,
-  },
-  logoText: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: Colors.primary,
-  },
-  logoSubtext: {
-    fontSize: 18,
-    color: Colors.text.secondary,
-  },
-  authTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: Colors.text.primary,
-    marginBottom: 12,
-  },
-  authSubtitle: {
-    fontSize: 16,
-    color: Colors.text.secondary,
-    marginBottom: 32,
-    lineHeight: 24,
-  },
-  primaryButton: {
-    backgroundColor: Colors.primary,
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  primaryButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.text.light,
-  },
-  secondaryButton: {
-    backgroundColor: Colors.card,
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  secondaryButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.text.primary,
+  tabIndicator: {
+    position: 'absolute',
+    bottom: -10,
+    left: 8,
+    right: 8,
+    height: 3,
+    backgroundColor: Colors.cultivated,
+    borderTopLeftRadius: 3,
+    borderTopRightRadius: 3,
   },
   emptyFarmContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 32,
-    marginBottom: 32,
+    padding: 32,
+    marginTop: 20,
   },
-  emptyFarmImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 16,
-    marginBottom: 16,
-    resizeMode: 'cover',
+  emptyIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: Colors.parchment,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
   },
   emptyFarmTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.text.primary,
-    marginTop: 16,
-    marginBottom: 8,
+    fontFamily: Fonts.displayItalic,
+    fontSize: 20,
+    color: Colors.espresso,
+    marginBottom: 6,
   },
   emptyFarmSubtitle: {
-    fontSize: 15,
+    fontFamily: Fonts.body,
+    fontSize: 14,
     color: Colors.text.secondary,
-    marginBottom: 8,
+    textAlign: 'center',
+    lineHeight: 20,
+    maxWidth: 280,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.gold,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: Radii.pill,
+    gap: 6,
+    ...Shadows.card,
+  },
+  fabText: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 14,
+    color: Colors.espresso,
   },
 });

@@ -4,7 +4,7 @@ export const users: User[] = [
   {
     id: 'u0',
     name: 'Chief Agro Administrator',
-    email: 'superadmin@agrobazaar.com',
+    email: 'superadmin@agromarket.com',
     phone: '+237600000000',
     avatar: 'https://randomuser.me/api/portraits/men/1.jpg',
     role: 'ADMIN',
@@ -15,7 +15,7 @@ export const users: User[] = [
   {
     id: 'u1',
     name: 'Victoy Eyong',
-    email: 'victoy@agrobazaar.com',
+    email: 'victoy@agromarket.com',
     phone: '+237671111111',
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=60',
     role: 'FARMER',
@@ -39,7 +39,7 @@ export const users: User[] = [
   {
     id: 'u2',
     name: 'Mamma Ngozi Biyeh',
-    email: 'ngozi@agrobazaar.com',
+    email: 'ngozi@agromarket.com',
     phone: '+237673333333',
     avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=500&auto=format&fit=crop&q=60',
     role: 'WHOLESALER',
@@ -190,7 +190,7 @@ export const posts: Post[] = [
     farmerId: 'f1',
     farmerName: 'Green Valley Organic Farms',
     farmerAvatar: 'https://images.unsplash.com/photo-1605000797499-95a51c5269ae?w=500&auto=format&fit=crop&q=60',
-    content: "Harvesting fresh vine tomatoes in Foumbot this morning! Loading up 50 crates for Douala Sandaga market. #Foumbot #FreshHarvest #AgroBazaar",
+    content: "Harvesting fresh vine tomatoes in Foumbot this morning! Loading up 50 crates for Douala Sandaga market. #Foumbot #FreshHarvest #agromarket",
     mediaUrl: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=500&auto=format&fit=crop&q=60',
     media: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=500&auto=format&fit=crop&q=60',
     isVideo: false,

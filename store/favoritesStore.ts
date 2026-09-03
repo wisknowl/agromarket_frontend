@@ -53,7 +53,7 @@ export const useFavoritesStore = create<FavoritesState>()(
       }
     }),
     {
-      name: 'agrolink-favorites',
+      name: 'agromarket-favorites',
       storage: createJSONStorage(() => AsyncStorage),
     }
   )

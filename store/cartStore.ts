@@ -80,7 +80,7 @@ export const useCartStore = create<CartState>()(
       },
     }),
     {
-      name: 'agrobazaar-cart-storage',
+      name: 'agromarket-cart-storage',
       storage: createJSONStorage(() => AsyncStorage),
     }
   )

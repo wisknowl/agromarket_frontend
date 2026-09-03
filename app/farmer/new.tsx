@@ -211,7 +211,7 @@ export default function NewYieldScreen() {
           onPress={handleSubmit}
           disabled={loading}
         >
-          <Text style={styles.submitButtonText}>Publish to AgroBazaar</Text>
+          <Text style={styles.submitButtonText}>Publish to agromarket</Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>

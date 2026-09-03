@@ -1,9 +1,10 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, Pressable } from 'react-native';
-import { Heart, MessageCircle, Share2 } from 'lucide-react-native';
+import { Heart, MessageCircle, Share2, MapPin } from 'lucide-react-native';
 import { Post } from '@/types';
 import { useFavoritesStore } from '@/store/favoritesStore';
-import Colors from '@/constants/colors';
+import Colors, { Radii } from '@/constants/colors';
+import { Fonts } from '@/constants/typography';
 import { useRouter } from 'expo-router';
 
 interface PostCardProps {
@@ -25,11 +26,12 @@ export default function PostCard({ post, fullScreen = false }: PostCardProps) {
   };
 
   const handleComment = () => {
-    // Handle comment action
+    // Navigate or trigger comment
+    router.push(`/chat/${post.farmerId}`);
   };
 
   const handleShare = () => {
-    // Handle share action
+    // Share action
   };
 
   const goToFarmerProfile = () => {
@@ -38,36 +40,53 @@ export default function PostCard({ post, fullScreen = false }: PostCardProps) {
 
   return (
     <View style={[styles.container, fullScreen && styles.fullScreen]}>
-      <Image source={{ uri: post.media }} style={[styles.media, fullScreen && styles.fullScreenMedia]} />
+      <Image
+        source={{ uri: post.media }}
+        style={[styles.media, fullScreen && styles.fullScreenMedia]}
+      />
+
+      {/* Dark gradient base overlay for high outdoor contrast */}
+      <View style={styles.vignetteOverlay} />
 
       {/* Floating actions and avatar */}
       <View style={styles.floatingActionsContainer}>
-        <Pressable onPress={goToFarmerProfile}>
+        <Pressable onPress={goToFarmerProfile} style={styles.avatarWrapper}>
           <Image source={{ uri: post.farmerAvatar }} style={styles.avatar} />
+          <View style={styles.avatarBadgeDot} />
         </Pressable>
+
         <Pressable style={styles.actionButton} onPress={toggleLike}>
-          <Heart 
-            size={28} 
-            color={isFavorite ? Colors.error : Colors.text.secondary} 
-            fill={isFavorite ? Colors.error : 'none'} 
+          <Heart
+            size={26}
+            color={isFavorite ? Colors.clay : Colors.white}
+            fill={isFavorite ? Colors.clay : 'none'}
+            strokeWidth={2.2}
           />
           <Text style={styles.actionText}>{post.likes}</Text>
         </Pressable>
+
         <Pressable style={styles.actionButton} onPress={handleComment}>
-          <MessageCircle size={28} color={Colors.text.secondary} />
+          <MessageCircle size={26} color={Colors.white} strokeWidth={2.2} />
           <Text style={styles.actionText}>{post.comments}</Text>
         </Pressable>
+
         <Pressable style={styles.actionButton} onPress={handleShare}>
-          <Share2 size={28} color={Colors.text.secondary} />
+          <Share2 size={26} color={Colors.white} strokeWidth={2.2} />
         </Pressable>
       </View>
 
-      {/* Floating description */}
+      {/* Floating description & Farmer metadata */}
       <View style={styles.floatingDescription}>
-        <Text style={styles.farmerName}>{post.farmerName}</Text>
-        <Text style={styles.caption}>{post.content}</Text>
+        <Pressable onPress={goToFarmerProfile} style={styles.farmerNameRow}>
+          <Text style={styles.farmerName}>{post.farmerName}</Text>
+        </Pressable>
+
+        <Text style={styles.caption} numberOfLines={3}>
+          {post.content}
+        </Text>
+
         <Text style={styles.timestamp}>
-          {new Date(post.createdAt).toLocaleDateString()}
+          📅 {new Date(post.createdAt).toLocaleDateString()}
         </Text>
       </View>
     </View>
@@ -77,15 +96,10 @@ export default function PostCard({ post, fullScreen = false }: PostCardProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.card,
-    borderRadius: 12,
+    backgroundColor: Colors.canopyDeep,
+    borderRadius: Radii.card,
     overflow: 'hidden',
     marginBottom: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
   },
   fullScreen: {
     borderRadius: 0,
@@ -102,63 +116,89 @@ const styles = StyleSheet.create({
   fullScreenMedia: {
     height: '100%',
   },
-   floatingActionsContainer: {
+  vignetteOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 240,
+    backgroundColor: 'rgba(14, 37, 21, 0.65)',
+  },
+  floatingActionsContainer: {
     position: 'absolute',
     right: 16,
-    bottom: 32, // changed from top: '30%' to bottom: 32
+    bottom: 32,
     alignItems: 'center',
     zIndex: 2,
+    gap: 18,
+  },
+  avatarWrapper: {
+    position: 'relative',
+    marginBottom: 6,
   },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    marginBottom: 24,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     borderWidth: 2,
-    borderColor: '#fff',
+    borderColor: Colors.gold,
+  },
+  avatarBadgeDot: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: Colors.cultivated,
+    borderWidth: 2,
+    borderColor: Colors.white,
   },
   actionButton: {
     alignItems: 'center',
-    marginBottom: 24,
+    gap: 3,
   },
   actionText: {
-    marginTop: 4,
-    fontSize: 14,
-    color: '#fff',
-    textShadowColor: '#000',
+    fontFamily: Fonts.monoBold,
+    fontSize: 12,
+    color: Colors.white,
+    textShadowColor: 'rgba(0,0,0,0.6)',
     textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-    fontWeight: 'bold',
+    textShadowRadius: 3,
   },
   floatingDescription: {
     position: 'absolute',
     left: 16,
     bottom: 32,
     zIndex: 2,
-    maxWidth: '70%',
+    maxWidth: '74%',
   },
-  farmerName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#fff',
-    textShadowColor: '#000',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+  farmerNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 4,
   },
-  caption: {
-    fontSize: 15,
-    color: '#fff',
-    textShadowColor: '#000',
+  farmerName: {
+    fontFamily: Fonts.display,
+    fontSize: 17,
+    color: Colors.white,
+    textShadowColor: 'rgba(0,0,0,0.6)',
     textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-    marginBottom: 8,
+    textShadowRadius: 3,
+  },
+  caption: {
+    fontFamily: Fonts.body,
+    fontSize: 14,
+    color: Colors.parchment,
+    lineHeight: 20,
+    marginBottom: 6,
+    textShadowColor: 'rgba(0,0,0,0.6)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   timestamp: {
-    fontSize: 12,
-    color: '#eee',
-    textShadowColor: '#000',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    fontFamily: Fonts.mono,
+    fontSize: 11,
+    color: 'rgba(246, 238, 221, 0.75)',
   },
 });

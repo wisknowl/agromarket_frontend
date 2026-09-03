@@ -8,7 +8,7 @@ const getBaseUrl = () => {
     return process.env.EXPO_PUBLIC_API_URL;
   }
   // Default to LAN IP for physical device / emulator
-  return 'http://10.64.69.254:5000/api';
+  return 'http://192.168.1.15:5000/api';
 };
 
 export const apiClient = axios.create({
