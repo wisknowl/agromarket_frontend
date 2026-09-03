@@ -17,7 +17,7 @@ export default function TabLayout() {
   const cartItemCount = useCartStore((state) => state.getItemCount());
   const insets = useSafeAreaInsets();
 
-  const TAB_BAR_BASE_HEIGHT = 56;
+  const TAB_BAR_BASE_HEIGHT = 64;
 
   return (
     <Tabs
@@ -34,14 +34,14 @@ export default function TabLayout() {
           shadowOpacity: 0.05,
           shadowRadius: 4,
           height: TAB_BAR_BASE_HEIGHT + insets.bottom,
-          paddingBottom: insets.bottom > 0 ? insets.bottom : Platform.OS === 'android' ? 8 : 4,
+          paddingBottom: insets.bottom > 0 ? insets.bottom + 4 : Platform.OS === 'android' ? 10 : 6,
           paddingTop: 6,
         },
         tabBarLabelStyle: {
           fontFamily: Fonts.bodyMedium,
           fontSize: 11,
           letterSpacing: 0.1,
-          marginBottom: 3,
+          marginBottom: 4,
         },
         tabBarIconStyle: {
           marginTop: 2,

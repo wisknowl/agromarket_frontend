@@ -37,7 +37,7 @@
           "visibility": "visible",
           "behavior": "overlay-swipe",
           "backgroundColor": "#FFFFFF",
-          "borderColor": "#EAE0C7"
+          "borderColor": "transparent"
         }
       ]
     ],

@@ -74,6 +74,7 @@ export default function RootLayout() {
     if (Platform.OS === 'android') {
       NavigationBar.setBackgroundColorAsync(Colors.white);
       NavigationBar.setButtonStyleAsync('dark');
+      NavigationBar.setBorderColorAsync('transparent');
     }
   }, []);
 
