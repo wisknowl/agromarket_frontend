@@ -10,14 +10,10 @@ import {
 import Colors from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
 import { useCartStore } from '@/store/cartStore';
-import { View, Text, StyleSheet, Platform } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View, Text, StyleSheet } from 'react-native';
 
 export default function TabLayout() {
   const cartItemCount = useCartStore((state) => state.getItemCount());
-  const insets = useSafeAreaInsets();
-
-  const TAB_BAR_BASE_HEIGHT = 64;
 
   return (
     <Tabs
@@ -33,19 +29,25 @@ export default function TabLayout() {
           shadowOffset: { width: 0, height: -2 },
           shadowOpacity: 0.05,
           shadowRadius: 4,
-          height: TAB_BAR_BASE_HEIGHT + insets.bottom,
-          paddingTop: 8,
-          paddingBottom: insets.bottom > 0 ? insets.bottom + 8 : 8,
+          height: 64,
+          paddingTop: 0,
+          paddingBottom: 0,
+        },
+        tabBarItemStyle: {
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: 64,
+          paddingVertical: 0,
+        },
+        tabBarIconStyle: {
+          marginBottom: 3,
         },
         tabBarLabelStyle: {
           fontFamily: Fonts.bodyMedium,
           fontSize: 11,
           letterSpacing: 0.1,
-          marginTop: 2,
-        },
-        tabBarItemStyle: {
-          justifyContent: 'center',
-          alignItems: 'center',
+          includeFontPadding: false,
+          textAlignVertical: 'center',
         },
         headerStyle: {
           backgroundColor: Colors.white,
