@@ -10,10 +10,18 @@ import {
 import Colors from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
 import { useCartStore } from '@/store/cartStore';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
   const cartItemCount = useCartStore((state) => state.getItemCount());
+  const insets = useSafeAreaInsets();
+
+  // Hardware navigation clearance:
+  // - If Android returns an inset (e.g. 24-48px), use it.
+  // - If insets.bottom returns 0, fallback to 48px for Android 3-button system nav.
+  const bottomInset = insets.bottom > 0 ? insets.bottom : Platform.OS === 'android' ? 48 : 0;
+  const TAB_BAR_CONTENT_HEIGHT = 64;
 
   return (
     <Tabs
@@ -29,18 +37,17 @@ export default function TabLayout() {
           shadowOffset: { width: 0, height: -2 },
           shadowOpacity: 0.05,
           shadowRadius: 4,
-          height: 64,
+          height: TAB_BAR_CONTENT_HEIGHT + bottomInset,
+          paddingBottom: bottomInset,
           paddingTop: 0,
-          paddingBottom: 0,
         },
         tabBarItemStyle: {
           justifyContent: 'center',
           alignItems: 'center',
-          height: 64,
-          paddingVertical: 0,
+          height: TAB_BAR_CONTENT_HEIGHT,
         },
         tabBarIconStyle: {
-          marginBottom: 3,
+          marginBottom: 2,
         },
         tabBarLabelStyle: {
           fontFamily: Fonts.bodyMedium,
