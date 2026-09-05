@@ -41,3 +41,13 @@ export const createYieldApi = async (data: any): Promise<Yield> => {
   const res = await apiClient.post('/yields', data);
   return res.data;
 };
+
+export const fetchFarmYieldsApi = async (farmId: string): Promise<Yield[]> => {
+  try {
+    const res = await apiClient.get('/yields', { params: { farmId } });
+    return res.data;
+  } catch (error) {
+    return [];
+  }
+};
+

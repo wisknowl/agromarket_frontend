@@ -22,7 +22,7 @@ export const Fonts = {
 
   // JetBrains Mono (Figures ONLY)
   mono: 'JetBrainsMono_500Medium',
-  monoBold: 'JetBrainsMono_600SemiBold',
+  monoBold: 'JetBrainsMono_700Bold',
 };
 
 export const Typography = StyleSheet.create({

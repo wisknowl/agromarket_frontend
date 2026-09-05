@@ -1,11 +1,13 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Image, Pressable } from 'react-native';
 import { Heart, MessageCircle, Share2, MapPin } from 'lucide-react-native';
-import { Post } from '@/types';
+import { Post, AgroYield } from '@/types';
 import { useFavoritesStore } from '@/store/favoritesStore';
 import Colors, { Radii } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
 import { useRouter } from 'expo-router';
+import { fetchYieldByIdApi } from '@/components/api/yields';
+import ShoppableYieldCard from '../modules/feed/components/ShoppableYieldCard';
 
 interface PostCardProps {
   post: Post;
@@ -16,6 +18,17 @@ export default function PostCard({ post, fullScreen = false }: PostCardProps) {
   const { addPost, removePost, isPostFavorite } = useFavoritesStore();
   const isFavorite = isPostFavorite(post.id);
   const router = useRouter();
+  const [linkedYield, setLinkedYield] = useState<AgroYield | null>(null);
+
+  useEffect(() => {
+    if (post.linkedYieldId) {
+      fetchYieldByIdApi(post.linkedYieldId)
+        .then((data) => {
+          if (data) setLinkedYield(data);
+        })
+        .catch(() => {});
+    }
+  }, [post.linkedYieldId]);
 
   const toggleLike = () => {
     if (isFavorite) {
@@ -26,22 +39,54 @@ export default function PostCard({ post, fullScreen = false }: PostCardProps) {
   };
 
   const handleComment = () => {
-    // Navigate or trigger comment
-    router.push(`/chat/${post.farmerId}`);
+    if (post.userId) {
+      router.push(`/chat/${post.userId}`);
+    } else if (post.farmerId) {
+      router.push(`/chat/${post.farmerId}`);
+    }
   };
 
   const handleShare = () => {
     // Share action
   };
 
-  const goToFarmerProfile = () => {
-    router.push(`/farmer/${post.farmerId}`);
+  const goToFarmerOrFarm = () => {
+    if (post.farmId) {
+      router.push(`/farmer/${post.farmId}`);
+    } else if (post.farmerId) {
+      router.push(`/farmer/${post.farmerId}`);
+    }
   };
+
+  const mediaSource =
+    post.mediaUrl ||
+    post.media ||
+    'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800';
+
+  const avatarSource =
+    post.farmerAvatar ||
+    post.farm?.coverPhoto ||
+    post.user?.avatarUrl ||
+    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500';
+
+  const displayName =
+    post.farmerName ||
+    post.farm?.name ||
+    post.user?.name ||
+    'Agro Producer';
+
+  const likesDisplay = post.likesCount ?? post.likes ?? 0;
+  const commentsDisplay =
+    typeof post.comments === 'number'
+      ? post.comments
+      : Array.isArray(post.comments)
+      ? post.comments.length
+      : post.commentsCount ?? 0;
 
   return (
     <View style={[styles.container, fullScreen && styles.fullScreen]}>
       <Image
-        source={{ uri: post.media }}
+        source={{ uri: mediaSource }}
         style={[styles.media, fullScreen && styles.fullScreenMedia]}
       />
 
@@ -50,8 +95,8 @@ export default function PostCard({ post, fullScreen = false }: PostCardProps) {
 
       {/* Floating actions and avatar */}
       <View style={styles.floatingActionsContainer}>
-        <Pressable onPress={goToFarmerProfile} style={styles.avatarWrapper}>
-          <Image source={{ uri: post.farmerAvatar }} style={styles.avatar} />
+        <Pressable onPress={goToFarmerOrFarm} style={styles.avatarWrapper}>
+          <Image source={{ uri: avatarSource }} style={styles.avatar} />
           <View style={styles.avatarBadgeDot} />
         </Pressable>
 
@@ -62,12 +107,12 @@ export default function PostCard({ post, fullScreen = false }: PostCardProps) {
             fill={isFavorite ? Colors.clay : 'none'}
             strokeWidth={2.2}
           />
-          <Text style={styles.actionText}>{post.likes}</Text>
+          <Text style={styles.actionText}>{likesDisplay}</Text>
         </Pressable>
 
         <Pressable style={styles.actionButton} onPress={handleComment}>
           <MessageCircle size={26} color={Colors.white} strokeWidth={2.2} />
-          <Text style={styles.actionText}>{post.comments}</Text>
+          <Text style={styles.actionText}>{commentsDisplay}</Text>
         </Pressable>
 
         <Pressable style={styles.actionButton} onPress={handleShare}>
@@ -75,10 +120,19 @@ export default function PostCard({ post, fullScreen = false }: PostCardProps) {
         </Pressable>
       </View>
 
-      {/* Floating description & Farmer metadata */}
+      {/* Floating description, Farmer metadata & Shoppable Harvest Tag */}
       <View style={styles.floatingDescription}>
-        <Pressable onPress={goToFarmerProfile} style={styles.farmerNameRow}>
-          <Text style={styles.farmerName}>{post.farmerName}</Text>
+        {linkedYield && (
+          <View style={{ marginBottom: 10 }}>
+            <ShoppableYieldCard
+              yieldItem={linkedYield}
+              onPressItem={() => router.push(`/yield/${linkedYield.id}`)}
+            />
+          </View>
+        )}
+
+        <Pressable onPress={goToFarmerOrFarm} style={styles.farmerNameRow}>
+          <Text style={styles.farmerName}>{displayName}</Text>
         </Pressable>
 
         <Text style={styles.caption} numberOfLines={3}>

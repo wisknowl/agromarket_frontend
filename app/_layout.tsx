@@ -16,10 +16,9 @@ import {
 import {
   JetBrainsMono_400Regular,
   JetBrainsMono_500Medium,
-  JetBrainsMono_600SemiBold,
   JetBrainsMono_700Bold,
 } from '@expo-google-fonts/jetbrains-mono';
-import { Stack } from 'expo-router';
+import { Stack, usePathname, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
@@ -29,6 +28,8 @@ import { Platform } from 'react-native';
 import * as NavigationBar from 'expo-navigation-bar';
 import Colors from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
+
+import { FeatureFlagProvider } from '../core/feature-flags/useFeatureFlags';
 
 export const unstable_settings = {
   initialRouteName: 'auth/login',
@@ -50,7 +51,6 @@ export default function RootLayout() {
     Inter_700Bold,
     JetBrainsMono_400Regular,
     JetBrainsMono_500Medium,
-    JetBrainsMono_600SemiBold,
     JetBrainsMono_700Bold,
   });
 
@@ -66,15 +66,14 @@ export default function RootLayout() {
     }
   }, [loaded]);
 
-  // Sync Android system navigation bar color and icon style with the app's
-  // white tab bar. This ensures the system gesture pill / 3-button bar
-  // blends seamlessly with the app on ALL Android devices, in both
-  // development and production builds.
+  // Sync Android system navigation bar style safely (supporting edge-to-edge)
   useEffect(() => {
     if (Platform.OS === 'android') {
-      NavigationBar.setBackgroundColorAsync(Colors.white);
-      NavigationBar.setButtonStyleAsync('dark');
-      NavigationBar.setBorderColorAsync('transparent');
+      try {
+        NavigationBar.setButtonStyleAsync('dark');
+      } catch (e) {
+        // Edge-to-edge mode handles background/border automatically
+      }
     }
   }, []);
 
@@ -85,15 +84,31 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: Colors.white }}>
-        <RootLayoutNav />
+        <FeatureFlagProvider>
+          <RootLayoutNav />
+        </FeatureFlagProvider>
       </GestureHandlerRootView>
     </SafeAreaProvider>
   );
 }
 
+function NavigationLogger() {
+  const pathname = usePathname();
+  const segments = useSegments();
+
+  useEffect(() => {
+    if (pathname) {
+      console.log(`🧭 [SCREEN NAVIGATE] Visited: ${pathname} (segments: /${segments.join('/')})`);
+    }
+  }, [pathname, segments]);
+
+  return null;
+}
+
 function RootLayoutNav() {
   return (
     <>
+      <NavigationLogger />
       <StatusBar style="dark" backgroundColor="transparent" translucent />
       <Stack
         screenOptions={{
@@ -122,13 +137,9 @@ function RootLayoutNav() {
             presentation: 'card',
           }}
         />
-        <Stack.Screen
-          name="farmer/[id]"
-          options={{
-            title: 'Farm Profile',
-            presentation: 'card',
-          }}
-        />
+        <Stack.Screen name="farmer/new" options={{ headerShown: false }} />
+        <Stack.Screen name="farmer/manage" options={{ headerShown: false }} />
+        <Stack.Screen name="farmer/[id]" options={{ headerShown: false }} />
         <Stack.Screen
           name="chat/[id]"
           options={{

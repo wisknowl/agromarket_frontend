@@ -53,6 +53,39 @@ export interface User {
   financialProfile?: FinancialProfile;
 }
 
+export type FarmCategory =
+  | 'CROPS'
+  | 'LIVESTOCK'
+  | 'POULTRY'
+  | 'AQUACULTURE'
+  | 'GREENHOUSE'
+  | 'MIXED'
+  | 'HORTICULTURE';
+
+export interface Farm {
+  id: string;
+  userId: string;
+  name: string;
+  category: FarmCategory | string;
+  description?: string;
+  location: string;
+  city: string;
+  region: string;
+  division?: string;
+  latitude?: number;
+  longitude?: number;
+  sizeHectares?: number;
+  isVerified?: boolean;
+  coverPhoto?: string;
+  avatarPhoto?: string;
+  primaryProduce?: string[];
+  certifications?: string[];
+  rating?: number;
+  totalRatings?: number;
+  yieldsCount?: number;
+  createdAt?: string;
+}
+
 export interface FarmerProfile {
   id: string;
   userId: string;
@@ -158,16 +191,20 @@ export type AgroYield = Yield;
 
 export interface Post {
   id: string;
-  farmerId: string;
+  farmerId?: string;
+  farmId?: string;
+  farm?: Farm;
+  userId?: string;
+  user?: User;
   content: string;
   mediaUrl?: string;
-  media: string;
+  media?: string;
   isVideo: boolean;
   linkedYieldId?: string;
   likesCount?: number;
-  likes: number;
+  likes?: number;
   commentsCount?: number;
-  comments: any;
+  comments?: any;
   farmerName?: string;
   farmerAvatar?: string;
   farmer?: any;

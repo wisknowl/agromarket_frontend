@@ -1,4 +1,47 @@
-import { AgroYield, Farmer, Post, Conversation, User, Category } from '@/types';
+import { AgroYield, Farmer, Post, Conversation, User, Category, Farm } from '@/types';
+
+export const farms: Farm[] = [
+  {
+    id: 'farm-1',
+    userId: 'u1',
+    name: 'Green Valley Organic Farms',
+    category: 'CROPS',
+    description: 'Specializing in fresh volcanic soil vegetables, tomatoes, Irish potatoes, and Penja pepper.',
+    location: 'Foumbot Valley Road, West Region',
+    city: 'Foumbot',
+    region: 'West Region',
+    division: 'Noun',
+    sizeHectares: 4.5,
+    isVerified: true,
+    coverPhoto: 'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=800&auto=format&fit=crop&q=80',
+    avatarPhoto: 'https://images.unsplash.com/photo-1592982537447-7440770cbfc9?w=300&auto=format&fit=crop&q=80',
+    primaryProduce: ['Tomatoes', 'Irish Potatoes', 'Penja Pepper', 'Cabbage'],
+    certifications: ['Cameroon GAP Certified', 'Organic Produce Verified'],
+    rating: 4.9,
+    totalRatings: 142,
+    yieldsCount: 6,
+  },
+  {
+    id: 'farm-2',
+    userId: 'u1',
+    name: 'Highlands Free-Range Poultry & Livestock',
+    category: 'POULTRY',
+    description: 'Pasture-raised broilers, layers, fresh organic eggs, and livestock.',
+    location: 'Bafoussam Rural Bypass',
+    city: 'Bafoussam',
+    region: 'West Region',
+    division: 'Mifi',
+    sizeHectares: 2.2,
+    isVerified: true,
+    coverPhoto: 'https://images.unsplash.com/photo-1548550023-2bdb3c5beed7?w=800&auto=format&fit=crop&q=80',
+    avatarPhoto: 'https://images.unsplash.com/photo-1516467508483-a7212febe31a?w=300&auto=format&fit=crop&q=80',
+    primaryProduce: ['Broiler Chickens', 'Fresh Table Eggs', 'Organic Manure'],
+    certifications: ['Veterinary Health Approved'],
+    rating: 4.8,
+    totalRatings: 88,
+    yieldsCount: 3,
+  },
+];
 
 export const users: User[] = [
   {
@@ -23,6 +66,7 @@ export const users: User[] = [
     isAdmin: false,
     password: 'password123',
     creditScore: 'Gold',
+    farms: farms.filter((f) => f.userId === 'u1'),
     farmerProfile: {
       id: 'f1',
       userId: 'u1',
@@ -216,6 +260,21 @@ export const posts: Post[] = [
     commentsCount: 24,
     comments: [],
     createdAt: '2026-09-01T08:45:00Z',
+  },
+  {
+    id: 'p3',
+    farmerId: 'f1',
+    farmerName: 'Green Valley Organic Farms',
+    farmerAvatar: 'https://images.unsplash.com/photo-1605000797499-95a51c5269ae?w=500&auto=format&fit=crop&q=60',
+    content: 'Farming Tip: Using neem oil extract as a natural pesticide during rainy season helps protect tomato leaves without chemical residues. 🌱 #OrganicTips #AgroKnowledge',
+    mediaUrl: 'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=1000&auto=format&fit=crop&q=60',
+    media: 'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=1000&auto=format&fit=crop&q=60',
+    isVideo: false,
+    likesCount: 142,
+    likes: 142,
+    commentsCount: 38,
+    comments: [],
+    createdAt: '2026-09-02T14:10:00Z',
   },
 ];
 

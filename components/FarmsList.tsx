@@ -1,27 +1,28 @@
 import React from 'react';
-import FarmCard from '@/components/FarmCard';
-
-const sampleFarms = [
-  {
-    name: 'Green Valley Farm',
-    location: 'Bamenda',
-    image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=500&q=60',
-    bio: 'Organic vegetables and fruits.',
-  },
-  {
-    name: 'Sunrise Plantation',
-    location: 'Douala',
-    image: 'https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=500&q=60',
-    bio: 'Fresh cocoa and coffee beans.',
-  },
-];
+import { View, Text, StyleSheet } from 'react-native';
+import FarmCard from '../modules/farms/components/FarmCard';
+import { useAuthStore } from '@/store/authStore';
+import { farms as mockFarms } from '@/mocks/data';
 
 export default function FarmsList() {
+  const { user } = useAuthStore();
+  const userFarms =
+    user?.farms && user.farms.length > 0
+      ? user.farms
+      : mockFarms.filter((f) => f.userId === (user?.id || 'u1'));
+
   return (
-    <>
-      {sampleFarms.map((farm, idx) => (
-        <FarmCard key={idx} {...farm} />
+    <View style={styles.container}>
+      {userFarms.map((farm) => (
+        <FarmCard key={farm.id} farm={farm} showManageButton />
       ))}
-    </>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+});

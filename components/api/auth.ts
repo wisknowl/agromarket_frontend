@@ -33,3 +33,14 @@ export const fetchCurrentUserApi = async (): Promise<User> => {
   const res = await apiClient.get('/auth/me');
   return res.data.user;
 };
+
+export const fetchPublicProfileApi = async (userId: string): Promise<any> => {
+  const res = await apiClient.get(`/auth/profile/${userId}`);
+  return res.data.user;
+};
+
+export const toggleFollowUserApi = async (userId: string): Promise<{ isFollowing: boolean }> => {
+  const res = await apiClient.post(`/auth/profile/${userId}/follow`);
+  return res.data;
+};
+
