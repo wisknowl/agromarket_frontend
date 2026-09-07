@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,8 +9,18 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  RefreshControl,
+  Modal,
+  Dimensions,
+  StatusBar,
+  FlatList,
+  Platform,
+  TextInput,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
 import {
   Warehouse,
   ShoppingBag,
@@ -28,11 +38,20 @@ import {
   MapPin,
   Layers,
   ArrowLeft,
+  Play,
+  Film,
+  Edit3,
+  Camera,
+  Upload,
+  X,
+  Check,
 } from 'lucide-react-native';
 import { useAuthStore } from '@/store/authStore';
 import { useFavoritesStore } from '@/store/favoritesStore';
-import { fetchPublicProfileApi, toggleFollowUserApi } from '@/components/api/auth';
-import { posts as mockPosts, agroYields as mockYields } from '@/mocks/data';
+import { fetchPublicProfileApi, toggleFollowUserApi, updateMyProfileApi } from '@/components/api/auth';
+import { fetchFeedPostsApi, uploadMediaApi } from '@/components/api/posts';
+import { Post } from '@/types';
+import { agroYields as mockYields, users as mockUsers, farmers as mockFarmers, farms as mockFarms } from '@/mocks/data';
 import PostCard from '@/components/PostCard';
 import YieldCard from '@/components/YieldCard';
 import FarmsList from '@/components/FarmsList';
@@ -45,15 +64,58 @@ import ProfileHeaderMenu from '../../modules/farms/components/ProfileHeaderMenu'
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ userId?: string }>();
-  const { user: currentUser, isAuthenticated, logout } = useAuthStore();
+  const { user: currentUser, isAuthenticated, logout, updateUser } = useAuthStore();
   const savedYieldIds = useFavoritesStore((s) => s.yields);
 
   const [activeTab, setActiveTab] = useState<'posts' | 'farms' | 'orders' | 'saved' | 'likes'>('posts');
   const [profileData, setProfileData] = useState<any>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
+  const [userPosts, setUserPosts] = useState<Post[]>([]);
+  const [loadingPosts, setLoadingPosts] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const [activeViewerIndex, setActiveViewerIndex] = useState(0);
+  const [viewerHeight, setViewerHeight] = useState(Dimensions.get('window').height);
+  const viewerFlatListRef = useRef<any>(null);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
+
+  // Edit Profile State
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editBio, setEditBio] = useState('');
+  const [editAvatarUrl, setEditAvatarUrl] = useState('');
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 60,
+    waitForInteraction: false,
+  }).current;
+
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
+    if (viewableItems && viewableItems.length > 0 && viewableItems[0].index !== null) {
+      setActiveViewerIndex(viewableItems[0].index);
+    }
+  }).current;
+
+  const openPostViewer = (index: number) => {
+    setActiveViewerIndex(index);
+    setViewerVisible(true);
+  };
+
+  const handleDeletePost = (deletedPostId: string) => {
+    setUserPosts((prev) => {
+      const updated = prev.filter((p) => p.id !== deletedPostId);
+      if (updated.length === 0) {
+        setViewerVisible(false);
+      }
+      return updated;
+    });
+  };
 
   // Determine if viewing own profile or another user's profile
   const isOwner = Boolean(
@@ -68,19 +130,106 @@ export default function ProfileScreen() {
       try {
         setLoadingProfile(true);
         const data = await fetchPublicProfileApi(params.userId);
-        setProfileData(data);
-        setIsFollowing(Boolean(data.isFollowing));
+        if (data) {
+          setProfileData(data);
+          setIsFollowing(Boolean(data.isFollowing));
+        } else {
+          // Mock data lookup fallback
+          const foundFarmer = mockFarmers.find((f) => f.id === params.userId || f.userId === params.userId);
+          const foundUser = mockUsers.find((u) => u.id === params.userId || u.farmerProfile?.id === params.userId);
+          const fallbackUser = foundUser || {
+            id: params.userId,
+            name: foundFarmer ? foundFarmer.farmName : 'Victoy Eyong (Foumbot Farm)',
+            email: 'partner@agromarket.com',
+            phone: '+237 671 111 111',
+            avatar: foundFarmer?.profilePhoto || 'https://images.unsplash.com/photo-1605000797499-95a51c5269ae?w=500&auto=format&fit=crop&q=60',
+            role: 'FARMER',
+            isVerified: true,
+            farmerProfile: {
+              id: foundFarmer?.id || 'f1',
+              userId: params.userId,
+              farmName: foundFarmer?.farmName || 'Green Valley Organic Farms',
+              region: foundFarmer?.location || 'Foumbot, West Region',
+              city: 'Foumbot',
+              rating: foundFarmer?.rating || 4.9,
+              totalRatings: 142,
+              totalFollowers: foundFarmer?.followers || 320,
+              bio: foundFarmer?.description || 'Specializing in fresh volcanic soil vegetables, vine tomatoes, and Penja pepper.',
+            },
+            farms: mockFarms,
+          };
+          setProfileData(fallbackUser);
+          setIsFollowing(true);
+        }
       } catch (err) {
-        console.error('Failed to load public profile:', err);
+        // Fallback to mock user
+        const foundFarmer = mockFarmers.find((f) => f.id === params.userId || f.userId === params.userId);
+        const foundUser = mockUsers.find((u) => u.id === params.userId || u.farmerProfile?.id === params.userId);
+        const fallbackUser = foundUser || {
+          id: params.userId,
+          name: foundFarmer ? foundFarmer.farmName : 'Victoy Eyong (Foumbot Farm)',
+          email: 'partner@agromarket.com',
+          phone: '+237 671 111 111',
+          avatar: foundFarmer?.profilePhoto || 'https://images.unsplash.com/photo-1605000797499-95a51c5269ae?w=500&auto=format&fit=crop&q=60',
+          role: 'FARMER',
+          isVerified: true,
+          farmerProfile: {
+            id: foundFarmer?.id || 'f1',
+            userId: params.userId,
+            farmName: foundFarmer?.farmName || 'Green Valley Organic Farms',
+            region: foundFarmer?.location || 'Foumbot, West Region',
+            city: 'Foumbot',
+            rating: foundFarmer?.rating || 4.9,
+            totalRatings: 142,
+            totalFollowers: foundFarmer?.followers || 320,
+            bio: foundFarmer?.description || 'Specializing in fresh volcanic soil vegetables, vine tomatoes, and Penja pepper.',
+          },
+          farms: mockFarms,
+        };
+        setProfileData(fallbackUser);
+        setIsFollowing(true);
       } finally {
         setLoadingProfile(false);
       }
     }
   };
 
+  const loadUserPosts = async () => {
+    const uid = targetUser?.id || (isOwner ? currentUser?.id : params.userId);
+    if (!uid) return;
+    try {
+      setLoadingPosts(true);
+      const posts = await fetchFeedPostsApi({ userId: uid });
+      if (posts) {
+        setUserPosts(posts);
+      }
+    } catch (err) {
+      console.warn('Failed to load user posts from backend:', err);
+    } finally {
+      setLoadingPosts(false);
+      setRefreshing(false);
+    }
+  };
+
   useEffect(() => {
     loadTargetProfile();
   }, [params.userId, isOwner]);
+
+  useEffect(() => {
+    loadUserPosts();
+  }, [targetUser?.id, isOwner]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadUserPosts();
+    }, [targetUser?.id, isOwner])
+  );
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadTargetProfile();
+    loadUserPosts();
+  };
 
   const handleToggleFollow = async () => {
     if (!targetUser?.id) return;
@@ -92,6 +241,87 @@ export default function ProfileScreen() {
       Alert.alert('Follow Error', error.message || 'Could not toggle follow');
     } finally {
       setFollowLoading(false);
+    }
+  };
+
+  const openEditProfile = () => {
+    setEditName(targetUser?.name || '');
+    setEditPhone(targetUser?.phone || '');
+    setEditBio(targetUser?.farmerProfile?.bio || targetUser?.bio || '');
+    setEditAvatarUrl(targetUser?.avatarUrl || targetUser?.avatar || '');
+    setEditModalVisible(true);
+  };
+
+  const handlePickAvatar = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please allow photo gallery access to update your profile avatar.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets?.[0]?.uri) {
+        setUploadingAvatar(true);
+        const uploadRes = await uploadMediaApi(result.assets[0].uri, false);
+        setEditAvatarUrl(uploadRes.url);
+      }
+    } catch (err: any) {
+      Alert.alert('Upload Error', err.message || 'Could not upload image');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const handleTakePhotoAvatar = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please allow camera access to take a profile photo.');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets?.[0]?.uri) {
+        setUploadingAvatar(true);
+        const uploadRes = await uploadMediaApi(result.assets[0].uri, false);
+        setEditAvatarUrl(uploadRes.url);
+      }
+    } catch (err: any) {
+      Alert.alert('Upload Error', err.message || 'Could not upload photo');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    if (!editName.trim()) {
+      Alert.alert('Validation Error', 'Full Name is required.');
+      return;
+    }
+    try {
+      setSavingProfile(true);
+      const res = await updateMyProfileApi({
+        name: editName.trim(),
+        phone: editPhone.trim(),
+        avatarUrl: editAvatarUrl,
+        bio: editBio.trim(),
+      });
+      updateUser(res.user);
+      setEditModalVisible(false);
+      Alert.alert('Profile Updated', 'Your profile details have been successfully saved.');
+      loadTargetProfile();
+    } catch (err: any) {
+      Alert.alert('Save Error', err.message || 'Could not update profile');
+    } finally {
+      setSavingProfile(false);
     }
   };
 
@@ -150,101 +380,155 @@ export default function ProfileScreen() {
     {
       key: 'posts',
       label: 'Posts',
-      icon: (color: string) => <Sparkles size={18} color={color} strokeWidth={2} />,
+      icon: (color: string) => <Sparkles size={19} color={color} strokeWidth={2} />,
     },
     {
       key: 'farms',
       label: 'Farms',
-      icon: (color: string) => <Warehouse size={18} color={color} strokeWidth={2} />,
+      icon: (color: string) => <Warehouse size={19} color={color} strokeWidth={2} />,
     },
     ...(isOwner
       ? [
-          {
-            key: 'orders',
-            label: 'Orders',
-            icon: (color: string) => <ShoppingBag size={18} color={color} strokeWidth={2} />,
-          },
-        ]
+        {
+          key: 'orders',
+          label: 'Orders',
+          icon: (color: string) => <ShoppingBag size={19} color={color} strokeWidth={2} />,
+        },
+      ]
       : []),
     {
       key: 'saved',
       label: 'Saved',
-      icon: (color: string) => <Bookmark size={18} color={color} strokeWidth={2} />,
+      icon: (color: string) => <Bookmark size={19} color={color} strokeWidth={2} />,
     },
     {
       key: 'likes',
       label: 'Likes',
-      icon: (color: string) => <Heart size={18} color={color} strokeWidth={2} />,
+      icon: (color: string) => <Heart size={19} color={color} strokeWidth={2} />,
     },
   ];
 
-  const userPosts = targetUser?.posts || mockPosts.filter((p) => p.farmerId === targetUser?.id || p.farmerId === 'f1');
   const savedYieldsList = mockYields.filter((y) => savedYieldIds.includes(y.id));
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: 80 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 80 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={Colors.cultivated}
+            colors={[Colors.cultivated]}
+          />
+        }
+      >
         {/* Header Section */}
-        <View style={styles.header}>
-          {/* Top Bar Navigation */}
-          {!isOwner ? (
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <ArrowLeft size={22} color={Colors.espresso} strokeWidth={2.2} />
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.topRightMenuWrapper}>
-              <ProfileHeaderMenu />
-            </View>
-          )}
+        <View style={[styles.header, { paddingTop: Math.max(insets.top + 8, 16) }]}>
+          {/* 1. Top Bar Navigation: Edit Profile on Top Left, 3-Bar Menu on Top Right */}
+          <View style={styles.topNavBar}>
+            {isOwner ? (
+              <TouchableOpacity
+                style={styles.topEditProfileBtn}
+                onPress={openEditProfile}
+                activeOpacity={0.8}
+              >
+                <Edit3 size={15} color={Colors.cultivated} strokeWidth={2.2} />
+                <Text style={styles.topEditProfileBtnText}>Edit Profile</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                <ArrowLeft size={22} color={Colors.espresso} strokeWidth={2.2} />
+              </TouchableOpacity>
+            )}
 
-          {/* Avatar with Verified Dot */}
-          <View style={styles.avatarWrapper}>
-            <Image
-              source={{
-                uri:
-                  targetUser?.avatarUrl ||
-                  targetUser?.avatar ||
-                  'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=500&auto=format&fit=crop&q=60',
-              }}
-              style={styles.avatar}
-            />
-            {targetUser?.isVerified && <View style={styles.verifiedDot} />}
+            {isOwner && (
+              <View style={styles.topRightMenuWrapper}>
+                <ProfileHeaderMenu />
+              </View>
+            )}
           </View>
 
-          {/* Identity & Role */}
-          <Text style={styles.name}>{targetUser?.name || 'AgroMarket Member'}</Text>
-          <Text style={styles.email}>{targetUser?.email || 'user@agromarket.com'}</Text>
-
-          {/* Credit Tier / Role Badge */}
-          {userHasFarm && (
-            <Pressable style={styles.badgeContainer} onPress={isOwner ? handleFintech : undefined}>
-              <FarmerBadge
-                tier={targetUser?.farmerProfile?.creditTier || 'GOLD'}
-                label={`Verified Farmer • ${targetUser.farms.length} Farm${targetUser.farms.length > 1 ? 's' : ''}`}
-                size="md"
+          {/* 2. Profile Info Row: Avatar on Left, Large Name, Email, Bio on Right */}
+          <View style={styles.profileInfoRow}>
+            {/* Avatar on Left */}
+            <View style={styles.avatarWrapper}>
+              <Image
+                source={{
+                  uri:
+                    targetUser?.avatarUrl ||
+                    targetUser?.avatar ||
+                    'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=500&auto=format&fit=crop&q=60',
+                }}
+                style={styles.avatar}
               />
-            </Pressable>
-          )}
+              {targetUser?.isVerified && <View style={styles.verifiedDot} />}
+            </View>
 
-          {/* Stats Bar */}
+            {/* Details on Right */}
+            <View style={styles.profileDetailsCol}>
+              <Text style={styles.name}>{targetUser?.name || 'AgroMarket Member'}</Text>
+              <Text style={styles.email}>{targetUser?.email || 'user@agromarket.com'}</Text>
+
+              {/* Bio under email */}
+              {Boolean(targetUser?.farmerProfile?.bio || targetUser?.bio) ? (
+                <Text style={styles.bioText} numberOfLines={3}>
+                  {targetUser?.farmerProfile?.bio || targetUser?.bio}
+                </Text>
+              ) : isOwner ? (
+                <TouchableOpacity onPress={openEditProfile} style={styles.addBioBtn}>
+                  <Text style={styles.addBioText}>+ Add your farmer bio...</Text>
+                </TouchableOpacity>
+              ) : null}
+
+              {/* Credit Tier / Role Badge */}
+              {userHasFarm && (
+                <Pressable style={styles.badgeContainer} onPress={isOwner ? handleFintech : undefined}>
+                  <FarmerBadge
+                    tier={targetUser?.farmerProfile?.creditTier || 'GOLD'}
+                    label={`Verified Farmer • ${targetUser.farms.length} Farm${targetUser.farms.length > 1 ? 's' : ''}`}
+                    size="sm"
+                  />
+                </Pressable>
+              )}
+            </View>
+          </View>
+
+          {/* 3. Stats Bar */}
+          {/* 3. Stats Bar with AgroPartners */}
           <View style={styles.statsBar}>
             <View style={styles.statCol}>
               <Text style={styles.statNumber}>{targetUser?.farms?.length || 0}</Text>
               <Text style={styles.statLabel}>Farms</Text>
             </View>
             <View style={styles.statDivider} />
-            <View style={styles.statCol}>
+            <TouchableOpacity
+              style={styles.statCol}
+              onPress={() => router.push('/notifications/followers')}
+            >
               <Text style={styles.statNumber}>{targetUser?._count?.followers ?? targetUser?.followersCount ?? 320}</Text>
               <Text style={styles.statLabel}>Followers</Text>
-            </View>
+            </TouchableOpacity>
             <View style={styles.statDivider} />
-            <View style={styles.statCol}>
+            <TouchableOpacity
+              style={styles.statCol}
+              onPress={() => router.push('/notifications/followers')}
+            >
               <Text style={styles.statNumber}>{targetUser?._count?.following ?? targetUser?.followingCount ?? 45}</Text>
               <Text style={styles.statLabel}>Following</Text>
-            </View>
+            </TouchableOpacity>
+            <View style={styles.statDivider} />
+            <TouchableOpacity
+              style={styles.statCol}
+              onPress={() => router.push('/partners')}
+            >
+              <Text style={styles.statNumber}>4</Text>
+              <Text style={styles.statLabel}>Partners</Text>
+            </TouchableOpacity>
           </View>
 
-          {/* VISITOR ACTION BAR (Follow & Message) */}
+          {/* 4. VISITOR ACTION BAR (Follow & Message) */}
           {!isOwner && (
             <View style={styles.visitorActionsRow}>
               <TouchableOpacity
@@ -303,24 +587,79 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* TAB 1: POSTS */}
+        {/* TAB 1: POSTS (3-Column TikTok/Instagram Grid) */}
         {activeTab === 'posts' && (
-          <View style={styles.tabContent}>
-            {userPosts.length === 0 ? (
-              <View style={styles.emptyBox}>
+          <View style={styles.postsTabContent}>
+            {loadingPosts && userPosts.length === 0 ? (
+              <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+                <ActivityIndicator size="small" color={Colors.cultivated} />
+                <Text style={{ marginTop: 10, color: Colors.text.secondary, fontFamily: Fonts.bodyMedium, fontSize: 13 }}>
+                  Loading stories from farm...
+                </Text>
+              </View>
+            ) : userPosts.length === 0 ? (
+              <View style={styles.emptyPostBox}>
                 <Sparkles size={36} color={Colors.gold} strokeWidth={1.5} />
                 <Text style={styles.emptyTitle}>No Stories Published Yet</Text>
                 <Text style={styles.emptySubtitle}>
                   {isOwner
-                    ? 'Use the central + button to publish field updates and video stories.'
+                    ? 'Use the central + button to publish live field updates and harvest videos.'
                     : 'This user has not published any harvest updates yet.'}
                 </Text>
+                {isOwner && (
+                  <BrandButton
+                    title="+ Create Farm Story"
+                    variant="cultivated"
+                    size="sm"
+                    onPress={() => router.push('/feed/create')}
+                    style={{ marginTop: 14 }}
+                  />
+                )}
               </View>
             ) : (
-              <View style={styles.postsList}>
-                {userPosts.map((post: any) => (
-                  <PostCard key={post.id} post={post} />
-                ))}
+              <View style={styles.postsGrid}>
+                {userPosts.map((post: any, idx: number) => {
+                  const isVideo = Boolean(
+                    post.isVideo ||
+                    (typeof post.mediaUrl === 'string' && (
+                      post.mediaUrl.endsWith('.mp4') ||
+                      post.mediaUrl.endsWith('.mov') ||
+                      post.mediaUrl.endsWith('.mkv') ||
+                      post.mediaUrl.includes('video') ||
+                      post.mediaUrl.startsWith('file:') ||
+                      post.mediaUrl.startsWith('content:')
+                    ))
+                  );
+                  const mediaUri =
+                    post.mediaUrl ||
+                    post.media ||
+                    'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=500';
+                  const likes = post.likesCount ?? post.likes ?? 0;
+
+                  return (
+                    <TouchableOpacity
+                      key={post.id || `post-${idx}`}
+                      style={styles.gridTile}
+                      activeOpacity={0.85}
+                      onPress={() => openPostViewer(idx)}
+                    >
+                      <Image
+                        source={{ uri: mediaUri }}
+                        style={styles.gridTileImage}
+                        resizeMode="cover"
+                      />
+                      <View style={styles.gridTileOverlay} />
+                      <View style={styles.gridTileBadge}>
+                        {isVideo ? (
+                          <Play size={10} color="#FFF" fill="#FFF" style={{ marginRight: 3 }} />
+                        ) : (
+                          <Heart size={10} color="#FFF" fill="#FFF" style={{ marginRight: 3 }} />
+                        )}
+                        <Text style={styles.gridTileLikesText}>{likes}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             )}
           </View>
@@ -343,7 +682,7 @@ export default function ProfileScreen() {
                 {isOwner && (
                   <BrandButton
                     title="+ Create Your Farm"
-                    variant="primary"
+                    variant="cultivated"
                     size="md"
                     onPress={handleNewFarm}
                     style={{ marginTop: 16 }}
@@ -351,7 +690,7 @@ export default function ProfileScreen() {
                 )}
               </View>
             ) : (
-              <FarmsList />
+              <FarmsList farms={targetUser?.farms} isOwner={isOwner} />
             )}
           </View>
         )}
@@ -394,8 +733,8 @@ export default function ProfileScreen() {
                     key={item.id}
                     item={item}
                     popoverVisible={false}
-                    onOpenPopover={() => {}}
-                    onClosePopover={() => {}}
+                    onOpenPopover={() => { }}
+                    onClosePopover={() => { }}
                   />
                 ))}
               </View>
@@ -420,10 +759,182 @@ export default function ProfileScreen() {
       {/* Floating + New Farm button (Owner Only) */}
       {isOwner && userHasFarm && (
         <TouchableOpacity style={styles.fab} onPress={handleNewFarm}>
-          <Plus size={18} color={Colors.espresso} strokeWidth={2.5} />
+          <Plus size={18} color="#FFF" strokeWidth={2.5} />
           <Text style={styles.fabText}>New Farm</Text>
         </TouchableOpacity>
       )}
+
+      {/* Full-Screen TikTok-Style Swipeable Post Viewer Modal */}
+      <Modal
+        visible={viewerVisible && userPosts.length > 0}
+        animationType="slide"
+        transparent={false}
+        statusBarTranslucent={false}
+        onRequestClose={() => setViewerVisible(false)}
+      >
+        <View
+          style={[styles.fullscreenModalContainer, { backgroundColor: '#000', paddingBottom: insets.bottom }]}
+          onLayout={(e) => {
+            const { height } = e.nativeEvent.layout;
+            if (height > 0) setViewerHeight(height);
+          }}
+        >
+          <StatusBar barStyle="light-content" backgroundColor="#000" />
+          <FlatList<Post>
+            ref={viewerFlatListRef}
+            data={userPosts}
+            renderItem={({ item, index }: { item: Post; index: number }) => (
+              <View style={{ height: viewerHeight, width: '100%' }}>
+                <PostCard
+                  post={item}
+                  fullScreen
+                  isActive={viewerVisible && index === activeViewerIndex}
+                  onDeletePost={handleDeletePost}
+                  isOwner={isOwner}
+                />
+              </View>
+            )}
+            keyExtractor={(item: Post, index: number) => item.id || `profile-post-${index}`}
+            pagingEnabled
+            snapToInterval={viewerHeight}
+            snapToAlignment="start"
+            decelerationRate="fast"
+            disableIntervalMomentum
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+            initialScrollIndex={activeViewerIndex < userPosts.length ? activeViewerIndex : 0}
+            getItemLayout={(_: any, index: number) => ({
+              length: viewerHeight,
+              offset: viewerHeight * index,
+              index,
+            })}
+            viewabilityConfig={viewabilityConfig}
+            onViewableItemsChanged={onViewableItemsChanged}
+            windowSize={3}
+            maxToRenderPerBatch={2}
+            removeClippedSubviews={Platform.OS === 'android'}
+          />
+
+          {/* Top Floating Back Button */}
+          <TouchableOpacity
+            style={[styles.modalCloseButton, { top: Math.max(insets.top + 8, 20) }]}
+            onPress={() => setViewerVisible(false)}
+            activeOpacity={0.7}
+          >
+            <ArrowLeft size={24} color="#FFF" strokeWidth={2.5} />
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
+      {/* Edit Profile Modal */}
+      <Modal
+        visible={editModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <View style={styles.editModalBackdrop}>
+          <View style={[styles.editModalCard, { paddingBottom: Math.max(insets.bottom + 16, 24) }]}>
+            <View style={styles.editModalHeader}>
+              <Text style={styles.editModalTitle}>Edit Profile</Text>
+              <TouchableOpacity onPress={() => setEditModalVisible(false)} style={styles.editModalCloseBtn}>
+                <X size={20} color={Colors.espresso} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ maxHeight: 460 }} showsVerticalScrollIndicator={false}>
+              {/* Avatar Uploader Section */}
+              <View style={styles.avatarEditSection}>
+                <View style={styles.avatarEditWrapper}>
+                  <Image
+                    source={{
+                      uri:
+                        editAvatarUrl ||
+                        'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=500&auto=format&fit=crop&q=60',
+                    }}
+                    style={styles.avatarEditPreview}
+                  />
+                  {uploadingAvatar && (
+                    <View style={styles.avatarUploadingOverlay}>
+                      <ActivityIndicator size="small" color="#FFF" />
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.avatarPickersRow}>
+                  <TouchableOpacity
+                    style={styles.avatarPickerBtn}
+                    onPress={handlePickAvatar}
+                    disabled={uploadingAvatar}
+                  >
+                    <Upload size={14} color={Colors.espresso} />
+                    <Text style={styles.avatarPickerBtnText}>Upload Photo</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.avatarPickerBtn}
+                    onPress={handleTakePhotoAvatar}
+                    disabled={uploadingAvatar}
+                  >
+                    <Camera size={14} color={Colors.espresso} />
+                    <Text style={styles.avatarPickerBtnText}>Camera</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Input: Full Name */}
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Full Name</Text>
+                <TextInput
+                  style={styles.formInput}
+                  value={editName}
+                  onChangeText={setEditName}
+                  placeholder="e.g. John Doe"
+                  placeholderTextColor={Colors.text.muted}
+                />
+              </View>
+
+              {/* Input: Phone */}
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Phone Number</Text>
+                <TextInput
+                  style={styles.formInput}
+                  value={editPhone}
+                  onChangeText={setEditPhone}
+                  placeholder="e.g. +237671111111"
+                  placeholderTextColor={Colors.text.muted}
+                  keyboardType="phone-pad"
+                />
+              </View>
+
+              {/* Input: Bio / About */}
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Bio / Farmer Description</Text>
+                <TextInput
+                  style={[styles.formInput, styles.formTextArea]}
+                  value={editBio}
+                  onChangeText={setEditBio}
+                  placeholder="Tell buyers and cooperatives about your agricultural background..."
+                  placeholderTextColor={Colors.text.muted}
+                  multiline
+                  numberOfLines={3}
+                />
+              </View>
+            </ScrollView>
+
+            <View style={styles.editModalFooter}>
+              <BrandButton
+                title={savingProfile ? 'Saving...' : 'Save Changes'}
+                variant="cultivated"
+                size="md"
+                onPress={handleSaveProfile}
+                loading={savingProfile}
+                style={{ width: '100%' }}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -476,35 +987,56 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   header: {
-    alignItems: 'center',
-    paddingTop: 16,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     backgroundColor: Colors.white,
     borderBottomWidth: 1,
     borderBottomColor: Colors.parchmentDim,
-    position: 'relative',
+  },
+  topNavBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 14,
+    minHeight: 38,
+  },
+  topEditProfileBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.parchment,
+    borderWidth: 1.5,
+    borderColor: Colors.cultivated,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: Radii.pill,
+  },
+  topEditProfileBtnText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 13.5,
+    color: Colors.cultivated,
   },
   backButton: {
-    position: 'absolute',
-    top: 14,
-    left: 16,
-    zIndex: 10,
     padding: 6,
+    marginLeft: -4,
   },
   topRightMenuWrapper: {
-    position: 'absolute',
-    top: 12,
-    right: 16,
-    zIndex: 10,
+    padding: 2,
+  },
+  profileInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    width: '100%',
+    gap: 16,
+    marginBottom: 16,
   },
   avatarWrapper: {
     position: 'relative',
-    marginBottom: 10,
   },
   avatar: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
+    width: 86,
+    height: 86,
+    borderRadius: 43,
     borderWidth: 2.5,
     borderColor: Colors.gold,
   },
@@ -512,36 +1044,62 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 2,
     right: 2,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     backgroundColor: Colors.cultivated,
-    borderWidth: 2,
+    borderWidth: 2.5,
     borderColor: Colors.white,
+  },
+  profileDetailsCol: {
+    flex: 1,
+    justifyContent: 'center',
   },
   name: {
     fontFamily: Fonts.bodyBold,
-    fontSize: 18,
+    fontSize: 22,
     color: Colors.espresso,
+    lineHeight: 26,
     marginBottom: 2,
   },
   email: {
     fontFamily: Fonts.body,
-    fontSize: 13,
+    fontSize: 13.5,
     color: Colors.text.secondary,
-    marginBottom: 8,
+    marginBottom: 4,
+  },
+  bioText: {
+    fontFamily: Fonts.body,
+    fontSize: 13.5,
+    color: Colors.espresso,
+    lineHeight: 19,
+    marginBottom: 6,
+  },
+  addBioBtn: {
+    paddingVertical: 2,
+    marginBottom: 6,
+  },
+  addBioText: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 13,
+    color: Colors.cultivated,
+    fontStyle: 'italic',
   },
   badgeContainer: {
-    marginBottom: 12,
+    alignSelf: 'flex-start',
+    marginTop: 2,
+    marginBottom: 2,
   },
   statsBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
     width: '100%',
-    paddingVertical: 10,
+    paddingVertical: 12,
     backgroundColor: Colors.parchment,
     borderRadius: Radii.card,
+    borderWidth: 1,
+    borderColor: Colors.parchmentDim,
     marginBottom: 12,
   },
   statCol: {
@@ -550,12 +1108,12 @@ const styles = StyleSheet.create({
   },
   statNumber: {
     fontFamily: Fonts.monoBold,
-    fontSize: 15,
+    fontSize: 16,
     color: Colors.espresso,
   },
   statLabel: {
     fontFamily: Fonts.bodyMedium,
-    fontSize: 11,
+    fontSize: 13,
     color: Colors.text.secondary,
     marginTop: 2,
   },
@@ -627,7 +1185,7 @@ const styles = StyleSheet.create({
   tabItemActive: {},
   tabLabel: {
     fontFamily: Fonts.bodyMedium,
-    fontSize: 11,
+    fontSize: 12,
     color: 'rgba(36, 26, 18, 0.45)',
   },
   tabLabelActive: {
@@ -646,6 +1204,76 @@ const styles = StyleSheet.create({
   tabContent: {
     paddingHorizontal: 16,
     paddingTop: 14,
+  },
+  postsTabContent: {
+    paddingHorizontal: 0,
+    paddingTop: 2,
+  },
+  emptyPostBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 36,
+    backgroundColor: Colors.parchment,
+    borderRadius: Radii.card,
+    marginHorizontal: 16,
+    marginVertical: 12,
+  },
+  postsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 1,
+    paddingTop: 1,
+  },
+  gridTile: {
+    width: Math.floor((Dimensions.get('window').width - 2) / 3),
+    aspectRatio: 3 / 4,
+    borderRadius: 0,
+    overflow: 'hidden',
+    backgroundColor: Colors.parchmentDim,
+    position: 'relative',
+  },
+  gridTileImage: {
+    width: '100%',
+    height: '100%',
+  },
+  gridTileOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 38,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+  },
+  gridTileBadge: {
+    position: 'absolute',
+    bottom: 6,
+    left: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  gridTileLikesText: {
+    color: '#FFF',
+    fontSize: 11,
+    fontFamily: Fonts.monoBold,
+    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowRadius: 2,
+  },
+  fullscreenModalContainer: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  modalCloseButton: {
+    position: 'absolute',
+    left: 16,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 50,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
   },
   postsList: {
     gap: 12,
@@ -711,7 +1339,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 24,
     right: 20,
-    backgroundColor: Colors.gold,
+    backgroundColor: Colors.cultivated,
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
@@ -723,6 +1351,140 @@ const styles = StyleSheet.create({
   fabText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 14,
+    color: Colors.white,
+  },
+  ownerActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    marginTop: 14,
+    paddingHorizontal: 24,
+  },
+  editProfileBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: Colors.parchment,
+    borderWidth: 1.5,
+    borderColor: Colors.cultivated,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: Radii.pill,
+  },
+  editProfileBtnText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 13,
+    color: Colors.cultivated,
+  },
+  editModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'flex-end',
+  },
+  editModalCard: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    ...Shadows.card,
+  },
+  editModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.parchmentDim,
+  },
+  editModalTitle: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 18,
     color: Colors.espresso,
+  },
+  editModalCloseBtn: {
+    padding: 6,
+    borderRadius: 20,
+    backgroundColor: Colors.parchment,
+  },
+  avatarEditSection: {
+    alignItems: 'center',
+    marginBottom: 18,
+  },
+  avatarEditWrapper: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    overflow: 'hidden',
+    position: 'relative',
+    borderWidth: 2,
+    borderColor: Colors.cultivated,
+    marginBottom: 10,
+  },
+  avatarEditPreview: {
+    width: '100%',
+    height: '100%',
+  },
+  avatarUploadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarPickersRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  avatarPickerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.parchment,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: Radii.pill,
+    borderWidth: 1,
+    borderColor: Colors.parchmentDim,
+  },
+  avatarPickerBtnText: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 12,
+    color: Colors.espresso,
+  },
+  formGroup: {
+    marginBottom: 14,
+  },
+  formLabel: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 12,
+    color: Colors.text.secondary,
+    marginBottom: 6,
+  },
+  formInput: {
+    fontFamily: Fonts.body,
+    fontSize: 14,
+    color: Colors.espresso,
+    backgroundColor: Colors.parchment,
+    borderWidth: 1,
+    borderColor: Colors.parchmentDim,
+    borderRadius: Radii.sm,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  formTextArea: {
+    height: 80,
+    textAlignVertical: 'top',
+  },
+  editModalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 16,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: Colors.parchmentDim,
   },
 });

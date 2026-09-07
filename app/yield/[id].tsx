@@ -1,255 +1,881 @@
-import React from 'react';
-import { View, Text, StyleSheet, Image, ScrollView, Pressable } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  ScrollView,
+  Pressable,
+  TouchableOpacity,
+  ActivityIndicator,
+  Share,
+  Dimensions,
+  StatusBar,
+  Alert,
+} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Heart, MessageCircle, Share2, ShoppingCart } from 'lucide-react-native';
-import { agroYields, farmers } from '@/mocks/data';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  Heart,
+  MessageCircle,
+  Share2,
+  ShoppingBag,
+  ArrowLeft,
+  MapPin,
+  ShieldCheck,
+  Sparkles,
+  Layers,
+  ChevronRight,
+  Plus,
+  Minus,
+  Star,
+  Check,
+  Store,
+} from 'lucide-react-native';
+import { fetchYieldByIdApi } from '@/components/api/yields';
 import { useCartStore } from '@/store/cartStore';
 import { useFavoritesStore } from '@/store/favoritesStore';
-import Colors from '@/constants/colors';
+import { Yield } from '@/types';
+import Colors, { Radii, Shadows } from '@/constants/colors';
+import { Fonts } from '@/constants/typography';
+import BrandButton from '@/components/ui/BrandButton';
+import Basket from '@/components/basket';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function YieldDetailScreen() {
-  const { id } = useLocalSearchParams();
+  const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { addToCart } = useCartStore();
   const { addYield, removeYield, isYieldFavorite } = useFavoritesStore();
-  
-  const yieldItem = agroYields.find(item => item.id === id);
-  const farmer = farmers.find(f => f.id === yieldItem?.farmerId);
-  
-  const isFavorite = isYieldFavorite(id as string);
 
-  if (!yieldItem || !farmer) {
+  const [yieldItem, setYieldItem] = useState<Yield | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [quantity, setQuantity] = useState(1);
+  const [activeMediaIndex, setActiveMediaIndex] = useState(0);
+  const [addedAnimation, setAddedAnimation] = useState(false);
+
+  const isFavorite = id ? isYieldFavorite(id) : false;
+
+  useEffect(() => {
+    if (!id) return;
+    setLoading(true);
+    fetchYieldByIdApi(id)
+      .then((data) => {
+        setYieldItem(data);
+        if (data.minOrderQuantity && data.minOrderQuantity > 1) {
+          setQuantity(data.minOrderQuantity);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load produce details:', err);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [id]);
+
+  if (loading) {
     return (
-      <View style={styles.notFound}>
-        <Text style={styles.notFoundText}>Product not found</Text>
+      <View style={styles.loadingContainer}>
+        <StatusBar barStyle="dark-content" />
+        <ActivityIndicator size="large" color={Colors.cultivated} />
+        <Text style={styles.loadingText}>Loading harvest details...</Text>
       </View>
     );
   }
 
-  const handleAddToCart = () => {
-    addToCart(yieldItem, 1);
-  };
+  if (!yieldItem) {
+    return (
+      <View style={styles.notFoundContainer}>
+        <StatusBar barStyle="dark-content" />
+        <Text style={styles.notFoundTitle}>Harvest Lot Not Found</Text>
+        <Text style={styles.notFoundSub}>
+          This produce may have been sold out or unlisted by the farmer.
+        </Text>
+        <BrandButton
+          title="Return to Marketplace"
+          variant="primary"
+          size="md"
+          onPress={() => router.back()}
+          style={{ marginTop: 16 }}
+        />
+      </View>
+    );
+  }
+
+  const farm = yieldItem.farm;
+  const farmer = yieldItem.farmer;
+  const unitPrice = yieldItem.price || yieldItem.pricePerUnit || 0;
+  const totalPrice = unitPrice * quantity;
+
+  const mediaList =
+    yieldItem.mediaUrls && yieldItem.mediaUrls.length > 0
+      ? yieldItem.mediaUrls
+      : yieldItem.image
+        ? [yieldItem.image]
+        : ['https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800'];
+
+  const categoryName =
+    typeof yieldItem.category === 'object'
+      ? yieldItem.category?.name
+      : yieldItem.category || 'Fresh Harvest';
 
   const toggleFavorite = () => {
     if (isFavorite) {
-      removeYield(id as string);
+      removeYield(yieldItem.id);
     } else {
-      addYield(id as string);
+      addYield(yieldItem.id);
+    }
+  };
+
+  const handleShare = async () => {
+    try {
+      await Share.share({
+        message: `🌱 Check out ${yieldItem.title} on AgroMarket: ${unitPrice.toLocaleString()} FCFA/${yieldItem.unit} direct from ${farm?.name || 'verified cooperative'}!`,
+        title: yieldItem.title,
+      });
+    } catch { }
+  };
+
+  const handleQuantityDelta = (delta: number) => {
+    const next = quantity + delta;
+    const minQty = yieldItem.minOrderQuantity || 1;
+    if (next >= minQty) {
+      setQuantity(next);
+    }
+  };
+
+  const handleAddToCart = () => {
+    addToCart(yieldItem, quantity);
+    setAddedAnimation(true);
+    setTimeout(() => setAddedAnimation(false), 2000);
+  };
+
+  const handleViewFarm = () => {
+    if (farm?.id) {
+      router.push(`/farmer/${farm.id}`);
+    } else if (farmer?.id) {
+      router.push(`/farmer/${farmer.id}`);
     }
   };
 
   const handleContactFarmer = () => {
-    // Navigate to chat with this farmer
-    router.push(`/chat/${farmer.id}`);
-  };
-
-  const handleViewFarmer = () => {
-    router.push(`/farmer/${farmer.id}`);
+    const targetId = farm?.userId || farmer?.userId || farmer?.id;
+    if (targetId) {
+      router.push(`/chat/${targetId}`);
+    } else {
+      Alert.alert('Contact Farmer', 'Connecting to cooperative dispatch...');
+    }
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <Image source={{ uri: yieldItem.image }} style={styles.image} />
-      
-      <View style={styles.content}>
-        <View style={styles.header}>
-          <Text style={styles.title}>{yieldItem.title}</Text>
-          <Pressable onPress={toggleFavorite} style={styles.favoriteButton}>
-            <Heart 
-              size={24} 
-              color={isFavorite ? Colors.error : Colors.text.secondary} 
-              fill={isFavorite ? Colors.error : 'none'} 
-            />
-          </Pressable>
-        </View>
-        
-        <Text style={styles.price}>{yieldItem.price} FCFA/{yieldItem.unit}</Text>
-        <Text style={styles.category}>
-          {typeof yieldItem.category === 'object' ? yieldItem.category?.name : (yieldItem.category || 'Fresh Produce')}
-        </Text>
-        
-        <View style={styles.divider} />
-        
-        <Text style={styles.sectionTitle}>Description</Text>
-        <Text style={styles.description}>{yieldItem.description}</Text>
-        
-        <View style={styles.divider} />
-        
-        <Text style={styles.sectionTitle}>Farmer</Text>
-        <Pressable style={styles.farmerContainer} onPress={handleViewFarmer}>
-          <Image source={{ uri: farmer.profilePhoto }} style={styles.farmerImage} />
-          <View style={styles.farmerInfo}>
-            <Text style={styles.farmerName}>{farmer.farmName}</Text>
-            <Text style={styles.farmerLocation}>{farmer.location}</Text>
-            <View style={styles.ratingContainer}>
-              <Text style={styles.rating}>★ {farmer.rating.toFixed(1)}</Text>
-              <Text style={styles.followers}>{farmer.followers} followers</Text>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+
+      {/* Main Scrollable Content */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 110, 130) }}
+      >
+        {/* Top Hero Banner & Media Carousel */}
+        <View style={styles.heroContainer}>
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onScroll={(e) => {
+              const slide = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+              setActiveMediaIndex(slide);
+            }}
+            scrollEventThrottle={16}
+          >
+            {mediaList.map((url, idx) => (
+              <Image key={idx} source={{ uri: url }} style={styles.heroImage} resizeMode="cover" />
+            ))}
+          </ScrollView>
+
+          {/* Vignette Overlay */}
+          <View style={styles.heroOverlay} pointerEvents="none" />
+
+          {/* Floating Top Header Buttons */}
+          <View style={[styles.floatingHeader, { top: Math.max(insets.top + 8, 20) }]}>
+            <TouchableOpacity style={styles.glassBtn} onPress={() => router.back()} activeOpacity={0.8}>
+              <ArrowLeft size={22} color="#FFF" strokeWidth={2.5} />
+            </TouchableOpacity>
+
+            <View style={styles.headerRightActions}>
+              <TouchableOpacity style={styles.glassBtn} onPress={handleShare} activeOpacity={0.8}>
+                <Share2 size={20} color="#FFF" strokeWidth={2.2} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.glassBtn} onPress={toggleFavorite} activeOpacity={0.8}>
+                <Heart
+                  size={22}
+                  color={isFavorite ? Colors.clay : '#FFF'}
+                  fill={isFavorite ? Colors.clay : 'none'}
+                  strokeWidth={2.2}
+                />
+              </TouchableOpacity>
             </View>
           </View>
-        </Pressable>
+
+          {/* Media Pagination Dots */}
+          {mediaList.length > 1 && (
+            <View style={styles.paginationRow}>
+              {mediaList.map((_, idx) => (
+                <View
+                  key={idx}
+                  style={[styles.paginationDot, idx === activeMediaIndex && styles.paginationDotActive]}
+                />
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* Content Card Body */}
+        <View style={styles.bodyCard}>
+          {/* Category & Freshness Badges */}
+          <View style={styles.badgesRow}>
+            <View style={styles.categoryChip}>
+              <Text style={styles.categoryChipText}>{categoryName}</Text>
+            </View>
+            {yieldItem.isOrganic && (
+              <View style={styles.organicChip}>
+                <Sparkles size={12} color={Colors.cultivated} />
+                <Text style={styles.organicChipText}>100% Volcanic Organic</Text>
+              </View>
+            )}
+            <View style={styles.verifiedChip}>
+              <ShieldCheck size={12} color={Colors.gold} />
+              <Text style={styles.verifiedChipText}>Escrow Protected</Text>
+            </View>
+          </View>
+
+          {/* Title & Subtitle */}
+          <Text style={styles.produceTitle}>{yieldItem.title}</Text>
+          {yieldItem.frenchTitle && (
+            <Text style={styles.produceFrenchTitle}>{yieldItem.frenchTitle}</Text>
+          )}
+
+          {/* Location / Region Tag */}
+          <View style={styles.locationRow}>
+            <MapPin size={15} color={Colors.soil} />
+            <Text style={styles.locationText}>
+              {yieldItem.originRegion || `${farm?.city || 'Foumbot'}, ${farm?.region || 'West Region'}`}
+            </Text>
+          </View>
+
+          {/* Pricing Block */}
+          <View style={styles.priceContainer}>
+            <View>
+              <Text style={styles.priceLabel}>Retail Rate</Text>
+              <View style={styles.priceValueRow}>
+                <Text style={styles.priceAmount}>{unitPrice.toLocaleString()}</Text>
+                <Text style={styles.priceUnit}>FCFA / {yieldItem.unit}</Text>
+              </View>
+            </View>
+            {yieldItem.oldPrice && (
+              <View style={styles.oldPriceBox}>
+                <Text style={styles.oldPriceText}>{yieldItem.oldPrice.toLocaleString()} FCFA</Text>
+                <View style={styles.discountBadge}>
+                  <Text style={styles.discountText}>
+                    -{Math.round(((yieldItem.oldPrice - unitPrice) / yieldItem.oldPrice) * 100)}%
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
+
+          {/* Wholesale Bulk Pricing Card */}
+          {yieldItem.isWholesaleBulkAvailable && yieldItem.bulkPricePerUnit && (
+            <View style={styles.wholesaleCard}>
+              <View style={styles.wholesaleHeader}>
+                <Layers size={18} color={Colors.cultivated} />
+                <Text style={styles.wholesaleTitle}>Wholesaler / Buyam-Sellam Tier</Text>
+              </View>
+              <Text style={styles.wholesaleText}>
+                Order <Text style={{ fontFamily: Fonts.bodyBold }}>{yieldItem.bulkMinQuantity || 10}+ {yieldItem.unit}s</Text> at discount rate of{' '}
+                <Text style={{ fontFamily: Fonts.monoBold, color: Colors.cultivated }}>
+                  {yieldItem.bulkPricePerUnit.toLocaleString()} FCFA / {yieldItem.unit}
+                </Text>
+              </Text>
+            </View>
+          )}
+
+          {/* Stock Availability Info */}
+          <View style={styles.stockInfoRow}>
+            <View style={styles.stockDot} />
+            <Text style={styles.stockText}>
+              <Text style={{ fontFamily: Fonts.bodyBold }}>{yieldItem.stockQuantity || 'Fresh in harvest'}</Text>{' '}
+              {yieldItem.unit}s available on farm today
+            </Text>
+          </View>
+
+          <View style={styles.divider} />
+
+          {/* Description Section */}
+          <Text style={styles.sectionHeading}>Harvest Description & Soil Notes</Text>
+          <Text style={styles.descriptionText}>
+            {yieldItem.description ||
+              'Freshly harvested directly from volcanic fertile soils. Handpicked and graded for direct delivery with guaranteed quality and optimal shelf-life.'}
+          </Text>
+
+          <View style={styles.divider} />
+
+          {/* Farmer & Cooperative Source Card */}
+          <Text style={styles.sectionHeading}>Producer & Farm Origin</Text>
+          <TouchableOpacity style={styles.farmSourceCard} onPress={handleViewFarm} activeOpacity={0.85}>
+            <Image
+              source={{
+                uri:
+                  farm?.coverPhoto ||
+                  farm?.avatarPhoto ||
+                  farmer?.coverPhoto ||
+                  'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=500',
+              }}
+              style={styles.farmAvatar}
+            />
+            <View style={styles.farmInfoCol}>
+              <View style={styles.farmNameRow}>
+                <Text style={styles.farmNameText} numberOfLines={1}>
+                  {farm?.name || farmer?.farmName || 'Verified Cameroon Agro Cooperative'}
+                </Text>
+                <ShieldCheck size={16} color={Colors.cultivated} />
+              </View>
+              <Text style={styles.farmLocationText}>
+                {farm?.city || farmer?.city || 'Foumbot'}, {farm?.region || farmer?.region || 'West Region'}
+              </Text>
+              <View style={styles.farmRatingRow}>
+                <Star size={13} color={Colors.gold} fill={Colors.gold} />
+                <Text style={styles.farmRatingNumber}>{(farm?.rating || 4.9).toFixed(1)}</Text>
+                <Text style={styles.farmRatingCount}>({farm?.totalRatings || 142} ratings)</Text>
+              </View>
+            </View>
+            <ChevronRight size={20} color={Colors.text.muted} />
+          </TouchableOpacity>
+
+          {/* Quick Action Contact Button */}
+          <View style={styles.farmActionsRow}>
+            <TouchableOpacity style={styles.contactFarmerBtn} onPress={handleContactFarmer} activeOpacity={0.8}>
+              <MessageCircle size={16} color={Colors.espresso} />
+              <Text style={styles.contactFarmerBtnText}>Direct Chat with Farmer</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.visitFarmBtn} onPress={handleViewFarm} activeOpacity={0.8}>
+              <Store size={16} color={Colors.cultivated} />
+              <Text style={styles.visitFarmBtnText}>Visit Farm Page</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ScrollView>
+
+      {/* ========================================================= */}
+      {/* SOLID BOTTOM PURCHASE BAR (NO TRANSPARENCY OVERFLOW)       */}
+      {/* ========================================================= */}
+      <View style={[styles.bottomStickyBar, { paddingBottom: Math.max(insets.bottom + 8, 14) }]}>
+        {/* Quantity Controls */}
+        <View style={styles.quantityControlsWrapper}>
+          <TouchableOpacity
+            style={styles.qtyBtn}
+            onPress={() => handleQuantityDelta(-1)}
+            activeOpacity={0.7}
+          >
+            <Minus size={16} color={Colors.espresso} />
+          </TouchableOpacity>
+          <Text style={styles.quantityValueText}>{quantity}</Text>
+          <TouchableOpacity
+            style={styles.qtyBtn}
+            onPress={() => handleQuantityDelta(1)}
+            activeOpacity={0.7}
+          >
+            <Plus size={16} color={Colors.espresso} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Add to Basket Action Button */}
+        <TouchableOpacity
+          style={[styles.addBasketButton, addedAnimation && styles.addBasketButtonActive]}
+          onPress={handleAddToCart}
+          activeOpacity={0.85}
+        >
+          {addedAnimation ? (
+            <>
+              <Check size={20} color={Colors.white} strokeWidth={2.5} />
+              <Text style={styles.addBasketButtonText}>Added to Basket!</Text>
+            </>
+          ) : (
+            <>
+              <ShoppingBag size={20} color={Colors.white} strokeWidth={2.2} />
+              <View style={styles.addBasketButtonTextCol}>
+                <Text style={styles.addBasketButtonText}>Add to Basket</Text>
+                <Text style={styles.addBasketSubText}>{totalPrice.toLocaleString()} FCFA</Text>
+              </View>
+            </>
+          )}
+        </TouchableOpacity>
       </View>
-      
-      <View style={styles.actions}>
-        <Pressable style={styles.contactButton} onPress={handleContactFarmer}>
-          <MessageCircle size={20} color={Colors.primary} />
-          <Text style={styles.contactButtonText}>Contact</Text>
-        </Pressable>
-        
-        <Pressable style={styles.addToCartButton} onPress={handleAddToCart}>
-          <ShoppingCart size={20} color={Colors.text.light} />
-          <Text style={styles.addToCartButtonText}>Add to Cart</Text>
-        </Pressable>
-      </View>
-    </ScrollView>
+
+      {/* Floating Basket Sheet for instant checkout */}
+      <Basket onGoToCart={() => router.push('/cart')} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.white,
   },
-  image: {
-    width: '100%',
-    height: 300,
-    resizeMode: 'cover',
-  },
-  content: {
-    padding: 16,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  title: {
+  loadingContainer: {
     flex: 1,
-    fontSize: 24,
-    fontWeight: '700',
-    color: Colors.text.primary,
+    backgroundColor: Colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  loadingText: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 14,
+    color: Colors.text.secondary,
+  },
+  notFoundContainer: {
+    flex: 1,
+    backgroundColor: Colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+  },
+  notFoundTitle: {
+    fontFamily: Fonts.display,
+    fontSize: 22,
+    color: Colors.canopy,
     marginBottom: 8,
   },
-  favoriteButton: {
-    padding: 8,
+  notFoundSub: {
+    fontFamily: Fonts.body,
+    fontSize: 14,
+    color: Colors.text.secondary,
+    textAlign: 'center',
+    lineHeight: 20,
   },
-  price: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: Colors.primary,
+  heroContainer: {
+    width: SCREEN_WIDTH,
+    height: 380,
+    backgroundColor: Colors.canopyDeep,
+    position: 'relative',
+  },
+  heroImage: {
+    width: SCREEN_WIDTH,
+    height: 380,
+  },
+  heroOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(14, 37, 21, 0.25)',
+  },
+  floatingHeader: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  headerRightActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  glassBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  paginationRow: {
+    position: 'absolute',
+    bottom: 16,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  paginationDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+  },
+  paginationDotActive: {
+    width: 18,
+    backgroundColor: Colors.gold,
+  },
+  bodyCard: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: Radii.card,
+    borderTopRightRadius: Radii.card,
+    marginTop: -24,
+    paddingTop: 22,
+    paddingHorizontal: 18,
+    paddingBottom: 24,
+  },
+  badgesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  categoryChip: {
+    backgroundColor: Colors.parchment,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: Radii.pill,
+    borderWidth: 1,
+    borderColor: Colors.parchmentDim,
+  },
+  categoryChipText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 11,
+    color: Colors.espresso,
+  },
+  organicChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0fdf4',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: Radii.pill,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(46, 125, 50, 0.2)',
+  },
+  organicChipText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 11,
+    color: Colors.cultivated,
+  },
+  verifiedChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fffbeb',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: Radii.pill,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(217, 119, 6, 0.2)',
+  },
+  verifiedChipText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 11,
+    color: Colors.gold,
+  },
+  produceTitle: {
+    fontFamily: Fonts.display,
+    fontSize: 24,
+    color: Colors.canopy,
+    lineHeight: 30,
     marginBottom: 4,
   },
-  category: {
-    fontSize: 16,
+  produceFrenchTitle: {
+    fontFamily: Fonts.displayItalic,
+    fontSize: 15,
     color: Colors.text.secondary,
+    marginBottom: 8,
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     marginBottom: 16,
+  },
+  locationText: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 13,
+    color: Colors.soil,
+  },
+  priceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.parchment,
+    padding: 14,
+    borderRadius: Radii.card,
+    marginBottom: 14,
+  },
+  priceLabel: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 11,
+    color: Colors.text.secondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  priceValueRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+    marginTop: 2,
+  },
+  priceAmount: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 24,
+    color: Colors.cultivated,
+  },
+  priceUnit: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 13,
+    color: Colors.espresso,
+  },
+  oldPriceBox: {
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+  oldPriceText: {
+    fontFamily: Fonts.mono,
+    fontSize: 13,
+    color: Colors.text.muted,
+    textDecorationLine: 'line-through',
+  },
+  discountBadge: {
+    backgroundColor: Colors.clay,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radii.pill,
+  },
+  discountText: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 10,
+    color: Colors.white,
+  },
+  wholesaleCard: {
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: Radii.card,
+    padding: 12,
+    marginBottom: 14,
+  },
+  wholesaleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  wholesaleTitle: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 13,
+    color: Colors.canopy,
+  },
+  wholesaleText: {
+    fontFamily: Fonts.body,
+    fontSize: 12,
+    color: Colors.text.secondary,
+    lineHeight: 18,
+  },
+  stockInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 16,
+  },
+  stockDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.cultivated,
+  },
+  stockText: {
+    fontFamily: Fonts.body,
+    fontSize: 12,
+    color: Colors.espresso,
   },
   divider: {
     height: 1,
-    backgroundColor: Colors.border,
-    marginVertical: 16,
+    backgroundColor: Colors.parchmentDim,
+    marginVertical: 14,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+  sectionHeading: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 15,
+    color: Colors.espresso,
+    marginBottom: 8,
+  },
+  descriptionText: {
+    fontFamily: Fonts.body,
+    fontSize: 14,
     color: Colors.text.primary,
-    marginBottom: 12,
+    lineHeight: 22,
   },
-  description: {
-    fontSize: 16,
-    color: Colors.text.primary,
-    lineHeight: 24,
-  },
-  farmerContainer: {
+  farmSourceCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.card,
-    borderRadius: 12,
+    backgroundColor: Colors.parchment,
     padding: 12,
-    marginTop: 8,
+    borderRadius: Radii.card,
+    gap: 12,
+    marginTop: 6,
   },
-  farmerImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    marginRight: 12,
+  farmAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 1.5,
+    borderColor: Colors.gold,
   },
-  farmerInfo: {
+  farmInfoCol: {
     flex: 1,
   },
-  farmerName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.text.primary,
-    marginBottom: 4,
-  },
-  farmerLocation: {
-    fontSize: 14,
-    color: Colors.text.secondary,
-    marginBottom: 4,
-  },
-  ratingContainer: {
+  farmNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
   },
-  rating: {
+  farmNameText: {
+    fontFamily: Fonts.bodyBold,
     fontSize: 14,
-    fontWeight: '600',
-    color: Colors.secondary,
-    marginRight: 12,
+    color: Colors.espresso,
   },
-  followers: {
-    fontSize: 14,
+  farmLocationText: {
+    fontFamily: Fonts.body,
+    fontSize: 11,
     color: Colors.text.secondary,
+    marginTop: 1,
   },
-  actions: {
+  farmRatingRow: {
     flexDirection: 'row',
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 3,
   },
-  contactButton: {
+  farmRatingNumber: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 11,
+    color: Colors.espresso,
+  },
+  farmRatingCount: {
+    fontFamily: Fonts.body,
+    fontSize: 10,
+    color: Colors.text.muted,
+  },
+  farmActionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 10,
+  },
+  contactFarmerBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.card,
-    borderRadius: 12,
-    paddingVertical: 16,
-    marginRight: 8,
+    gap: 6,
+    backgroundColor: Colors.parchment,
     borderWidth: 1,
-    borderColor: Colors.primary,
+    borderColor: Colors.parchmentDim,
+    paddingVertical: 9,
+    borderRadius: Radii.pill,
   },
-  contactButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.primary,
-    marginLeft: 8,
+  contactFarmerBtnText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 12,
+    color: Colors.espresso,
   },
-  addToCartButton: {
-    flex: 2,
+  visitFarmBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.primary,
-    borderRadius: 12,
-    paddingVertical: 16,
-    marginLeft: 8,
+    gap: 6,
+    backgroundColor: 'rgba(78, 139, 63, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(78, 139, 63, 0.25)',
+    paddingVertical: 9,
+    borderRadius: Radii.pill,
   },
-  addToCartButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.text.light,
-    marginLeft: 8,
+  visitFarmBtnText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 12,
+    color: Colors.cultivated,
   },
-  notFound: {
-    flex: 1,
+
+  // SOLID BOTTOM STICKY PURCHASE BAR
+  bottomStickyBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: Colors.white,
+    borderTopWidth: 1,
+    borderTopColor: Colors.parchmentDim,
+    paddingTop: 10,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    zIndex: 90,
+    ...Shadows.card,
+  },
+  quantityControlsWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.parchment,
+    borderRadius: Radii.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: Colors.parchmentDim,
+    gap: 10,
+  },
+  qtyBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.white,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
+    ...Shadows.subtle,
   },
-  notFoundText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: Colors.text.primary,
+  quantityValueText: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 15,
+    color: Colors.espresso,
+    minWidth: 20,
+    textAlign: 'center',
+  },
+  addBasketButton: {
+    flex: 1,
+    backgroundColor: Colors.cultivated,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: Radii.pill,
+    ...Shadows.subtle,
+  },
+  addBasketButtonActive: {
+    backgroundColor: '#15803d',
+  },
+  addBasketButtonTextCol: {
+    alignItems: 'flex-start',
+  },
+  addBasketButtonText: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 14,
+    color: Colors.white,
+  },
+  addBasketSubText: {
+    fontFamily: Fonts.mono,
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.85)',
   },
 });

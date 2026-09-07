@@ -1,20 +1,22 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import FarmCard from '../modules/farms/components/FarmCard';
 import { useAuthStore } from '@/store/authStore';
-import { farms as mockFarms } from '@/mocks/data';
+import { Farm } from '@/types';
 
-export default function FarmsList() {
+interface FarmsListProps {
+  farms?: Farm[];
+  isOwner?: boolean;
+}
+
+export default function FarmsList({ farms, isOwner = true }: FarmsListProps) {
   const { user } = useAuthStore();
-  const userFarms =
-    user?.farms && user.farms.length > 0
-      ? user.farms
-      : mockFarms.filter((f) => f.userId === (user?.id || 'u1'));
+  const displayFarms = farms && farms.length > 0 ? farms : user?.farms || [];
 
   return (
     <View style={styles.container}>
-      {userFarms.map((farm) => (
-        <FarmCard key={farm.id} farm={farm} showManageButton />
+      {displayFarms.map((farm) => (
+        <FarmCard key={farm.id} farm={farm} showManageButton={isOwner} />
       ))}
     </View>
   );

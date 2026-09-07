@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import {
-  MoreVertical,
+  Menu,
   Plus,
   Store,
   Truck,
@@ -16,6 +16,7 @@ import {
   Settings,
   X,
   Sparkles,
+  Film,
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import Colors, { Radii, Shadows } from '@/constants/colors';
@@ -37,7 +38,7 @@ export default function ProfileHeaderMenu() {
         onPress={() => setMenuVisible(true)}
         accessibilityLabel="Open profile actions menu"
       >
-        <MoreVertical size={22} color={Colors.espresso} strokeWidth={2.2} />
+        <Menu size={22} color={Colors.espresso} strokeWidth={2.2} />
       </TouchableOpacity>
 
       <Modal
@@ -112,6 +113,19 @@ export default function ProfileHeaderMenu() {
               </View>
             </TouchableOpacity>
 
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => handleNavigate('/partners')}
+            >
+              <View style={[styles.itemIconCircle, { backgroundColor: '#fef7ee' }]}>
+                <Film size={18} color={Colors.gold} strokeWidth={2.2} />
+              </View>
+              <View style={styles.itemTextContainer}>
+                <Text style={styles.itemTitle}>AgroPartners Feed 🤝</Text>
+                <Text style={styles.itemSub}>Stories from mutual connections</Text>
+              </View>
+            </TouchableOpacity>
+
             <View style={styles.divider} />
 
             <TouchableOpacity
@@ -122,8 +136,8 @@ export default function ProfileHeaderMenu() {
                 <Settings size={18} color={Colors.text.secondary} strokeWidth={2.2} />
               </View>
               <View style={styles.itemTextContainer}>
-                <Text style={styles.itemTitle}>Account Settings</Text>
-                <Text style={styles.itemSub}>Security, language & notifications</Text>
+                <Text style={styles.itemTitle}>Settings and Privacy</Text>
+                <Text style={styles.itemSub}>Tab visibility, language & security</Text>
               </View>
             </TouchableOpacity>
           </Pressable>

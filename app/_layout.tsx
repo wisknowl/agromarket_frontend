@@ -130,10 +130,11 @@ function RootLayoutNav() {
       >
         <Stack.Screen name="auth/login" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="feed/create" options={{ headerShown: false }} />
         <Stack.Screen
           name="yield/[id]"
           options={{
-            title: 'Produce Details',
+            headerShown: false,
             presentation: 'card',
           }}
         />
@@ -143,7 +144,49 @@ function RootLayoutNav() {
         <Stack.Screen
           name="chat/[id]"
           options={{
-            title: 'Chat',
+            headerShown: false,
+            presentation: 'card',
+          }}
+        />
+        <Stack.Screen
+          name="profile/[id]"
+          options={{
+            headerShown: false,
+            presentation: 'card',
+          }}
+        />
+        <Stack.Screen
+          name="cart/checkout"
+          options={{
+            headerShown: false,
+            presentation: 'card',
+          }}
+        />
+        <Stack.Screen
+          name="partners/index"
+          options={{
+            headerShown: false,
+            presentation: 'card',
+          }}
+        />
+        <Stack.Screen
+          name="notifications/system"
+          options={{
+            headerShown: false,
+            presentation: 'card',
+          }}
+        />
+        <Stack.Screen
+          name="notifications/activity"
+          options={{
+            headerShown: false,
+            presentation: 'card',
+          }}
+        />
+        <Stack.Screen
+          name="notifications/followers"
+          options={{
+            headerShown: false,
             presentation: 'card',
           }}
         />
@@ -155,6 +198,10 @@ function RootLayoutNav() {
             headerShown: false,
           }}
         />
+        <Stack.Screen name="admin-dashboard" options={{ headerShown: false }} />
+        <Stack.Screen name="fintech/loans" options={{ headerShown: false }} />
+        <Stack.Screen name="settings/settings" options={{ headerShown: false }} />
+        <Stack.Screen name="become-farmer" options={{ headerShown: false }} />
       </Stack>
     </>
   );

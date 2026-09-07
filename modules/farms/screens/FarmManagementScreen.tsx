@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   Image,
   Alert,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -28,29 +30,122 @@ import Colors, { Radii, Shadows } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
 import { useAuthStore } from '@/store/authStore';
 import { useUIStore } from '@/store/uiStore';
-import { farms as mockFarms, agroYields } from '@/mocks/data';
 import FarmSwitcher from '../components/FarmSwitcher';
 import FarmCard from '../components/FarmCard';
 import PriceTag from '@/components/ui/PriceTag';
 import FarmerBadge from '@/components/ui/FarmerBadge';
+import { fetchFarmByIdApi, fetchMyFarmsApi } from '../api';
+import { Farm } from '@/types';
 
 export default function FarmManagementScreen() {
   const router = useRouter();
-  const { user } = useAuthStore();
+  const { user, updateUser } = useAuthStore();
   const openCreatePostModal = useUIStore((s) => s.openCreatePostModal);
   const activeFarmId = useUIStore((s) => s.activeFarmId);
+  const setActiveFarmId = useUIStore((s) => s.setActiveFarmId);
 
-  const userFarms =
-    user?.farms && user.farms.length > 0
-      ? user.farms
-      : mockFarms.filter((f) => f.userId === (user?.id || 'u1'));
-
-  const selectedFarm =
-    userFarms.find((f) => f.id === activeFarmId) || userFarms[0] || mockFarms[0];
-
-  const farmYields = agroYields.filter(
-    (y) => y.farmerId === selectedFarm.id || y.farmerId === 'f1'
+  const [farmsList, setFarmsList] = useState<Farm[]>(user?.farms || []);
+  const [selectedFarmId, setSelectedFarmId] = useState<string | null>(
+    activeFarmId || (user?.farms && user.farms.length > 0 ? user.farms[0].id : null)
   );
+  const [farmData, setFarmData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // 1. Fetch user's registered farms from DB
+  const loadMyFarms = useCallback(async () => {
+    try {
+      const data = await fetchMyFarmsApi();
+      if (Array.isArray(data) && data.length > 0) {
+        setFarmsList(data);
+        updateUser({ farms: data });
+        if (!selectedFarmId || !data.some((f) => f.id === selectedFarmId)) {
+          setSelectedFarmId(data[0].id);
+          setActiveFarmId(data[0].id);
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to load my farms list:', err);
+    }
+  }, [selectedFarmId]);
+
+  useEffect(() => {
+    loadMyFarms();
+  }, []);
+
+  // 2. Fetch active selected farm details & yields whenever selectedFarmId changes
+  const loadSelectedFarmDetails = useCallback(async (farmId: string) => {
+    if (!farmId) return;
+    try {
+      setLoading(true);
+      const data = await fetchFarmByIdApi(farmId);
+      setFarmData(data);
+    } catch (err) {
+      console.warn('Failed to fetch selected farm details:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selectedFarmId) {
+      setActiveFarmId(selectedFarmId);
+      loadSelectedFarmDetails(selectedFarmId);
+    }
+  }, [selectedFarmId, loadSelectedFarmDetails]);
+
+  const handleSelectFarm = (farmId: string) => {
+    setSelectedFarmId(farmId);
+    setActiveFarmId(farmId);
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadMyFarms();
+    if (selectedFarmId) {
+      await loadSelectedFarmDetails(selectedFarmId);
+    }
+    setRefreshing(false);
+  };
+
+  const currentFarmInList = farmsList.find((f) => f.id === selectedFarmId) || farmsList[0] || null;
+  const activeFarm = farmData || currentFarmInList;
+  const farmYields = farmData?.yields || [];
+
+  if (!activeFarm && farmsList.length === 0) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <ArrowLeft size={22} color={Colors.espresso} strokeWidth={2.2} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Farm Management</Text>
+          <TouchableOpacity
+            onPress={() => router.push('/farmer/new')}
+            style={styles.addFarmButton}
+          >
+            <Plus size={18} color={Colors.cultivated} strokeWidth={2.5} />
+          </TouchableOpacity>
+        </View>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <Sprout size={48} color={Colors.cultivated} />
+          <Text style={{ fontFamily: Fonts.displayBold, fontSize: 18, color: Colors.espresso, marginTop: 12 }}>
+            No Registered Farm Yet
+          </Text>
+          <Text style={{ fontFamily: Fonts.bodyMedium, fontSize: 14, color: Colors.text.secondary, textAlign: 'center', marginTop: 8 }}>
+            Create your first farm page to start listing produce and publishing harvest stories.
+          </Text>
+          <TouchableOpacity
+            style={[styles.primaryActionBtn, { marginTop: 20, paddingHorizontal: 24 }]}
+            onPress={() => router.push('/farmer/new')}
+          >
+            <Plus size={18} color={Colors.white} />
+            <Text style={styles.primaryActionBtnText}>Register New Farm</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -71,11 +166,21 @@ export default function FarmManagementScreen() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={Colors.cultivated}
+            colors={[Colors.cultivated]}
+          />
+        }
       >
         {/* Farm Switcher for Multi-Farm Owners */}
-        {userFarms.length > 0 && (
+        {farmsList.length > 0 && (
           <FarmSwitcher
-            farms={userFarms}
+            farms={farmsList}
+            selectedFarmId={selectedFarmId}
+            onSelectFarm={handleSelectFarm}
             onAddFarm={() => router.push('/farmer/new')}
           />
         )}
@@ -85,7 +190,7 @@ export default function FarmManagementScreen() {
           <Image
             source={{
               uri:
-                selectedFarm.coverPhoto ||
+                activeFarm?.coverPhoto ||
                 'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=800',
             }}
             style={styles.coverImage}
@@ -102,11 +207,11 @@ export default function FarmManagementScreen() {
               </View>
             </View>
 
-            <Text style={styles.farmTitle}>{selectedFarm.name}</Text>
+            <Text style={styles.farmTitle}>{activeFarm?.name}</Text>
             <View style={styles.farmLocationRow}>
               <MapPin size={13} color={Colors.parchment} />
               <Text style={styles.farmLocationText}>
-                {selectedFarm.city}, {selectedFarm.region}
+                {activeFarm?.city}, {activeFarm?.region}
               </Text>
             </View>
           </View>
@@ -122,13 +227,13 @@ export default function FarmManagementScreen() {
 
           <View style={styles.statCard}>
             <Layers size={18} color={Colors.soil} />
-            <Text style={styles.statValue}>{selectedFarm.sizeHectares || 3.5} ha</Text>
+            <Text style={styles.statValue}>{activeFarm?.sizeHectares || 3.5} ha</Text>
             <Text style={styles.statLabel}>Cultivated Land</Text>
           </View>
 
           <View style={styles.statCard}>
             <Star size={18} color={Colors.gold} fill={Colors.gold} />
-            <Text style={styles.statValue}>{selectedFarm.rating?.toFixed(1) || '4.9'}</Text>
+            <Text style={styles.statValue}>{activeFarm?.rating?.toFixed(1) || '4.9'}</Text>
             <Text style={styles.statLabel}>Buyer Rating</Text>
           </View>
 
@@ -152,7 +257,7 @@ export default function FarmManagementScreen() {
 
           <TouchableOpacity
             style={styles.secondaryActionBtn}
-            onPress={() => router.push(`/farmer/${selectedFarm.id}` as any)}
+            onPress={() => activeFarm?.id && router.push(`/farmer/${activeFarm.id}` as any)}
           >
             <ExternalLink size={16} color={Colors.espresso} strokeWidth={2.2} />
             <Text style={styles.secondaryActionBtnText}>Storefront</Text>
@@ -165,38 +270,62 @@ export default function FarmManagementScreen() {
           <Text style={styles.itemCountText}>{farmYields.length} items</Text>
         </View>
 
-        {farmYields.map((yieldItem) => (
-          <View key={yieldItem.id} style={styles.yieldRow}>
-            <Image source={{ uri: yieldItem.image }} style={styles.yieldImage} />
-            <View style={styles.yieldInfo}>
-              <Text style={styles.yieldTitle} numberOfLines={1}>
-                {yieldItem.title}
-              </Text>
-              <Text style={styles.yieldCategory}>
-                {yieldItem.originRegion || 'Organic Harvest'}
-              </Text>
-              <PriceTag
-                amount={yieldItem.price}
-                unit={yieldItem.unit}
-                size="sm"
-              />
-            </View>
-            <View style={styles.yieldStatusBadge}>
-              <Text style={styles.yieldStatusText}>In Stock</Text>
-            </View>
+        {loading && farmYields.length === 0 ? (
+          <View style={{ paddingVertical: 24, alignItems: 'center' }}>
+            <ActivityIndicator size="small" color={Colors.cultivated} />
+            <Text style={{ marginTop: 8, fontFamily: Fonts.bodyMedium, fontSize: 13, color: Colors.text.secondary }}>
+              Loading farm harvests...
+            </Text>
           </View>
-        ))}
+        ) : farmYields.length === 0 ? (
+          <View style={{ padding: 16, backgroundColor: Colors.surface, borderRadius: Radii.card, alignItems: 'center' }}>
+            <Text style={{ fontFamily: Fonts.bodyMedium, fontSize: 13, color: Colors.text.secondary }}>
+              No active produce listed under {activeFarm?.name || 'this farm'} yet.
+            </Text>
+          </View>
+        ) : (
+          farmYields.map((yieldItem: any) => (
+            <View key={yieldItem.id} style={styles.yieldRow}>
+              <Image
+                source={{
+                  uri:
+                    yieldItem.image ||
+                    yieldItem.mediaUrls?.[0] ||
+                    'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=500',
+                }}
+                style={styles.yieldImage}
+              />
+              <View style={styles.yieldInfo}>
+                <Text style={styles.yieldTitle} numberOfLines={1}>
+                  {yieldItem.title}
+                </Text>
+                <Text style={styles.yieldCategory}>
+                  {yieldItem.originRegion || 'Organic Harvest'}
+                </Text>
+                <PriceTag
+                  amount={yieldItem.price ?? yieldItem.pricePerUnit ?? 0}
+                  unit={yieldItem.unit}
+                  size="sm"
+                />
+              </View>
+              <View style={styles.yieldStatusBadge}>
+                <Text style={styles.yieldStatusText}>In Stock</Text>
+              </View>
+            </View>
+          ))
+        )}
 
         {/* Registered Farms Portfolio */}
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionHeader}>Your Farm Portfolio ({userFarms.length})</Text>
+          <Text style={styles.sectionHeader}>Your Farm Portfolio ({farmsList.length})</Text>
         </View>
 
-        {userFarms.map((farm) => (
+        {farmsList.map((farm) => (
           <FarmCard
             key={farm.id}
             farm={farm}
             showManageButton={false}
+            onPress={() => handleSelectFarm(farm.id)}
           />
         ))}
       </ScrollView>

@@ -13,7 +13,7 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   ArrowLeft,
@@ -60,6 +60,7 @@ const UNITS = ['KG', 'CRATE', 'BAG_50KG', 'BAG_100KG', 'BUCKET', 'BUNCH', 'NET']
 export default function FarmDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
   const addToCart = useCartStore((s) => s.addToCart);
   const openCreatePostModal = useUIStore((s) => s.openCreatePostModal);
@@ -94,6 +95,9 @@ export default function FarmDetailScreen() {
       setLoading(true);
       const data = await fetchFarmByIdApi(id);
       setFarm(data);
+      if (data?.id) {
+        useUIStore.getState().setActiveFarmId(data.id);
+      }
       setIsFollowing(Boolean(data.isFollowingOwner));
     } catch (error) {
       console.error('Failed to load farm details:', error);
@@ -228,7 +232,10 @@ export default function FarmDetailScreen() {
         </View>
       </SafeAreaView>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom + 100, 120) }]}
+      >
         {/* Cover Hero Banner */}
         <View style={styles.coverWrapper}>
           <Image

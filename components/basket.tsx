@@ -11,6 +11,7 @@ import {
   Easing,
   Dimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCartStore } from '@/store/cartStore';
 import Colors, { Radii, Shadows } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
@@ -27,6 +28,7 @@ interface BasketProps {
 }
 
 export default function Basket({ onGoToCart, lastAddedItem }: BasketProps) {
+  const insets = useSafeAreaInsets();
   const [expanded, setExpanded] = useState(false);
   const animation = useRef(new Animated.Value(0)).current;
   const badgeScale = useRef(new Animated.Value(1)).current;
@@ -108,9 +110,12 @@ export default function Basket({ onGoToCart, lastAddedItem }: BasketProps) {
     }).start(() => setExpanded(false));
   };
 
+  const baseHeight = 74 + Math.max(insets.bottom, 0);
+  const expandedHeight = 420 + Math.max(insets.bottom, 0);
+
   const containerHeight = animation.interpolate({
     inputRange: [0, 1],
-    outputRange: [76, 420],
+    outputRange: [baseHeight, expandedHeight],
   });
   const collapsedOpacity = animation.interpolate({
     inputRange: [0, 0.5],
@@ -153,7 +158,15 @@ export default function Basket({ onGoToCart, lastAddedItem }: BasketProps) {
         />
       )}
 
-      <Animated.View style={[styles.container, { height: containerHeight }]}>
+      <Animated.View
+        style={[
+          styles.container,
+          {
+            height: containerHeight,
+            paddingBottom: Math.max(insets.bottom + 8, 12),
+          },
+        ]}
+      >
         <Animated.View
           style={{
             flex: 1,
@@ -213,7 +226,7 @@ export default function Basket({ onGoToCart, lastAddedItem }: BasketProps) {
                   <Text style={styles.viewBasketText}>Open Basket</Text>
                   <Animated.View style={{ transform: [{ scale: badgeScale }] }}>
                     <View style={styles.basketIconCircle}>
-                      <ShoppingBag size={18} color={Colors.espresso} strokeWidth={2.2} />
+                      <ShoppingBag size={18} color={Colors.gold} strokeWidth={2.2} />
                       <View style={styles.iconBadge}>
                         <Text style={styles.iconBadgeText}>{totalItems}</Text>
                       </View>
@@ -331,7 +344,7 @@ const styles = StyleSheet.create({
     left: 0,
     top: 0,
     bottom: 0,
-    backgroundColor: Colors.cultivated,
+    backgroundColor: Colors.gold,
     borderRadius: Radii.pill,
   },
   progressText: {
@@ -377,23 +390,24 @@ const styles = StyleSheet.create({
   viewBasket: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(246, 238, 221, 0.12)',
-    paddingVertical: 8,
-    paddingHorizontal: 14,
+    backgroundColor: Colors.gold,
+    paddingVertical: 9,
+    paddingHorizontal: 15,
     borderRadius: Radii.pill,
     marginLeft: 12,
     gap: 8,
+    ...Shadows.subtle,
   },
   viewBasketText: {
-    fontFamily: Fonts.bodySemiBold,
+    fontFamily: Fonts.bodyBold,
     fontSize: 13,
-    color: Colors.parchment,
+    color: Colors.espresso,
   },
   basketIconCircle: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: Colors.gold,
+    backgroundColor: Colors.espresso,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -402,14 +416,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -4,
     right: -4,
-    backgroundColor: Colors.soil,
+    backgroundColor: Colors.cultivated,
     borderRadius: Radii.pill,
     paddingHorizontal: 4,
     minWidth: 14,
     alignItems: 'center',
   },
   iconBadgeText: {
-    color: Colors.parchment,
+    color: Colors.white,
     fontSize: 9,
     fontFamily: Fonts.monoBold,
   },

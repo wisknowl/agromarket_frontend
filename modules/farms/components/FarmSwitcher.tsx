@@ -10,14 +10,21 @@ import { useRouter } from 'expo-router';
 interface FarmSwitcherProps {
   farms: Farm[];
   onAddFarm?: () => void;
+  selectedFarmId?: string | null;
+  onSelectFarm?: (farmId: string) => void;
 }
 
-export default function FarmSwitcher({ farms, onAddFarm }: FarmSwitcherProps) {
+export default function FarmSwitcher({
+  farms,
+  onAddFarm,
+  selectedFarmId,
+  onSelectFarm,
+}: FarmSwitcherProps) {
   const router = useRouter();
   const activeFarmId = useUIStore((s) => s.activeFarmId);
   const setActiveFarmId = useUIStore((s) => s.setActiveFarmId);
 
-  const currentSelectedId = activeFarmId || (farms.length > 0 ? farms[0].id : null);
+  const currentSelectedId = selectedFarmId || activeFarmId || (farms.length > 0 ? farms[0].id : null);
 
   const getCategoryIcon = (category?: string) => {
     switch (category?.toUpperCase()) {
@@ -64,7 +71,10 @@ export default function FarmSwitcher({ farms, onAddFarm }: FarmSwitcherProps) {
                 styles.farmPill,
                 isSelected && styles.farmPillActive,
               ]}
-              onPress={() => setActiveFarmId(farm.id)}
+              onPress={() => {
+                setActiveFarmId(farm.id);
+                onSelectFarm?.(farm.id);
+              }}
               activeOpacity={0.8}
             >
               <View style={styles.pillIcon}>{getCategoryIcon(farm.category)}</View>

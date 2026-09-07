@@ -161,6 +161,9 @@ export interface Category {
 export interface Yield {
   id: string;
   farmerId: string;
+  farmId?: string;
+  farm?: Farm;
+  farmerName?: string;
   categoryId?: string;
   title: string;
   frenchTitle?: string;
@@ -246,6 +249,13 @@ export interface LoanProduct {
   interestRatePercent: number;
   durationMonths: number;
   requiredCreditTier: CreditTier;
+  institution?: {
+    id?: string;
+    name?: string;
+    type?: string;
+  } | string;
+  icon?: string;
+  badge?: string;
 }
 
 export interface LoanApplication {
@@ -259,7 +269,41 @@ export interface LoanApplication {
   durationMonths: number;
   status: string;
   repaymentDeductionPct: number;
+  product?: LoanProduct;
+  institution?: string;
+  monthlyPayment?: number;
+  remainingBalance?: number;
+  disbursedAt?: string;
   createdAt: string;
+}
+
+export type MessageType =
+  | 'TEXT'
+  | 'VOICE'
+  | 'OFFER_CARD'
+  | 'PRODUCT_SNIPPET'
+  | 'LOCATION';
+
+export type OfferStatus = 'PENDING' | 'ACCEPTED' | 'COUNTERED' | 'DECLINED';
+
+export interface TradeOffer {
+  id: string;
+  yieldId: string;
+  yieldTitle: string;
+  yieldImage?: string;
+  unit: string;
+  quantity: number;
+  offeredPricePerUnit: number;
+  originalPricePerUnit: number;
+  totalAmount: number;
+  status: OfferStatus;
+  notes?: string;
+  counterPrice?: number;
+}
+
+export interface VoiceNote {
+  audioUrl?: string;
+  durationSeconds: number;
 }
 
 export interface Message {
@@ -268,8 +312,20 @@ export interface Message {
   senderId: string;
   receiverId: string;
   content: string;
+  type?: MessageType;
   isRead: boolean;
   createdAt: string;
+  timestamp?: string;
+  voiceNote?: VoiceNote;
+  tradeOffer?: TradeOffer;
+  productSnippet?: {
+    id: string;
+    title: string;
+    image: string;
+    price: number;
+    unit: string;
+    originRegion?: string;
+  };
 }
 
 export interface Conversation {
@@ -277,12 +333,51 @@ export interface Conversation {
   participantId?: string;
   participantName?: string;
   participantAvatar?: string;
+  participantRole?: UserRole;
+  isVerified?: boolean;
+  isAgroPartner?: boolean;
+  isOnline?: boolean;
   farmerId?: string;
   farmerName?: string;
   farmerAvatar?: string;
   lastMessage?: string;
+  lastMessageType?: MessageType;
   lastMessageTime?: string;
   timestamp?: string;
   unreadCount?: number;
+  hasActiveOffer?: boolean;
   messages?: Message[];
+}
+
+export type NotificationCategory = 'SYSTEM' | 'ACTIVITY' | 'FOLLOW' | 'ORDER' | 'FINTECH';
+
+export interface NotificationItem {
+  id: string;
+  category: NotificationCategory;
+  title: string;
+  message: string;
+  timestamp: string;
+  isRead: boolean;
+  avatarUrl?: string;
+  targetId?: string; // e.g. postId, orderId, userId, yieldId
+  targetType?: 'post' | 'order' | 'profile' | 'yield' | 'loan';
+  actionUrl?: string;
+  badge?: string;
+  actorName?: string;
+}
+
+export interface AgroPartner {
+  id: string;
+  userId: string;
+  name: string;
+  farmName?: string;
+  avatarUrl: string;
+  role: UserRole;
+  region: string;
+  isVerified: boolean;
+  isMutualPartner: boolean;
+  hasNewStory?: boolean;
+  primaryProduce?: string[];
+  totalFollowers?: number;
+  connectedSince: string;
 }

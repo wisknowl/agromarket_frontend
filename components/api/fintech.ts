@@ -3,7 +3,7 @@ import { LoanProduct, LoanApplication } from '../../types';
 
 export interface CreditScoreResponse {
   creditScore: number;
-  creditTier: string;
+  creditTier: 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM';
   rating: number;
   totalRatings: number;
   completedOrders: number;
@@ -17,7 +17,12 @@ export const fetchFarmerCreditScoreApi = async (): Promise<CreditScoreResponse> 
 };
 
 export const fetchLoanProductsApi = async (): Promise<LoanProduct[]> => {
-  const res = await apiClient.get('/fintech/loans/products');
+  const res = await apiClient.get('/fintech/products');
+  return res.data;
+};
+
+export const fetchMyLoanApplicationsApi = async (): Promise<LoanApplication[]> => {
+  const res = await apiClient.get('/fintech/my-loans');
   return res.data;
 };
 
@@ -26,7 +31,7 @@ export const applyForLoanApi = async (data: {
   purpose: string;
   requestedAmount: number;
   durationMonths: number;
-}): Promise<LoanApplication> => {
-  const res = await apiClient.post('/fintech/loans/apply', data);
+}): Promise<{ message: string; application: LoanApplication }> => {
+  const res = await apiClient.post('/fintech/apply', data);
   return res.data;
 };

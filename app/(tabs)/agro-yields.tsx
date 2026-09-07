@@ -1,29 +1,85 @@
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { View, StyleSheet, FlatList, TextInput, Text, ScrollView, Pressable } from 'react-native';
-import { Search, SlidersHorizontal, Sparkles } from 'lucide-react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  StyleSheet,
+  FlatList,
+  TextInput,
+  Text,
+  ScrollView,
+  Pressable,
+  ActivityIndicator,
+  RefreshControl,
+} from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Search, Sparkles } from 'lucide-react-native';
 import YieldCard from '@/components/YieldCard';
-import { agroYields } from '@/mocks/data';
-import { AgroYield } from '@/types';
+import { fetchYieldsApi, fetchCategoriesApi } from '@/components/api/yields';
+import { AgroYield, Category } from '@/types';
 import Colors, { Radii, Shadows } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
 import Basket from '@/components/basket';
 
-const CATEGORIES = ['All', 'Vegetables', 'Fruits', 'Tubers & Roots', 'Grains', 'Livestock'];
+const STATIC_CATEGORIES = ['All', 'Vegetables', 'Tubers & Roots', 'Poultry & Eggs', 'Fruits', 'Spices & Herbs'];
 
 export default function AgroYieldsScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
+  const [yieldsList, setYieldsList] = useState<AgroYield[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [categories, setCategories] = useState<string[]>(STATIC_CATEGORIES);
 
-  const filteredYields = agroYields.filter((item) => {
+  const loadData = async () => {
+    try {
+      const [data, cats] = await Promise.all([
+        fetchYieldsApi(),
+        fetchCategoriesApi().catch(() => []),
+      ]);
+      if (data && Array.isArray(data)) {
+        setYieldsList(data);
+      }
+      if (cats && cats.length > 0) {
+        const catNames = ['All', ...cats.map((c: any) => c.name)];
+        setCategories(Array.from(new Set(catNames)));
+      }
+    } catch (err) {
+      console.warn('Failed to fetch marketplace yields:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [])
+  );
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadData();
+  };
+
+  const filteredYields = yieldsList.filter((item) => {
     const catName = typeof item.category === 'object' ? item.category?.name : (item.category || '');
+    const farmName = item.farm?.name || item.farmerName || '';
     const matchesSearch =
       searchQuery.trim() === '' ||
       item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      catName.toLowerCase().includes(searchQuery.toLowerCase());
-    
+      catName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      farmName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.originRegion && item.originRegion.toLowerCase().includes(searchQuery.toLowerCase()));
+
     const matchesCategory =
       selectedCategory === 'All' ||
       catName.toLowerCase().includes(selectedCategory.toLowerCase()) ||
@@ -47,8 +103,8 @@ export default function AgroYieldsScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Search Bar with 10px radius */}
-      <View style={styles.searchWrapper}>
+      {/* Search Bar */}
+      <View style={[styles.searchWrapper, { paddingTop: Math.max(insets.top + 4, 12) }]}>
         <View style={styles.searchContainer}>
           <Search size={18} color={Colors.text.muted} style={styles.searchIcon} />
           <TextInput
@@ -73,7 +129,7 @@ export default function AgroYieldsScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.categoryScroll}
         >
-          {CATEGORIES.map((cat) => {
+          {categories.map((cat) => {
             const isSelected = selectedCategory === cat;
             return (
               <Pressable
@@ -98,22 +154,34 @@ export default function AgroYieldsScreen() {
         </ScrollView>
       </View>
 
-      {filteredYields.length === 0 ? (
-        <View style={styles.emptyContainer}>
+      {loading && yieldsList.length === 0 ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.cultivated} />
+          <Text style={styles.loadingText}>Loading direct farm harvests...</Text>
+        </View>
+      ) : filteredYields.length === 0 ? (
+        <ScrollView
+          contentContainerStyle={styles.emptyContainer}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.cultivated} />}
+        >
+          <Sparkles size={40} color={Colors.gold} strokeWidth={1.6} />
           <Text style={styles.emptyText}>No harvests found</Text>
           <Text style={styles.emptySubtext}>
-            Try searching for plantains, Ndolé greens, cassava, or tomatoes
+            Try searching for fresh tomatoes, Irish potatoes, table eggs, or Penja pepper.
           </Text>
-        </View>
+        </ScrollView>
       ) : (
         <FlatList
           data={filteredYields}
           renderItem={renderYieldItem}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item, index) => item.id || `yield-${index}`}
           numColumns={2}
           columnWrapperStyle={{ justifyContent: 'space-between', paddingHorizontal: 16 }}
-          contentContainerStyle={{ paddingBottom: 90, paddingTop: 6 }}
+          contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 90, 100), paddingTop: 6 }}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.cultivated} />
+          }
         />
       )}
 
@@ -127,9 +195,19 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.white,
   },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  loadingText: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 14,
+    color: Colors.text.secondary,
+  },
   searchWrapper: {
     paddingHorizontal: 16,
-    paddingTop: 12,
     paddingBottom: 8,
   },
   searchContainer: {
@@ -186,21 +264,24 @@ const styles = StyleSheet.create({
     color: Colors.parchment,
   },
   emptyContainer: {
-    flex: 1,
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 32,
+    gap: 8,
   },
   emptyText: {
     fontFamily: Fonts.displayItalic,
     fontSize: 20,
     color: Colors.espresso,
-    marginBottom: 6,
+    marginTop: 8,
   },
   emptySubtext: {
     fontFamily: Fonts.body,
     fontSize: 14,
     color: Colors.text.secondary,
     textAlign: 'center',
+    lineHeight: 20,
   },
 });
+;

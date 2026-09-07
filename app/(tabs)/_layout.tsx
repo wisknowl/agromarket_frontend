@@ -59,15 +59,15 @@ export default function TabLayout() {
       <Tabs.Screen
         name="inbox"
         options={{
-          title: 'Inbox',
-          headerTitle: 'Messages',
+          title: 'AgroInbox',
+          headerShown: false,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
-          headerTitle: 'Profile & Farm',
+          headerShown: false,
         }}
       />
       </Tabs>

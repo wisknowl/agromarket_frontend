@@ -19,6 +19,9 @@ export default function ShoppableYieldCard({ yieldItem, onPressItem }: Shoppable
     addToCart(yieldItem, 1);
   };
 
+  const rawPrice = yieldItem.price ?? (yieldItem as any).pricePerUnit ?? 0;
+  const numericPrice = typeof rawPrice === 'number' ? rawPrice : Number(rawPrice) || 0;
+  const unitLabel = yieldItem.unit || 'Unit';
   const imageUri = yieldItem.image || (yieldItem.mediaUrls && yieldItem.mediaUrls[0]) || '';
 
   return (
@@ -42,8 +45,8 @@ export default function ShoppableYieldCard({ yieldItem, onPressItem }: Shoppable
           {yieldItem.title}
         </Text>
         <Text style={styles.price}>
-          {yieldItem.price.toLocaleString()} FCFA
-          <Text style={styles.unit}> / {yieldItem.unit}</Text>
+          {numericPrice.toLocaleString()} FCFA
+          <Text style={styles.unit}> / {unitLabel}</Text>
         </Text>
       </View>
 
@@ -52,7 +55,7 @@ export default function ShoppableYieldCard({ yieldItem, onPressItem }: Shoppable
         onPress={handleQuickAdd}
         accessibilityLabel="Add to basket"
       >
-        <ShoppingBag size={16} color={Colors.white} strokeWidth={2.2} />
+        <ShoppingBag size={13} color={Colors.espresso} strokeWidth={2.2} />
         <Text style={styles.addBtnText}>Add</Text>
       </TouchableOpacity>
     </TouchableOpacity>
@@ -63,22 +66,22 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.94)',
+    backgroundColor: Colors.white,
     borderRadius: Radii.pill,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    gap: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 9,
+    gap: 7,
     maxWidth: 260,
     ...Shadows.card,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
+    borderColor: Colors.parchmentDim,
   },
   imageContainer: {
     width: 32,
     height: 32,
     borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: Colors.parchmentDim,
+    backgroundColor: Colors.parchment,
   },
   image: {
     width: '100%',
@@ -99,8 +102,8 @@ const styles = StyleSheet.create({
   },
   price: {
     fontFamily: Fonts.monoBold,
-    fontSize: 11,
-    color: Colors.soil,
+    fontSize: 12.5,
+    color: Colors.canopy,
   },
   unit: {
     fontFamily: Fonts.body,
@@ -110,15 +113,15 @@ const styles = StyleSheet.create({
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.cultivated,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
+    backgroundColor: Colors.gold,
+    paddingVertical: 5,
+    paddingHorizontal: 9,
     borderRadius: Radii.pill,
-    gap: 4,
+    gap: 3,
   },
   addBtnText: {
     fontFamily: Fonts.bodySemiBold,
-    fontSize: 11,
-    color: Colors.white,
+    fontSize: 10.5,
+    color: Colors.espresso,
   },
 });

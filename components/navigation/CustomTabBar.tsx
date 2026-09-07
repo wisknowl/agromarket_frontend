@@ -46,13 +46,13 @@ export default function CustomTabBar({
 
     switch (routeName) {
       case 'index':
-        return <Home size={22} color={color} strokeWidth={strokeWidth} />;
+        return <Home size={22.5} color={color} strokeWidth={strokeWidth} />;
       case 'agro-yields':
-        return <Sprout size={22} color={color} strokeWidth={strokeWidth} />;
+        return <Sprout size={22.5} color={color} strokeWidth={strokeWidth} />;
       case 'cart':
         return (
           <View style={{ position: 'relative' }}>
-            <ShoppingBag size={22} color={color} strokeWidth={strokeWidth} />
+            <ShoppingBag size={22.5} color={color} strokeWidth={strokeWidth} />
             {cartItemCount > 0 && (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>
@@ -63,11 +63,11 @@ export default function CustomTabBar({
           </View>
         );
       case 'inbox':
-        return <MessageSquare size={22} color={color} strokeWidth={strokeWidth} />;
+        return <MessageSquare size={22.5} color={color} strokeWidth={strokeWidth} />;
       case 'profile':
-        return <User size={22} color={color} strokeWidth={strokeWidth} />;
+        return <User size={22.5} color={color} strokeWidth={strokeWidth} />;
       default:
-        return <Home size={22} color={color} strokeWidth={strokeWidth} />;
+        return <Home size={22.5} color={color} strokeWidth={strokeWidth} />;
     }
   };
 
@@ -95,11 +95,29 @@ export default function CustomTabBar({
       {/* Flat Top border line */}
       <View style={styles.topBorderLine} />
 
-      {/* 5 Equal Navigation Tabs */}
+      {/* 5 Navigation Tabs */}
       <View style={styles.tabsRow}>
         {state.routes.map((route, index) => {
           const { options } = descriptors[route.key];
           const isFocused = state.index === index;
+
+          // For users with at least one farm, entirely replace the center 'cart' tab with the + Post button (NO text below)
+          if (userHasFarm && route.name === 'cart') {
+            return (
+              <TouchableOpacity
+                key="center-create-post-tab"
+                style={styles.centerPlusTabItem}
+                onPress={() => router.push('/feed/create')}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel="Create Harvest Story"
+              >
+                <View style={styles.centerPlusCircle}>
+                  <Plus size={24.5} color={Colors.white} strokeWidth={3} />
+                </View>
+              </TouchableOpacity>
+            );
+          }
 
           const onPress = () => {
             const event = navigation.emit({
@@ -143,19 +161,6 @@ export default function CustomTabBar({
           );
         })}
       </View>
-
-      {/* Circular green + button positioned absolutely on top of tabbar (Zero Shadow, Clean Blend) */}
-      {userHasFarm && (
-        <TouchableOpacity
-          style={styles.absoluteCenterButton}
-          onPress={() => router.push('/feed/create')}
-          activeOpacity={0.85}
-          accessibilityRole="button"
-          accessibilityLabel="Create harvest update"
-        >
-          <Plus size={26} color={Colors.white} strokeWidth={3} />
-        </TouchableOpacity>
-      )}
     </View>
   );
 }
@@ -188,32 +193,36 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 6,
   },
+  centerPlusTabItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 4,
+  },
+  centerPlusCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.cultivated,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: Colors.cultivated,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 5,
+    elevation: 4,
+  },
   iconWrapper: {
-    height: 26,
+    height: 27,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 2,
   },
   tabLabel: {
-    fontSize: 10.5,
+    fontSize: 11,
     letterSpacing: 0.1,
     includeFontPadding: false,
     textAlign: 'center',
-  },
-  absoluteCenterButton: {
-    position: 'absolute',
-    top: -44, // Shifted up so it sits above the tabbar border and clears the Basket tab below
-    left: '50%',
-    marginLeft: -24, // Half of 48px for exact center alignment
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: Colors.cultivated, // Pure brand green
-    borderWidth: 3,
-    borderColor: Colors.white, // Crisp white outline blending with top border
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 50,
   },
   badge: {
     position: 'absolute',

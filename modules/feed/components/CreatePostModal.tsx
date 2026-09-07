@@ -151,7 +151,7 @@ export default function CreatePostModal({
           <View style={styles.footer}>
             <BrandButton
               title="Post to AgroFeed"
-              variant="primary"
+              variant="cultivated"
               size="lg"
               onPress={handleSubmit}
               disabled={!content.trim()}
@@ -194,6 +194,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.body,
     fontSize: 14,
     color: Colors.espresso,
+    backgroundColor: Colors.parchment,
     borderWidth: 1,
     borderColor: Colors.parchmentDim,
     borderRadius: Radii.sm,
@@ -220,6 +221,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 10,
     borderRadius: Radii.sm,
+    backgroundColor: Colors.parchment,
     borderWidth: 1,
     borderColor: Colors.parchmentDim,
     gap: 8,
@@ -260,12 +262,12 @@ const styles = StyleSheet.create({
   },
   switchTitle: {
     fontFamily: Fonts.bodySemiBold,
-    fontSize: 14,
+    fontSize: 12.5,
     color: Colors.espresso,
   },
   switchSub: {
     fontFamily: Fonts.body,
-    fontSize: 11,
+    fontSize: 9.5,
     color: Colors.text.secondary,
   },
   yieldPickerSection: {
@@ -276,7 +278,7 @@ const styles = StyleSheet.create({
   },
   pickerTitle: {
     fontFamily: Fonts.bodyMedium,
-    fontSize: 12,
+    fontSize: 10.5,
     color: Colors.espresso,
     marginBottom: 8,
   },
@@ -305,12 +307,12 @@ const styles = StyleSheet.create({
   },
   yieldChipTitle: {
     fontFamily: Fonts.bodySemiBold,
-    fontSize: 11,
+    fontSize: 9.5,
     color: Colors.espresso,
   },
   yieldChipPrice: {
     fontFamily: Fonts.monoBold,
-    fontSize: 10,
+    fontSize: 8.5,
     color: Colors.soil,
   },
   footer: {

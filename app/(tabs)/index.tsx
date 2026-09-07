@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -15,38 +15,54 @@ import { useRouter } from 'expo-router';
 import HomeTabBar from '@/components/HomeTabBar';
 import YieldCard from '@/components/YieldCard';
 import PostCard from '@/components/PostCard';
-import { agroYields } from '@/mocks/data';
 import { AgroYield, Post } from '@/types';
 import { useFavoritesStore } from '@/store/favoritesStore';
 import Colors from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import Basket from '@/components/basket';
 import { useAuthStore } from '@/store/authStore';
 import { fetchFeedPostsApi } from '@/components/api/posts';
+import { fetchYieldsApi } from '@/components/api/yields';
 import { Sprout, Plus } from 'lucide-react-native';
 
 export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuthStore();
+  const isScreenFocused = useIsFocused();
   const [activeTab, setActiveTab] = useState('AgroFeed');
   const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
   const [feedHeight, setFeedHeight] = useState(0);
   const [feedPosts, setFeedPosts] = useState<Post[]>([]);
+  const [yieldsList, setYieldsList] = useState<AgroYield[]>([]);
   const [loadingFeed, setLoadingFeed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [activePostIndex, setActivePostIndex] = useState<number>(0);
+
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 60,
+    waitForInteraction: false,
+  }).current;
+
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
+    if (viewableItems && viewableItems.length > 0 && viewableItems[0].index !== null) {
+      setActivePostIndex(viewableItems[0].index);
+    }
+  }).current;
 
   const userHasFarm = Boolean(user?.farms && user.farms.length > 0);
 
-  const loadPosts = async () => {
+  const loadFeedAndYields = async () => {
     try {
       setLoadingFeed(true);
-      const posts = await fetchFeedPostsApi();
-      if (posts) {
-        setFeedPosts(posts);
-      }
+      const [posts, yields] = await Promise.all([
+        fetchFeedPostsApi(),
+        fetchYieldsApi(),
+      ]);
+      if (posts) setFeedPosts(posts);
+      if (yields) setYieldsList(yields);
     } catch (err) {
-      console.warn('Could not fetch feed posts from backend:', err);
+      console.warn('Could not fetch feed data from backend:', err);
     } finally {
       setLoadingFeed(false);
       setRefreshing(false);
@@ -54,18 +70,18 @@ export default function HomeScreen() {
   };
 
   useEffect(() => {
-    loadPosts();
+    loadFeedAndYields();
   }, []);
 
   useFocusEffect(
     useCallback(() => {
-      loadPosts();
+      loadFeedAndYields();
     }, [])
   );
 
   const onRefresh = () => {
     setRefreshing(true);
-    loadPosts();
+    loadFeedAndYields();
   };
 
   const { yields: favoriteYields, posts: favoritePosts } = useFavoritesStore();
@@ -86,8 +102,8 @@ export default function HomeScreen() {
 
   const filteredYields =
     activeTab === 'Favorites'
-      ? agroYields.filter((item) => favoriteYields.includes(item.id))
-      : agroYields;
+      ? yieldsList.filter((item) => favoriteYields.includes(item.id))
+      : yieldsList;
 
   const filteredPosts =
     activeTab === 'Favorites'
@@ -150,19 +166,28 @@ export default function HomeScreen() {
             feedHeight > 0 && (
               <FlatList
                 data={filteredPosts}
-                renderItem={({ item }) => (
-                  <View style={{ height: feedHeight }}>
-                    <PostCard post={item} fullScreen />
-                  </View>
-                )}
+                renderItem={({ item, index }) => {
+                  const isItemActive = isScreenFocused && activeTab === 'AgroFeed' && index === activePostIndex;
+                  return (
+                    <View style={{ height: feedHeight }}>
+                      <PostCard post={item} fullScreen isActive={isItemActive} />
+                    </View>
+                  );
+                }}
                 keyExtractor={(item) => item.id}
-                pagingEnabled={Platform.OS === 'android'}
+                pagingEnabled={true}
                 snapToInterval={feedHeight}
                 snapToAlignment="start"
                 decelerationRate="fast"
                 disableIntervalMomentum={true}
                 showsVerticalScrollIndicator={false}
                 bounces={false}
+                viewabilityConfig={viewabilityConfig}
+                onViewableItemsChanged={onViewableItemsChanged}
+                windowSize={3}
+                maxToRenderPerBatch={2}
+                initialNumToRender={2}
+                removeClippedSubviews={Platform.OS === 'android'}
                 refreshControl={
                   <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.cultivated} />
                 }

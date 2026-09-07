@@ -44,3 +44,14 @@ export const toggleFollowUserApi = async (userId: string): Promise<{ isFollowing
   return res.data;
 };
 
+export const updateMyProfileApi = async (data: {
+  name?: string;
+  phone?: string;
+  avatarUrl?: string;
+  bio?: string;
+}): Promise<any> => {
+  const res = await apiClient.put('/auth/profile', data);
+  return res.data;
+};
+
+

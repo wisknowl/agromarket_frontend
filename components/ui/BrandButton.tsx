@@ -11,7 +11,7 @@ import {
 import Colors, { Radii } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'alert' | 'text' | 'canopy';
+export type ButtonVariant = 'primary' | 'cultivated' | 'secondary' | 'alert' | 'text' | 'canopy';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
 interface BrandButtonProps extends PressableProps {
@@ -63,7 +63,7 @@ export default function BrandButton({
       {loading ? (
         <ActivityIndicator
           size="small"
-          color={variant === 'primary' ? Colors.espresso : Colors.cultivated}
+          color={variant === 'primary' ? Colors.espresso : variant === 'cultivated' ? Colors.white : Colors.cultivated}
         />
       ) : (
         <>
@@ -112,6 +112,9 @@ const styles = StyleSheet.create({
   primary: {
     backgroundColor: Colors.gold,
   },
+  cultivated: {
+    backgroundColor: Colors.cultivated,
+  },
   canopy: {
     backgroundColor: Colors.canopy,
   },
@@ -146,6 +149,9 @@ const styles = StyleSheet.create({
 
   text_primary: {
     color: Colors.espresso,
+  },
+  text_cultivated: {
+    color: Colors.white,
   },
   text_canopy: {
     color: Colors.parchment,
