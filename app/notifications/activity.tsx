@@ -6,8 +6,10 @@ import {
   FlatList,
   TouchableOpacity,
   Image,
+  StatusBar,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ArrowLeft,
   Heart,
@@ -22,6 +24,7 @@ import { Fonts } from '@/constants/typography';
 
 export default function ActivityNotificationsScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState<'ALL' | 'LIKES' | 'COMMENTS' | 'REVIEWS'>('ALL');
   const [notifications, setNotifications] = useState<NotificationItem[]>(activityNotifications);
 
@@ -95,10 +98,17 @@ export default function ActivityNotificationsScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <ArrowLeft size={22} color={Colors.white} />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+
+      {/* Header - Clean, White Standard Mobile Header */}
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) + 8 }]}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+          activeOpacity={0.75}
+          accessibilityLabel="Go back"
+        >
+          <ArrowLeft size={20} color={Colors.espresso} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Activity & Interactions</Text>
@@ -113,6 +123,7 @@ export default function ActivityNotificationsScreen() {
             key={tab}
             style={[styles.filterChip, filter === tab && styles.activeFilterChip]}
             onPress={() => setFilter(tab)}
+            activeOpacity={0.75}
           >
             <Text style={[styles.filterChipText, filter === tab && styles.activeFilterChipText]}>
               {tab === 'ALL' ? 'All' : tab.charAt(0) + tab.slice(1).toLowerCase()}
@@ -125,7 +136,10 @@ export default function ActivityNotificationsScreen() {
         data={filteredData}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[
+          styles.listContent,
+          { paddingBottom: Math.max(insets.bottom, 20) + 24 },
+        ]}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
@@ -147,18 +161,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#FBF9F5',
   },
   header: {
-    backgroundColor: Colors.canopy,
-    paddingTop: 54,
-    paddingBottom: 16,
+    backgroundColor: '#FFFFFF',
+    paddingBottom: 14,
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.parchmentDim,
   },
   backButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.parchment,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -168,26 +183,26 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontFamily: Fonts.displayItalic,
-    fontSize: 17,
-    color: Colors.white,
+    fontSize: 18,
+    color: Colors.espresso,
   },
   headerSubtitle: {
     fontFamily: Fonts.body,
-    fontSize: 11,
-    color: Colors.parchment,
-    opacity: 0.8,
+    fontSize: 12,
+    color: Colors.text.secondary,
+    marginTop: 1,
   },
   filterRow: {
     flexDirection: 'row',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
     backgroundColor: Colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: Colors.parchmentDim,
     gap: 8,
   },
   filterChip: {
-    paddingVertical: 6,
+    paddingVertical: 7,
     paddingHorizontal: 14,
     borderRadius: Radii.pill,
     backgroundColor: Colors.parchment,
@@ -197,7 +212,7 @@ const styles = StyleSheet.create({
   },
   filterChipText: {
     fontFamily: Fonts.bodySemiBold,
-    fontSize: 12,
+    fontSize: 13,
     color: Colors.espresso,
   },
   activeFilterChipText: {
@@ -205,7 +220,6 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 16,
-    paddingBottom: 40,
   },
   card: {
     flexDirection: 'row',
@@ -214,7 +228,7 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: Colors.parchmentDim,
     ...Shadows.subtle,
   },
   unreadCard: {
@@ -250,17 +264,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    gap: 4,
-    marginBottom: 2,
+    gap: 5,
+    marginBottom: 3,
   },
   actorName: {
     fontFamily: Fonts.bodyBold,
-    fontSize: 13,
+    fontSize: 14,
     color: Colors.espresso,
   },
   actionType: {
     fontFamily: Fonts.body,
-    fontSize: 13,
+    fontSize: 14,
     color: Colors.text.secondary,
   },
   unreadDot: {
@@ -272,15 +286,15 @@ const styles = StyleSheet.create({
   },
   message: {
     fontFamily: Fonts.body,
-    fontSize: 12,
+    fontSize: 14,
     color: Colors.espresso,
-    lineHeight: 17,
+    lineHeight: 20,
     marginTop: 2,
     marginBottom: 4,
   },
   timestamp: {
     fontFamily: Fonts.body,
-    fontSize: 11,
+    fontSize: 12,
     color: Colors.text.muted,
   },
   emptyContainer: {
@@ -290,16 +304,17 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontFamily: Fonts.bodyBold,
-    fontSize: 16,
+    fontSize: 17,
     color: Colors.espresso,
     marginTop: 12,
   },
   emptySub: {
     fontFamily: Fonts.body,
-    fontSize: 13,
+    fontSize: 14,
     color: Colors.text.secondary,
     textAlign: 'center',
     marginTop: 4,
     maxWidth: '80%',
+    lineHeight: 20,
   },
 });

@@ -308,12 +308,9 @@ export default function PostCard({
           <Text style={styles.actionText}>{commentsDisplay}</Text>
         </Pressable>
 
-        {/* TikTok (...) Options & Share Button */}
+        {/* Options & Share Button */}
         <Pressable style={styles.actionButton} onPress={() => setShowActionSheet(true)}>
-          <View style={styles.moreIconCircle}>
-            <MoreHorizontal size={22} color={Colors.white} strokeWidth={2.5} />
-          </View>
-          <Text style={styles.actionText}>Options</Text>
+          <MoreHorizontal size={26} color={Colors.white} strokeWidth={2.2} />
         </Pressable>
       </View>
 
@@ -519,16 +516,6 @@ const styles = StyleSheet.create({
   actionButton: {
     alignItems: 'center',
     gap: 3,
-  },
-  moreIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   actionText: {
     fontFamily: Fonts.monoBold,

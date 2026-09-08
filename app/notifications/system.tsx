@@ -5,8 +5,10 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
+  StatusBar,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ArrowLeft,
   ShieldCheck,
@@ -22,6 +24,7 @@ import { Fonts } from '@/constants/typography';
 
 export default function SystemNotificationsScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [notifications, setNotifications] = useState<NotificationItem[]>(systemNotifications);
 
   const markAllRead = () => {
@@ -77,16 +80,27 @@ export default function SystemNotificationsScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Top Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <ArrowLeft size={22} color={Colors.white} />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+
+      {/* Top Header - Clean, White Standard Mobile Header */}
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) + 8 }]}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+          activeOpacity={0.75}
+          accessibilityLabel="Go back"
+        >
+          <ArrowLeft size={20} color={Colors.espresso} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>System & Platform Notices</Text>
+          <Text style={styles.headerTitle}>System Notices</Text>
           <Text style={styles.headerSubtitle}>Official AgroMarket alerts & escrow logs</Text>
         </View>
-        <TouchableOpacity style={styles.markReadBtn} onPress={markAllRead}>
+        <TouchableOpacity
+          style={styles.markReadBtn}
+          onPress={markAllRead}
+          activeOpacity={0.75}
+        >
           <Text style={styles.markReadText}>Mark read</Text>
         </TouchableOpacity>
       </View>
@@ -95,7 +109,10 @@ export default function SystemNotificationsScreen() {
         data={notifications}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[
+          styles.listContent,
+          { paddingBottom: Math.max(insets.bottom, 20) + 24 },
+        ]}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
@@ -115,51 +132,51 @@ const styles = StyleSheet.create({
     backgroundColor: '#FBF9F5',
   },
   header: {
-    backgroundColor: Colors.canopy,
-    paddingTop: 54,
-    paddingBottom: 16,
+    backgroundColor: '#FFFFFF',
+    paddingBottom: 14,
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.parchmentDim,
   },
   backButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.parchment,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerCenter: {
     flex: 1,
-    marginLeft: 12,
+    marginHorizontal: 12,
   },
   headerTitle: {
     fontFamily: Fonts.displayItalic,
-    fontSize: 17,
-    color: Colors.white,
+    fontSize: 18,
+    color: Colors.espresso,
   },
   headerSubtitle: {
     fontFamily: Fonts.body,
-    fontSize: 11,
-    color: Colors.parchment,
-    opacity: 0.8,
+    fontSize: 12,
+    color: Colors.text.secondary,
+    marginTop: 1,
   },
   markReadBtn: {
     paddingVertical: 6,
-    paddingHorizontal: 10,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    paddingHorizontal: 12,
+    backgroundColor: '#EEF8F1',
     borderRadius: Radii.pill,
   },
   markReadText: {
     fontFamily: Fonts.bodySemiBold,
-    fontSize: 11,
-    color: Colors.gold,
+    fontSize: 12,
+    color: Colors.cultivated,
   },
   listContent: {
     padding: 16,
-    paddingBottom: 40,
   },
   card: {
     flexDirection: 'row',
@@ -168,7 +185,7 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: Colors.parchmentDim,
     ...Shadows.subtle,
   },
   unreadCard: {
@@ -197,8 +214,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   title: {
-    fontFamily: Fonts.bodySemiBold,
-    fontSize: 14,
+    fontFamily: Fonts.bodyBold,
+    fontSize: 15,
     color: Colors.espresso,
     flex: 1,
   },
@@ -214,14 +231,14 @@ const styles = StyleSheet.create({
   },
   message: {
     fontFamily: Fonts.body,
-    fontSize: 13,
+    fontSize: 14,
     color: Colors.text.secondary,
-    lineHeight: 18,
+    lineHeight: 20,
     marginBottom: 6,
   },
   timestamp: {
     fontFamily: Fonts.body,
-    fontSize: 11,
+    fontSize: 12,
     color: Colors.text.muted,
   },
   emptyContainer: {
@@ -231,16 +248,17 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontFamily: Fonts.bodyBold,
-    fontSize: 16,
+    fontSize: 17,
     color: Colors.espresso,
     marginTop: 12,
   },
   emptySub: {
     fontFamily: Fonts.body,
-    fontSize: 13,
+    fontSize: 14,
     color: Colors.text.secondary,
     textAlign: 'center',
     marginTop: 4,
     maxWidth: '80%',
+    lineHeight: 20,
   },
 });

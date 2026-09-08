@@ -7,8 +7,10 @@ import {
   TouchableOpacity,
   Image,
   TextInput,
+  StatusBar,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ArrowLeft,
   Search,
@@ -26,6 +28,7 @@ import { Fonts } from '@/constants/typography';
 
 export default function FollowersHubScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<'PARTNERS' | 'NEW_FOLLOWERS'>('PARTNERS');
   const [searchQuery, setSearchQuery] = useState('');
   const [partnersList, setPartnersList] = useState<AgroPartner[]>(agroPartners);
@@ -62,7 +65,7 @@ export default function FollowersHubScreen() {
             {item.name}
           </Text>
           {item.isVerified && (
-            <ShieldCheck size={14} color={Colors.cultivated} style={{ marginLeft: 4 }} />
+            <ShieldCheck size={15} color={Colors.cultivated} style={{ marginLeft: 4 }} />
           )}
         </View>
 
@@ -84,6 +87,7 @@ export default function FollowersHubScreen() {
         <TouchableOpacity
           style={styles.messageBtn}
           onPress={() => router.push('/chat/c1')}
+          activeOpacity={0.75}
         >
           <MessageCircle size={15} color={Colors.white} />
           <Text style={styles.messageBtnText}>Chat</Text>
@@ -93,6 +97,7 @@ export default function FollowersHubScreen() {
           <TouchableOpacity
             style={styles.storyBtn}
             onPress={() => router.push('/partners')}
+            activeOpacity={0.75}
           >
             <Film size={13} color={Colors.cultivated} />
             <Text style={styles.storyBtnText}>Story</Text>
@@ -124,6 +129,7 @@ export default function FollowersHubScreen() {
         <TouchableOpacity
           style={[styles.followBackBtn, isFollowedBack && styles.followingBtn]}
           onPress={() => toggleFollowBack(item.id, item.actorName)}
+          activeOpacity={0.75}
         >
           {isFollowedBack ? (
             <>
@@ -143,22 +149,22 @@ export default function FollowersHubScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <ArrowLeft size={22} color={Colors.white} />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+
+      {/* Header - Clean, White Standard Mobile Header */}
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) + 8 }]}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+          activeOpacity={0.75}
+          accessibilityLabel="Go back"
+        >
+          <ArrowLeft size={20} color={Colors.espresso} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>AgroPartners & Followers</Text>
           <Text style={styles.headerSubtitle}>Mutual agricultural trade connections</Text>
         </View>
-        <TouchableOpacity
-          style={styles.streamShortcut}
-          onPress={() => router.push('/partners')}
-        >
-          <Film size={16} color={Colors.gold} />
-          <Text style={styles.streamShortcutText}>Stream</Text>
-        </TouchableOpacity>
       </View>
 
       {/* Search Input */}
@@ -180,6 +186,7 @@ export default function FollowersHubScreen() {
         <TouchableOpacity
           style={[styles.tabBtn, activeTab === 'PARTNERS' && styles.activeTabBtn]}
           onPress={() => setActiveTab('PARTNERS')}
+          activeOpacity={0.75}
         >
           <Text style={[styles.tabText, activeTab === 'PARTNERS' && styles.activeTabText]}>
             Mutual AgroPartners ({partnersList.length})
@@ -188,6 +195,7 @@ export default function FollowersHubScreen() {
         <TouchableOpacity
           style={[styles.tabBtn, activeTab === 'NEW_FOLLOWERS' && styles.activeTabBtn]}
           onPress={() => setActiveTab('NEW_FOLLOWERS')}
+          activeOpacity={0.75}
         >
           <Text style={[styles.tabText, activeTab === 'NEW_FOLLOWERS' && styles.activeTabText]}>
             New Followers ({followerNotifications.length})
@@ -197,9 +205,9 @@ export default function FollowersHubScreen() {
 
       {/* Info Banner */}
       <View style={styles.infoBanner}>
-        <Sparkles size={16} color={Colors.gold} />
+        <Sparkles size={18} color={Colors.gold} />
         <Text style={styles.infoBannerText}>
-          When you and another producer/buyer follow each other, you unlock **AgroPartners** trade privileges and priority offers!
+          When you and another producer/buyer follow each other, you unlock <Text style={{ fontFamily: Fonts.bodyBold, color: Colors.cultivated }}>AgroPartners</Text> trade privileges and priority offers!
         </Text>
       </View>
 
@@ -208,7 +216,10 @@ export default function FollowersHubScreen() {
           data={filteredPartners}
           renderItem={renderPartnerItem}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: Math.max(insets.bottom, 20) + 24 },
+          ]}
           showsVerticalScrollIndicator={false}
         />
       ) : (
@@ -216,7 +227,10 @@ export default function FollowersHubScreen() {
           data={followerNotifications}
           renderItem={renderFollowerNotificationItem}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: Math.max(insets.bottom, 20) + 24 },
+          ]}
           showsVerticalScrollIndicator={false}
         />
       )}
@@ -230,55 +244,42 @@ const styles = StyleSheet.create({
     backgroundColor: '#FBF9F5',
   },
   header: {
-    backgroundColor: Colors.canopy,
-    paddingTop: 54,
-    paddingBottom: 16,
+    backgroundColor: '#FFFFFF',
+    paddingBottom: 14,
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.parchmentDim,
   },
   backButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.parchment,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerCenter: {
     flex: 1,
-    marginLeft: 12,
+    marginHorizontal: 12,
   },
   headerTitle: {
     fontFamily: Fonts.displayItalic,
-    fontSize: 17,
-    color: Colors.white,
+    fontSize: 18,
+    color: Colors.espresso,
   },
   headerSubtitle: {
     fontFamily: Fonts.body,
-    fontSize: 11,
-    color: Colors.parchment,
-    opacity: 0.8,
-  },
-  streamShortcut: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: Radii.pill,
-    gap: 4,
-  },
-  streamShortcutText: {
-    fontFamily: Fonts.bodySemiBold,
-    fontSize: 11,
-    color: Colors.gold,
+    fontSize: 12,
+    color: Colors.text.secondary,
+    marginTop: 1,
   },
   searchContainer: {
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 6,
-    backgroundColor: Colors.white,
+    paddingTop: 10,
+    paddingBottom: 8,
+    backgroundColor: '#FFFFFF',
   },
   searchBox: {
     flexDirection: 'row',
@@ -286,26 +287,27 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.parchment,
     borderRadius: Radii.input,
     paddingHorizontal: 12,
-    height: 40,
+    height: 42,
+    borderWidth: 1,
+    borderColor: Colors.parchmentDim,
     gap: 8,
   },
   searchInput: {
     flex: 1,
     fontFamily: Fonts.body,
-    fontSize: 13,
+    fontSize: 14,
     color: Colors.espresso,
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: Colors.white,
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
-    paddingBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: Colors.parchmentDim,
   },
   tabBtn: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 12,
     alignItems: 'center',
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
@@ -315,7 +317,7 @@ const styles = StyleSheet.create({
   },
   tabText: {
     fontFamily: Fonts.bodySemiBold,
-    fontSize: 12,
+    fontSize: 13,
     color: Colors.text.secondary,
   },
   activeTabText: {
@@ -328,30 +330,31 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#FDE4BE',
     borderRadius: Radii.card,
-    margin: 12,
-    padding: 10,
-    gap: 8,
+    marginHorizontal: 14,
+    marginVertical: 10,
+    padding: 12,
+    gap: 10,
   },
   infoBannerText: {
     flex: 1,
     fontFamily: Fonts.body,
-    fontSize: 11,
+    fontSize: 13,
     color: Colors.espresso,
-    lineHeight: 15,
+    lineHeight: 18,
   },
   listContent: {
-    paddingHorizontal: 12,
-    paddingBottom: 40,
+    paddingHorizontal: 14,
+    paddingTop: 4,
   },
   partnerCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.white,
     borderRadius: Radii.card,
-    padding: 12,
-    marginBottom: 8,
+    padding: 14,
+    marginBottom: 10,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: Colors.parchmentDim,
     ...Shadows.subtle,
   },
   avatarWrapper: {
@@ -359,9 +362,9 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   avatar: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     backgroundColor: Colors.parchment,
   },
   storyRing: {
@@ -370,12 +373,13 @@ const styles = StyleSheet.create({
     left: -2,
     right: -2,
     bottom: -2,
-    borderRadius: 25,
+    borderRadius: 27,
     borderWidth: 2,
     borderColor: Colors.cultivated,
   },
   partnerInfo: {
     flex: 1,
+    marginRight: 8,
   },
   nameRow: {
     flexDirection: 'row',
@@ -383,40 +387,40 @@ const styles = StyleSheet.create({
   },
   partnerName: {
     fontFamily: Fonts.bodyBold,
-    fontSize: 13,
+    fontSize: 15,
     color: Colors.espresso,
   },
   farmName: {
     fontFamily: Fonts.body,
-    fontSize: 12,
+    fontSize: 13,
     color: Colors.text.secondary,
-    marginTop: 1,
+    marginTop: 2,
   },
   badgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: 5,
     gap: 6,
   },
   partnerBadge: {
     backgroundColor: '#EEF8F1',
     paddingVertical: 2,
-    paddingHorizontal: 6,
+    paddingHorizontal: 7,
     borderRadius: 4,
   },
   partnerBadgeText: {
     fontFamily: Fonts.bodyBold,
-    fontSize: 10,
+    fontSize: 11,
     color: Colors.cultivated,
   },
   regionText: {
     fontFamily: Fonts.body,
-    fontSize: 10,
+    fontSize: 12,
     color: Colors.text.muted,
   },
   timestampText: {
     fontFamily: Fonts.body,
-    fontSize: 10,
+    fontSize: 12,
     color: Colors.text.muted,
     marginTop: 3,
   },
@@ -428,42 +432,42 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.cultivated,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
     borderRadius: Radii.pill,
-    gap: 4,
+    gap: 5,
   },
   messageBtnText: {
     fontFamily: Fonts.bodySemiBold,
-    fontSize: 11,
+    fontSize: 12,
     color: Colors.white,
   },
   storyBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#EEF8F1',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
     borderRadius: Radii.pill,
     gap: 4,
   },
   storyBtnText: {
     fontFamily: Fonts.bodySemiBold,
-    fontSize: 10,
+    fontSize: 11,
     color: Colors.cultivated,
   },
   followBackBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.gold,
-    paddingVertical: 7,
-    paddingHorizontal: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
     borderRadius: Radii.pill,
-    gap: 4,
+    gap: 5,
   },
   followBackBtnText: {
     fontFamily: Fonts.bodyBold,
-    fontSize: 11,
+    fontSize: 12,
     color: Colors.white,
   },
   followingBtn: {
@@ -473,7 +477,7 @@ const styles = StyleSheet.create({
   },
   followingBtnText: {
     fontFamily: Fonts.bodyBold,
-    fontSize: 11,
+    fontSize: 12,
     color: Colors.cultivated,
   },
 });

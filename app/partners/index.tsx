@@ -1,7 +1,6 @@
 import React, { useState, useRef } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   FlatList,
   Dimensions,
@@ -12,10 +11,9 @@ import {
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, MessageCircle } from 'lucide-react-native';
-import { partnerPosts, agroPartners } from '@/mocks/data';
+import { partnerPosts } from '@/mocks/data';
 import PostCard from '@/components/PostCard';
-import Colors, { Radii } from '@/constants/colors';
-import { Fonts } from '@/constants/typography';
+import Colors from '@/constants/colors';
 
 const { height: screenHeight } = Dimensions.get('window');
 
@@ -48,27 +46,22 @@ export default function AgroPartnersFeedScreen() {
     >
       <StatusBar barStyle="light-content" backgroundColor="#000" translucent />
 
-      {/* Floating Header Overlay */}
+      {/* Floating Header Overlay - Clean transparent overlay without green banner or text */}
       <View style={[styles.floatingHeader, { top: Math.max(insets.top, 16) + 8 }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => router.back()}
+          activeOpacity={0.75}
+          accessibilityLabel="Go back"
+        >
           <ArrowLeft size={22} color={Colors.white} />
         </TouchableOpacity>
-
-        <View style={styles.partnerHeaderTitleBox}>
-          <View style={styles.titleRow}>
-            <Text style={styles.headerTitle}>AgroPartners Stream</Text>
-            <View style={styles.mutualPill}>
-              <Text style={styles.mutualPillText}>🤝 Mutual Only</Text>
-            </View>
-          </View>
-          <Text style={styles.headerSub}>
-            Direct harvest stories from {agroPartners.length} connected partners
-          </Text>
-        </View>
 
         <TouchableOpacity
           style={styles.inboxShortcut}
           onPress={() => router.push('/(tabs)/inbox')}
+          activeOpacity={0.75}
+          accessibilityLabel="Open inbox"
         >
           <MessageCircle size={20} color={Colors.white} />
         </TouchableOpacity>
@@ -112,61 +105,31 @@ const styles = StyleSheet.create({
   },
   floatingHeader: {
     position: 'absolute',
-    left: 12,
-    right: 12,
+    left: 16,
+    right: 16,
     zIndex: 99,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(23, 58, 32, 0.82)',
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: Radii.pill,
+    backgroundColor: 'transparent',
   },
   backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  partnerHeaderTitleBox: {
-    flex: 1,
-    marginHorizontal: 10,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  headerTitle: {
-    fontFamily: Fonts.displayItalic,
-    fontSize: 16,
-    color: Colors.white,
-  },
-  mutualPill: {
-    backgroundColor: Colors.gold,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: Radii.pill,
-  },
-  mutualPillText: {
-    fontFamily: Fonts.bodyBold,
-    fontSize: 9,
-    color: Colors.espresso,
-  },
-  headerSub: {
-    fontFamily: Fonts.body,
-    fontSize: 11,
-    color: Colors.parchment,
-    opacity: 0.85,
-  },
   inboxShortcut: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
     alignItems: 'center',
     justifyContent: 'center',
   },
