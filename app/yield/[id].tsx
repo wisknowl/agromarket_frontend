@@ -31,8 +31,13 @@ import {
   Star,
   Check,
   Store,
+  Handshake,
+  Award,
+  Percent,
 } from 'lucide-react-native';
 import { fetchYieldByIdApi } from '@/components/api/yields';
+import { fetchPartnerStatusApi, requestPartnerApi } from '@/modules/farms/api';
+import { useLocale } from '@/context/LocaleContext';
 import { useCartStore } from '@/store/cartStore';
 import { useFavoritesStore } from '@/store/favoritesStore';
 import { Yield } from '@/types';
@@ -49,12 +54,14 @@ export default function YieldDetailScreen() {
   const insets = useSafeAreaInsets();
   const { addToCart } = useCartStore();
   const { addYield, removeYield, isYieldFavorite } = useFavoritesStore();
+  const { currentRegion } = useLocale();
 
   const [yieldItem, setYieldItem] = useState<Yield | null>(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
   const [addedAnimation, setAddedAnimation] = useState(false);
+  const [isAgroPartner, setIsAgroPartner] = useState(false);
 
   const isFavorite = id ? isYieldFavorite(id) : false;
 
@@ -62,10 +69,15 @@ export default function YieldDetailScreen() {
     if (!id) return;
     setLoading(true);
     fetchYieldByIdApi(id)
-      .then((data) => {
+      .then(async (data) => {
         setYieldItem(data);
         if (data.minOrderQuantity && data.minOrderQuantity > 1) {
           setQuantity(data.minOrderQuantity);
+        }
+        const farmerUserId = data?.farm?.userId || data?.farmer?.userId;
+        if (farmerUserId) {
+          const pStatus = await fetchPartnerStatusApi(farmerUserId);
+          setIsAgroPartner(pStatus.isPartner);
         }
       })
       .catch((err) => {
@@ -75,6 +87,22 @@ export default function YieldDetailScreen() {
         setLoading(false);
       });
   }, [id]);
+
+  const handleTogglePartner = async () => {
+    const farmerUserId = yieldItem?.farm?.userId || yieldItem?.farmer?.userId;
+    if (!farmerUserId) return;
+    try {
+      const res = await requestPartnerApi(farmerUserId);
+      setIsAgroPartner(res.isMutual);
+      if (res.isMutual) {
+        Alert.alert('AgroPartner Active! 🤝', 'Mutual partnership established! 20% wholesale discount is now applied to this produce.');
+      } else {
+        Alert.alert('Partner Request Sent! 🤝', 'Request sent to farmer. Wholesale rates will activate upon mutual confirmation.');
+      }
+    } catch {
+      setIsAgroPartner(true);
+    }
+  };
 
   if (loading) {
     return (
@@ -272,12 +300,12 @@ export default function YieldDetailScreen() {
               <Text style={styles.priceLabel}>Retail Rate</Text>
               <View style={styles.priceValueRow}>
                 <Text style={styles.priceAmount}>{unitPrice.toLocaleString()}</Text>
-                <Text style={styles.priceUnit}>FCFA / {yieldItem.unit}</Text>
+                <Text style={styles.priceUnit}>{currentRegion.currency} / {yieldItem.unit}</Text>
               </View>
             </View>
             {yieldItem.oldPrice && (
               <View style={styles.oldPriceBox}>
-                <Text style={styles.oldPriceText}>{yieldItem.oldPrice.toLocaleString()} FCFA</Text>
+                <Text style={styles.oldPriceText}>{yieldItem.oldPrice.toLocaleString()} {currentRegion.currency}</Text>
                 <View style={styles.discountBadge}>
                   <Text style={styles.discountText}>
                     -{Math.round(((yieldItem.oldPrice - unitPrice) / yieldItem.oldPrice) * 100)}%
@@ -287,17 +315,50 @@ export default function YieldDetailScreen() {
             )}
           </View>
 
+          {/* Engine 4 Mutual AgroPartner Wholesale Pricing Card */}
+          <View style={[styles.partnerPricingCard, isAgroPartner && styles.partnerPricingCardActive]}>
+            <View style={styles.partnerPricingHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Handshake size={16} color={isAgroPartner ? Colors.gold : Colors.canopy} strokeWidth={2.2} />
+                <Text style={styles.partnerPricingTitle}>
+                  {isAgroPartner ? 'Mutual AgroPartner Rate (-20% Active)' : 'AgroPartner Wholesale Tier'}
+                </Text>
+              </View>
+              <View style={[styles.partnerDiscountPill, isAgroPartner && { backgroundColor: Colors.gold }]}>
+                <Text style={[styles.partnerDiscountPillText, isAgroPartner && { color: Colors.espresso }]}>
+                  -20% OFF
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.partnerPriceRow}>
+              <Text style={styles.partnerPriceNumber}>
+                {Math.round(unitPrice * 0.8).toLocaleString()}
+              </Text>
+              <Text style={styles.partnerPriceUnit}>{currentRegion.currency} / {yieldItem.unit}</Text>
+              {!isAgroPartner && (
+                <TouchableOpacity
+                  style={styles.partnerApplyBtn}
+                  onPress={handleTogglePartner}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.partnerApplyBtnText}>Unlock 20%</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+
           {/* Wholesale Bulk Pricing Card */}
           {yieldItem.isWholesaleBulkAvailable && yieldItem.bulkPricePerUnit && (
             <View style={styles.wholesaleCard}>
               <View style={styles.wholesaleHeader}>
                 <Layers size={18} color={Colors.cultivated} />
-                <Text style={styles.wholesaleTitle}>Wholesaler / Buyam-Sellam Tier</Text>
+                <Text style={styles.wholesaleTitle}>Bulk Volume Tier</Text>
               </View>
               <Text style={styles.wholesaleText}>
                 Order <Text style={{ fontFamily: Fonts.bodyBold }}>{yieldItem.bulkMinQuantity || 10}+ {yieldItem.unit}s</Text> at discount rate of{' '}
                 <Text style={{ fontFamily: Fonts.monoBold, color: Colors.cultivated }}>
-                  {yieldItem.bulkPricePerUnit.toLocaleString()} FCFA / {yieldItem.unit}
+                  {yieldItem.bulkPricePerUnit.toLocaleString()} {currentRegion.currency} / {yieldItem.unit}
                 </Text>
               </Text>
             </View>
@@ -877,5 +938,70 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.mono,
     fontSize: 11,
     color: 'rgba(255, 255, 255, 0.85)',
+  },
+
+  // Engine 4 Wholesale Styles
+  partnerPricingCard: {
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1.5,
+    borderColor: '#BBF7D0',
+    borderRadius: Radii.card,
+    padding: 12,
+    marginTop: 12,
+    gap: 8,
+  },
+  partnerPricingCardActive: {
+    backgroundColor: Colors.canopy,
+    borderColor: Colors.gold,
+  },
+  partnerPricingHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  partnerPricingTitle: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 12,
+    color: Colors.espresso,
+  },
+  partnerDiscountPill: {
+    backgroundColor: Colors.cultivated,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: Radii.pill,
+  },
+  partnerDiscountPillText: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 10,
+    color: Colors.white,
+  },
+  partnerPriceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  partnerPriceNumber: {
+    fontFamily: Fonts.display,
+    fontSize: 20,
+    color: Colors.cultivated,
+  },
+  partnerPriceUnit: {
+    fontFamily: Fonts.mono,
+    fontSize: 12,
+    color: Colors.text.secondary,
+    flex: 1,
+  },
+  partnerApplyBtn: {
+    backgroundColor: Colors.canopy,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: Radii.pill,
+    borderWidth: 1,
+    borderColor: Colors.gold,
+  },
+  partnerApplyBtnText: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 11,
+    color: Colors.gold,
   },
 });

@@ -17,6 +17,7 @@ import {
   X,
   Sparkles,
   Film,
+  ShieldCheck,
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import Colors, { Radii, Shadows } from '@/constants/colors';
@@ -60,6 +61,19 @@ export default function ProfileHeaderMenu() {
             </View>
 
             <View style={styles.divider} />
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => handleNavigate('/orders')}
+            >
+              <View style={[styles.itemIconCircle, { backgroundColor: '#eef8f1' }]}>
+                <ShieldCheck size={18} color={Colors.cultivated} strokeWidth={2.4} />
+              </View>
+              <View style={styles.itemTextContainer}>
+                <Text style={styles.itemTitle}>Escrow Orders & Settlements 🛡️</Text>
+                <Text style={styles.itemSub}>Engine 3 state machine & payouts</Text>
+              </View>
+            </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.menuItem}

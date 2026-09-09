@@ -38,6 +38,7 @@ export const BrandColors = {
   text: {
     primary: '#241A12',    // Espresso
     secondary: '#5C5245',  // Medium warm brown
+    tertiary: '#9C9284',   // Muted grey/brown
     muted: '#9C9284',      // Silver/grey muted text
     light: '#F6EEDD',      // Parchment text for dark surfaces
     white: '#FFFFFF',

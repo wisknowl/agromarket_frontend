@@ -30,6 +30,7 @@ import Colors from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
 
 import { FeatureFlagProvider } from '../core/feature-flags/useFeatureFlags';
+import { LocaleProvider } from '@/context/LocaleContext';
 
 export const unstable_settings = {
   initialRouteName: 'auth/login',
@@ -85,7 +86,9 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: Colors.white }}>
         <FeatureFlagProvider>
-          <RootLayoutNav />
+          <LocaleProvider>
+            <RootLayoutNav />
+          </LocaleProvider>
         </FeatureFlagProvider>
       </GestureHandlerRootView>
     </SafeAreaProvider>
@@ -202,6 +205,20 @@ function RootLayoutNav() {
         <Stack.Screen name="fintech/loans" options={{ headerShown: false }} />
         <Stack.Screen name="settings/settings" options={{ headerShown: false }} />
         <Stack.Screen name="become-farmer" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="orders/[id]"
+          options={{
+            headerShown: false,
+            presentation: 'card',
+          }}
+        />
+        <Stack.Screen
+          name="orders/index"
+          options={{
+            headerShown: false,
+            presentation: 'card',
+          }}
+        />
       </Stack>
     </>
   );

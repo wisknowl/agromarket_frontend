@@ -22,6 +22,7 @@ export const Fonts = {
 
   // JetBrains Mono (Figures ONLY)
   mono: 'JetBrainsMono_500Medium',
+  monoMedium: 'JetBrainsMono_500Medium',
   monoBold: 'JetBrainsMono_700Bold',
 };
 

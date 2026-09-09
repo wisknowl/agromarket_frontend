@@ -36,3 +36,23 @@ export const createProduceApi = async (produceData: any): Promise<any> => {
   return res.data;
 };
 
+export const fetchPartnerStatusApi = async (targetUserId: string): Promise<{ isPartner: boolean; isMutual: boolean; wholesaleDiscountPercent: number }> => {
+  try {
+    const res = await apiClient.get(`/farms/partner-status/${targetUserId}`);
+    return res.data;
+  } catch {
+    return { isPartner: false, isMutual: false, wholesaleDiscountPercent: 0 };
+  }
+};
+
+export const requestPartnerApi = async (targetUserId: string): Promise<{ success: boolean; isMutual: boolean }> => {
+  const res = await apiClient.post(`/farms/partner-request/${targetUserId}`);
+  return res.data;
+};
+
+export const fetchAgroPartnersApi = async (): Promise<any[]> => {
+  const res = await apiClient.get('/farms/partners');
+  return res.data.partners || [];
+};
+
+

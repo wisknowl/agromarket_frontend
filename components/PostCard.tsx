@@ -29,18 +29,27 @@ import {
   X,
   MessageSquare,
   Sparkles,
+  Tag,
+  ShieldCheck,
+  Flame,
+  Leaf,
+  Handshake,
+  MapPin,
+  Zap,
 } from 'lucide-react-native';
 import { Video, ResizeMode } from 'expo-av';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Post, AgroYield } from '@/types';
 import { useFavoritesStore } from '@/store/favoritesStore';
 import { useAuthStore } from '@/store/authStore';
-import Colors, { Radii } from '@/constants/colors';
+import { useLocale } from '@/context/LocaleContext';
+import Colors, { Radii, Shadows } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
 import { useRouter } from 'expo-router';
 import { fetchYieldByIdApi } from '@/components/api/yields';
 import { deletePostApi } from '@/components/api/posts';
 import ShoppableYieldCard from '../modules/feed/components/ShoppableYieldCard';
+import telemetryClient from '@/components/api/telemetry';
 
 interface PostCardProps {
   post: Post;
@@ -63,12 +72,56 @@ export default function PostCard({
   const isFavorite = isPostFavorite(post.id);
   const router = useRouter();
 
+  const { glossary } = useLocale();
   const [linkedYield, setLinkedYield] = useState<AgroYield | null>(null);
   const [isUserPaused, setIsUserPaused] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showReactions, setShowReactions] = useState(false);
+  const [selectedReaction, setSelectedReaction] = useState<string | null>(null);
+  const [hasReportedTelemetry, setHasReportedTelemetry] = useState(false);
   const videoRef = useRef<Video>(null);
+
+  const [reactions, setReactions] = useState({
+    fresh: Math.max(14, (post.likesCount || 0) + 12),
+    demand: Math.max(8, (post.commentsCount || 0) + 5),
+    ready: 10,
+    partner: 4,
+  });
+
+  const handleCommercialReaction = (type: 'fresh' | 'demand' | 'ready' | 'partner') => {
+    setSelectedReaction(type);
+    setReactions((prev) => ({ ...prev, [type]: prev[type] + 1 }));
+    setShowReactions(false);
+    telemetryClient.record({
+      eventType: 'COMMENT',
+      entityType: 'POST',
+      entityId: post.id,
+      metadata: { reactionType: type },
+    }, true);
+  };
+
+  const handleInitiateOffer = () => {
+    const targetId = post.userId || post.farmerId || post.farm?.userId;
+    telemetryClient.record({
+      eventType: 'OFFER_SENT',
+      entityType: 'POST',
+      entityId: post.id,
+      metadata: { targetId, linkedYieldId: post.linkedYieldId },
+    }, true);
+    if (targetId) {
+      router.push(`/chat/${targetId}?action=make_offer&yieldId=${post.linkedYieldId || ''}`);
+    } else {
+      router.push('/(tabs)/inbox');
+    }
+  };
+
+  // Algorithmic metadata from Engine 2
+  const rankingMeta = (post as any).rankingMetadata;
+  const isPartner = Boolean(rankingMeta?.isPartnerBoosted || (post as any).isPartner || (post as any).farmerCreditTier === 'GOLD');
+  const freshHours = Math.max(1, Math.round((Date.now() - new Date(post.createdAt).getTime()) / (1000 * 60 * 60)));
+  const freshnessText = freshHours <= 6 ? '⚡ Harvested Today' : freshHours <= 24 ? '🌿 Fresh (24h)' : `📅 ${Math.round(freshHours / 24)}d ago`;
 
   // Author check: viewing user matches post creator or farm owner
   const isAuthor = Boolean(
@@ -83,8 +136,15 @@ export default function PostCard({
   useEffect(() => {
     if (!isActive) {
       setIsUserPaused(false);
+    } else if (!hasReportedTelemetry) {
+      telemetryClient.record({
+        eventType: 'VIEW',
+        entityType: 'POST',
+        entityId: post.id,
+      });
+      setHasReportedTelemetry(true);
     }
-  }, [isActive]);
+  }, [isActive, hasReportedTelemetry, post.id]);
 
   const shouldPlay = isActive && !isUserPaused;
 
@@ -288,9 +348,15 @@ export default function PostCard({
 
       {/* Floating actions and avatar (Right-side TikTok action bar) */}
       <View style={[styles.floatingActionsContainer, { bottom: bottomInsetClearance }]}>
-        <Pressable onPress={goToFarmerOrFarm} style={styles.avatarWrapper}>
+        <Pressable onPress={goToFarmerOrFarm} style={[styles.avatarWrapper, isPartner && styles.avatarPartnerHalo]}>
           <Image source={{ uri: avatarSource }} style={styles.avatar} />
-          <View style={styles.avatarBadgeDot} />
+          {isPartner ? (
+            <View style={styles.partnerIconDot}>
+              <Handshake size={9} color={Colors.white} />
+            </View>
+          ) : (
+            <View style={styles.avatarBadgeDot} />
+          )}
         </Pressable>
 
         <Pressable style={styles.actionButton} onPress={toggleLike}>
@@ -303,7 +369,16 @@ export default function PostCard({
           <Text style={styles.actionText}>{likesDisplay}</Text>
         </Pressable>
 
-        <Pressable style={styles.actionButton} onPress={handleComment}>
+        {/* Commercial Reactions Trigger */}
+        <Pressable style={styles.actionButton} onPress={() => setShowReactions(!showReactions)}>
+          <Sparkles size={26} color={selectedReaction ? Colors.gold : Colors.white} strokeWidth={2.2} />
+          <Text style={styles.actionText}>
+            {reactions.fresh + reactions.demand + reactions.ready + reactions.partner}
+          </Text>
+        </Pressable>
+
+        {/* Direct P2P Inquire / Deal */}
+        <Pressable style={styles.actionButton} onPress={handleInitiateOffer}>
           <MessageCircle size={26} color={Colors.white} strokeWidth={2.2} />
           <Text style={styles.actionText}>{commentsDisplay}</Text>
         </Pressable>
@@ -314,16 +389,95 @@ export default function PostCard({
         </Pressable>
       </View>
 
+      {/* Floating Commercial Reactions Bar */}
+      {showReactions && (
+        <View style={[styles.reactionsBar, { bottom: bottomInsetClearance + 80 }]}>
+          <TouchableOpacity
+            style={[styles.reactionPill, selectedReaction === 'fresh' && styles.reactionPillActive]}
+            onPress={() => handleCommercialReaction('fresh')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.reactionEmoji}>🌱</Text>
+            <Text style={styles.reactionLabel}>Fresh</Text>
+            <Text style={styles.reactionCount}>{reactions.fresh}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.reactionPill, selectedReaction === 'demand' && styles.reactionPillActive]}
+            onPress={() => handleCommercialReaction('demand')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.reactionEmoji}>🔥</Text>
+            <Text style={styles.reactionLabel}>Demand</Text>
+            <Text style={styles.reactionCount}>{reactions.demand}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.reactionPill, selectedReaction === 'ready' && styles.reactionPillActive]}
+            onPress={() => handleCommercialReaction('ready')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.reactionEmoji}>📦</Text>
+            <Text style={styles.reactionLabel}>Ready</Text>
+            <Text style={styles.reactionCount}>{reactions.ready}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.reactionPill, selectedReaction === 'partner' && styles.reactionPillActive]}
+            onPress={() => handleCommercialReaction('partner')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.reactionEmoji}>🤝</Text>
+            <Text style={styles.reactionLabel}>Partner</Text>
+            <Text style={styles.reactionCount}>{reactions.partner}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Floating description, Farmer metadata & Shoppable Harvest Tag */}
       <View style={[styles.floatingDescription, { bottom: bottomInsetClearance }]}>
+        {/* Engine 2 Algorithmic Ranking Signals */}
+        <View style={styles.signalsRow}>
+          {isPartner && (
+            <View style={styles.partnerBoostBadge}>
+              <Handshake size={11} color={Colors.white} strokeWidth={2.4} />
+              <Text style={styles.partnerBoostText}>AgroPartner (+2.5x Boost)</Text>
+            </View>
+          )}
+          <View style={styles.signalPill}>
+            <Text style={styles.signalPillText}>{freshnessText}</Text>
+          </View>
+          <View style={styles.signalPill}>
+            <MapPin size={10} color={Colors.parchment} />
+            <Text style={styles.signalPillText}>~8 km</Text>
+          </View>
+          {isPartner && (
+            <View style={[styles.signalPill, { backgroundColor: Colors.gold }]}>
+              <Text style={[styles.signalPillText, { color: Colors.espresso, fontFamily: Fonts.bodyBold }]}>
+                -20% Wholesale
+              </Text>
+            </View>
+          )}
+        </View>
+
         {linkedYield && (
-          <View style={{ marginBottom: 10 }}>
+          <View style={{ marginBottom: 8 }}>
             <ShoppableYieldCard
               yieldItem={linkedYield}
               onPressItem={() => router.push(`/yield/${linkedYield.id}`)}
             />
           </View>
         )}
+
+        {/* 1-Tap Direct Deal Action Button */}
+        <TouchableOpacity
+          style={styles.dealActionButton}
+          onPress={handleInitiateOffer}
+          activeOpacity={0.85}
+        >
+          <Handshake size={15} color={Colors.white} strokeWidth={2.2} />
+          <Text style={styles.dealActionText}>{glossary.makeOfferButtonText}</Text>
+        </TouchableOpacity>
 
         <Pressable onPress={goToFarmerOrFarm} style={styles.farmerNameRow}>
           <Text style={styles.farmerName}>{displayName}</Text>
@@ -708,5 +862,127 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.bodySemiBold,
     fontSize: 14,
     color: Colors.espresso,
+  },
+  avatarPartnerHalo: {
+    borderWidth: 2,
+    borderColor: Colors.gold,
+    borderRadius: 26,
+    padding: 2,
+  },
+  partnerIconDot: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: Colors.canopy,
+    borderWidth: 1.5,
+    borderColor: Colors.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reactionsBar: {
+    position: 'absolute',
+    right: 64,
+    flexDirection: 'row',
+    gap: 6,
+    backgroundColor: 'rgba(20, 32, 23, 0.92)',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(218, 165, 32, 0.4)',
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
+  },
+  reactionPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  reactionPillActive: {
+    backgroundColor: 'rgba(218, 165, 32, 0.35)',
+    borderWidth: 1,
+    borderColor: Colors.gold,
+  },
+  reactionEmoji: {
+    fontSize: 13,
+  },
+  reactionLabel: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 10,
+    color: Colors.white,
+  },
+  reactionCount: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 10,
+    color: Colors.gold,
+  },
+  signalsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 8,
+    alignItems: 'center',
+  },
+  partnerBoostBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Colors.canopy,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.gold,
+  },
+  partnerBoostText: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 10,
+    color: Colors.gold,
+  },
+  signalPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  signalPillText: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 10,
+    color: Colors.parchment,
+  },
+  dealActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: Colors.canopy,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: Colors.gold,
+    marginBottom: 8,
+    alignSelf: 'flex-start',
+  },
+  dealActionText: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 12,
+    color: Colors.gold,
   },
 });

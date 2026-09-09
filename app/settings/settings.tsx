@@ -14,6 +14,7 @@ import { Fonts } from '@/constants/typography';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/store/authStore';
 import { useTranslation } from '@/constants/translations';
+import { useLocale } from '@/context/LocaleContext';
 import {
   LogOut,
   ArrowLeft,
@@ -48,6 +49,15 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { logout, user } = useAuthStore();
   const { t, language, setLanguage } = useTranslation();
+  const {
+    language: userLanguage,
+    setLanguage: setLocaleLanguage,
+    marketRegion,
+    setMarketRegion,
+    glossary,
+    supportedLanguages,
+    supportedRegions,
+  } = useLocale();
 
   const [activePrivacyItem, setActivePrivacyItem] = useState<PrivacySettingItem | null>(null);
   const [privacyModalVisible, setPrivacyModalVisible] = useState(false);
@@ -205,30 +215,72 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* Section 2: Language Selection */}
+        {/* Section 2: Tri-Context Global Localization (Language, Region, Cultural Slangs) */}
         <View style={styles.section}>
           <View style={styles.sectionHeaderRow}>
             <Globe size={18} color={Colors.gold} />
-            <Text style={styles.sectionHeader}>Language / Langue (Cameroon)</Text>
+            <Text style={styles.sectionHeader}>Global Localization & Market Corridor</Text>
           </View>
+          <Text style={styles.sectionDesc}>
+            Tailor your experience: choose your preferred speaking language independently from your operating market corridor.
+          </Text>
 
-          <View style={styles.langRow}>
-            <TouchableOpacity
-              style={[styles.langCard, language === 'en' && styles.langCardActive]}
-              onPress={() => setLanguage('en')}
-            >
-              <Text style={[styles.langText, language === 'en' && styles.langTextActive]}>
-                🇨🇲 English (Cameroon)
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.langCard, language === 'fr' && styles.langCardActive]}
-              onPress={() => setLanguage('fr')}
-            >
-              <Text style={[styles.langText, language === 'fr' && styles.langTextActive]}>
-                🇨🇲 Français (Cameroun)
-              </Text>
-            </TouchableOpacity>
+          {/* Sub-section A: User Language */}
+          <Text style={[styles.settingTitle, { marginTop: 10, marginBottom: 8 }]}>Speaking Language</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.langPillRow}>
+            {supportedLanguages.map((lang) => (
+              <TouchableOpacity
+                key={lang.code}
+                style={[styles.langPill, userLanguage === lang.code && styles.langPillActive]}
+                onPress={() => {
+                  setLocaleLanguage(lang.code as any);
+                  if (lang.code === 'en' || lang.code === 'fr') {
+                    setLanguage(lang.code);
+                  }
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.langFlag}>{lang.flag}</Text>
+                <Text style={[styles.langPillText, userLanguage === lang.code && styles.langPillTextActive]}>
+                  {lang.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          {/* Sub-section B: Market Corridor & Currency */}
+          <Text style={[styles.settingTitle, { marginTop: 14, marginBottom: 8 }]}>Active Market & Currency Corridor</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.langPillRow}>
+            {supportedRegions.map((reg) => (
+              <TouchableOpacity
+                key={reg.code}
+                style={[styles.langPill, marketRegion === reg.code && styles.langPillActive]}
+                onPress={() => setMarketRegion(reg.code as any)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.langFlag}>{reg.flag}</Text>
+                <Text style={[styles.langPillText, marketRegion === reg.code && styles.langPillTextActive]}>
+                  {reg.name} ({reg.currency})
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          {/* Sub-section C: Cultural Glossary Preview */}
+          <View style={styles.glossaryPreviewBox}>
+            <Text style={styles.glossaryTitle}>Cultural Glossary in this Context:</Text>
+            <View style={styles.glossaryItemRow}>
+              <Text style={styles.glossaryLabel}>Merchant / Trader:</Text>
+              <Text style={styles.glossaryValue}>{glossary.wholesalerLabel}</Text>
+            </View>
+            <View style={styles.glossaryItemRow}>
+              <Text style={styles.glossaryLabel}>Cooperative Savings:</Text>
+              <Text style={styles.glossaryValue}>{glossary.coopCreditLabel}</Text>
+            </View>
+            <View style={styles.glossaryItemRow}>
+              <Text style={styles.glossaryLabel}>Produce Unit:</Text>
+              <Text style={styles.glossaryValue}>{glossary.bulkUnitLabel}</Text>
+            </View>
           </View>
         </View>
 
@@ -438,6 +490,67 @@ const styles = StyleSheet.create({
   },
   langTextActive: {
     fontFamily: Fonts.bodyBold,
+    color: Colors.cultivated,
+  },
+  langPillRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingVertical: 4,
+  },
+  langPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.parchment,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: Radii.pill,
+    borderWidth: 1.5,
+    borderColor: Colors.parchmentDim,
+  },
+  langPillActive: {
+    backgroundColor: Colors.canopy,
+    borderColor: Colors.gold,
+  },
+  langFlag: {
+    fontSize: 14,
+  },
+  langPillText: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 12.5,
+    color: Colors.espresso,
+  },
+  langPillTextActive: {
+    fontFamily: Fonts.bodyBold,
+    color: Colors.gold,
+  },
+  glossaryPreviewBox: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: Radii.card,
+    padding: 12,
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  glossaryTitle: {
+    fontFamily: Fonts.display,
+    fontSize: 12,
+    color: Colors.espresso,
+    marginBottom: 8,
+  },
+  glossaryItemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 3,
+  },
+  glossaryLabel: {
+    fontFamily: Fonts.body,
+    fontSize: 11.5,
+    color: Colors.text.secondary,
+  },
+  glossaryValue: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 12,
     color: Colors.cultivated,
   },
   infoBox: {

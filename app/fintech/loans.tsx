@@ -35,6 +35,12 @@ import {
   Check,
   RefreshCw,
   ShoppingBag,
+  BarChart3,
+  Target,
+  ChevronDown,
+  ChevronUp,
+  Shield,
+  Zap,
 } from 'lucide-react-native';
 import Colors, { Radii, Shadows } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
@@ -68,6 +74,7 @@ export default function LoansScreen() {
   const [myLoans, setMyLoans] = useState<LoanApplication[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<LoanProduct | null>(null);
   const [tierFilter, setTierFilter] = useState<string>('ALL');
+  const [showRadar, setShowRadar] = useState(true);
 
   // Form states
   const [requestedAmount, setRequestedAmount] = useState('500000');
@@ -118,15 +125,60 @@ export default function LoansScreen() {
     }
   };
 
-  const currentTier = scoreData?.creditTier || currentUser?.farmerProfile?.creditTier || 'GOLD';
-  const creditScore = scoreData?.creditScore || 780;
+  const currentTier = scoreData?.tier || scoreData?.creditTier || currentUser?.farmerProfile?.creditTier || 'GOLD';
+  const creditScore = scoreData?.ficoScore || scoreData?.creditScore || 780;
+  const isColdStart = scoreData?.isColdStart ?? (scoreData?.completedOrders !== undefined ? scoreData.completedOrders < 3 : false);
+  const autoEscrowDeductionRate = scoreData?.autoEscrowDeductionRate ?? (currentTier === 'GOLD' ? 0.10 : currentTier === 'SILVER' ? 0.15 : 0.20);
+  const deductionPct = Math.round(autoEscrowDeductionRate * 100);
+
+  const radar = scoreData?.normalizedRadar || {
+    salesFulfillment: 85,
+    listingFrequency: 75,
+    reviewBayesian: 92,
+    deliveryReliability: 98,
+    networkReach: 65,
+    engagementVelocity: 72,
+    repaymentIntegrity: 100,
+    kycCompliance: 100,
+  };
+
+  const weights = scoreData?.weightsApplied || (isColdStart ? {
+    kycCompliance: 0.40,
+    listingFrequency: 0.30,
+    engagementVelocity: 0.20,
+    networkReach: 0.10,
+    salesFulfillment: 0.00,
+    deliveryReliability: 0.00,
+    reviewBayesian: 0.00,
+    repaymentIntegrity: 0.00,
+  } : {
+    repaymentIntegrity: 0.25,
+    salesFulfillment: 0.20,
+    deliveryReliability: 0.15,
+    reviewBayesian: 0.12,
+    listingFrequency: 0.10,
+    engagementVelocity: 0.08,
+    networkReach: 0.05,
+    kycCompliance: 0.05,
+  });
+
+  const BEHAVIORAL_METRICS = [
+    { key: 'repaymentIntegrity' as const, label: 'Loan Repayment Integrity', code: 'M7', weight: `${Math.round((weights.repaymentIntegrity ?? 0.25) * 100)}%`, icon: '💳', desc: '100% on-time escrow recovery' },
+    { key: 'salesFulfillment' as const, label: 'Sales Fulfillment Volume', code: 'M1', weight: `${Math.round((weights.salesFulfillment ?? 0.20) * 100)}%`, icon: '📦', desc: 'Completed escrow deliveries' },
+    { key: 'deliveryReliability' as const, label: 'Dispute-Free Delivery Ratio', code: 'M4', weight: `${Math.round((weights.deliveryReliability ?? 0.15) * 100)}%`, icon: '🛡️', desc: 'Deliveries without buyer dispute' },
+    { key: 'reviewBayesian' as const, label: 'Bayesian Customer Rating', code: 'M3', weight: `${Math.round((weights.reviewBayesian ?? 0.12) * 100)}%`, icon: '⭐', desc: 'Prior-weighted buyer satisfaction' },
+    { key: 'listingFrequency' as const, label: 'Produce Varieties & Updates', code: 'M2', weight: `${Math.round((weights.listingFrequency ?? 0.10) * 100)}%`, icon: '🌿', desc: 'Active catalog regularity' },
+    { key: 'engagementVelocity' as const, label: 'Story & Offer Engagement', code: 'M6', weight: `${Math.round((weights.engagementVelocity ?? 0.08) * 100)}%`, icon: '⚡', desc: 'Likes, comments, and P2P offers' },
+    { key: 'networkReach' as const, label: 'Trade Follower Network', code: 'M5', weight: `${Math.round((weights.networkReach ?? 0.05) * 100)}%`, icon: '👥', desc: 'Verified buyers & transporters' },
+    { key: 'kycCompliance' as const, label: 'Identity, GPS & Cooperative', code: 'M8', weight: `${Math.round((weights.kycCompliance ?? 0.05) * 100)}%`, icon: '📍', desc: 'National ID, farm GPS & cooperative' },
+  ];
 
   // Maximum Borrowing Eligibility Map
   const tierLimits: Record<string, { maxFCFA: number; label: string }> = {
-    BRONZE: { maxFCFA: 500000, label: 'Bronze Producer (Up to 500,000 FCFA)' },
-    SILVER: { maxFCFA: 1500000, label: 'Silver Producer (Up to 1,500,000 FCFA)' },
-    GOLD: { maxFCFA: 5000000, label: 'Gold Tier Master (Up to 5,000,000 FCFA)' },
-    PLATINUM: { maxFCFA: 15000000, label: 'Platinum Cooperative (Up to 15,000,000 FCFA)' },
+    BRONZE: { maxFCFA: 500000, label: 'Bronze Producer (Up to 500,000 FCFA / $800 USD)' },
+    SILVER: { maxFCFA: 1600000, label: 'Silver Producer (Up to 1,600,000 FCFA / $2,500 USD)' },
+    GOLD: { maxFCFA: 6500000, label: 'Gold Tier Master (Up to 6,500,000 FCFA / $10,000 USD)' },
+    PLATINUM: { maxFCFA: 15000000, label: 'Platinum Cooperative (Up to 15,000,000 FCFA Commercial)' },
   };
 
   // Financial Calculations
@@ -328,11 +380,137 @@ export default function LoansScreen() {
                 </Text>
               </View>
 
+              {/* Preferential Auto-Escrow Deduction Info */}
+              <View style={styles.deductionRow}>
+                <Shield size={14} color={Colors.gold} />
+                <Text style={styles.deductionText}>
+                  Auto-Escrow Repayment Rate: <Text style={{ fontFamily: Fonts.bodyBold, color: Colors.white }}>{deductionPct}%</Text> (Engine 3 Settlement)
+                </Text>
+              </View>
+
               <Text style={styles.heroScoreSub}>
-                Calculated in real-time from {scoreData?.completedOrders ?? 142} completed harvest escrows
-                and 0% loan default track record in Cameroon.
+                Calculated in real-time by Victory Eyong Tabi Credit Engine across {scoreData?.completedOrders ?? 142} completed harvest escrows.
               </Text>
             </View>
+
+            {/* 4B. COLD-START PROGRESSIVE WEIGHTING BANNER */}
+            {isColdStart && (
+              <View style={styles.coldStartBanner}>
+                <View style={styles.coldStartHeader}>
+                  <Sparkles size={18} color="#B45309" strokeWidth={2.4} />
+                  <Text style={styles.coldStartTitle}>Cold-Start Producer Protection Active</Text>
+                </View>
+                <Text style={styles.coldStartBody}>
+                  Sales volume penalty is waived (0% weight). Your credit rating is calculated from verified Identity & Farm GPS (40%), Produce Varieties (30%), and Responsiveness (20%). Fulfill 3 escrow sales to graduate to standard scoring.
+                </Text>
+              </View>
+            )}
+
+            {/* 4C. BEHAVIORAL RADAR INDICATORS (THE 8 TABI METRICS) */}
+            <View style={styles.radarCard}>
+              <TouchableOpacity
+                style={styles.radarHeaderRow}
+                onPress={() => setShowRadar(!showRadar)}
+                activeOpacity={0.8}
+              >
+                <View style={styles.radarHeaderLeft}>
+                  <BarChart3 size={20} color={Colors.canopy} strokeWidth={2.2} />
+                  <View>
+                    <Text style={styles.radarTitle}>Behavioral Radar (8 Empirical Metrics)</Text>
+                    <Text style={styles.radarSub}>Victory Eyong Tabi Underwriting Engine</Text>
+                  </View>
+                </View>
+                {showRadar ? (
+                  <ChevronUp size={20} color={Colors.espresso} />
+                ) : (
+                  <ChevronDown size={20} color={Colors.espresso} />
+                )}
+              </TouchableOpacity>
+
+              {showRadar && (
+                <View style={styles.metricsGrid}>
+                  {BEHAVIORAL_METRICS.map((m) => {
+                    const score = (radar as any)[m.key] ?? 70;
+                    return (
+                      <View key={m.key} style={styles.metricItem}>
+                        <View style={styles.metricTopRow}>
+                          <View style={styles.metricTitleGroup}>
+                            <Text style={styles.metricIcon}>{m.icon}</Text>
+                            <Text style={styles.metricLabel}>{m.label}</Text>
+                            <View style={styles.metricCodeBadge}>
+                              <Text style={styles.metricCodeText}>{m.code}</Text>
+                            </View>
+                          </View>
+                          <View style={styles.metricScoreGroup}>
+                            <Text style={styles.metricScoreVal}>{score}/100</Text>
+                            <Text style={styles.metricWeightTag}>wt: {m.weight}</Text>
+                          </View>
+                        </View>
+
+                        <View style={styles.metricTrack}>
+                          <View
+                            style={[
+                              styles.metricFill,
+                              {
+                                width: `${score}%`,
+                                backgroundColor:
+                                  score >= 80
+                                    ? Colors.cultivated
+                                    : score >= 50
+                                    ? Colors.gold
+                                    : '#EF4444',
+                              },
+                            ]}
+                          />
+                        </View>
+                        <Text style={styles.metricDesc}>{m.desc}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+            </View>
+
+            {/* 4D. ACTIONABLE ROADMAP TO NEXT TIER */}
+            <View style={styles.roadmapCard}>
+              <View style={styles.roadmapHeader}>
+                <Target size={20} color={Colors.gold} strokeWidth={2.4} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.roadmapTitle}>
+                    {currentTier === 'GOLD' || currentTier === 'PLATINUM'
+                      ? 'Maximum Tier Unlocked — Institutional Credit Ready'
+                      : `Roadmap to ${currentTier === 'BRONZE' ? 'Silver ($2,500)' : 'Gold ($10,000)'} Tier`}
+                  </Text>
+                  <Text style={styles.roadmapSub}>
+                    {currentTier === 'GOLD' || currentTier === 'PLATINUM'
+                      ? 'You qualify for up to $10,000 USD (6,500,000 FCFA) commercial line with 10% auto-escrow deduction.'
+                      : `You are ~35 points away from unlocking higher borrowing power.`}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.roadmapList}>
+                <View style={styles.roadmapItem}>
+                  <CheckCircle2 size={16} color={Colors.cultivated} />
+                  <Text style={styles.roadmapItemText}>
+                    Fulfill 2 more harvest deliveries without buyer disputes (+18 pts)
+                  </Text>
+                </View>
+                <View style={styles.roadmapItem}>
+                  <CheckCircle2 size={16} color={Colors.cultivated} />
+                  <Text style={styles.roadmapItemText}>
+                    Maintain 100% on-time seasonal microloan escrow recovery (+25 pts)
+                  </Text>
+                </View>
+                <View style={styles.roadmapItem}>
+                  <CheckCircle2 size={16} color={Colors.cultivated} />
+                  <Text style={styles.roadmapItemText}>
+                    Upload verified cooperative registration certificate (+40 pts)
+                  </Text>
+                </View>
+              </View>
+            </View>
+
 
             {/* ============================================================ */}
             {/* VIEW 1: AVAILABLE CREDIT LINES & APPLY FORM */}
@@ -1348,5 +1526,192 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     color: Colors.text.secondary,
   },
+  deductionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  deductionText: {
+    fontFamily: Fonts.body,
+    fontSize: 12,
+    color: Colors.parchment,
+    flex: 1,
+  },
+  coldStartBanner: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: Radii.card,
+    padding: 16,
+    marginBottom: 14,
+    borderWidth: 1.5,
+    borderColor: '#FDE68A',
+    ...Shadows.subtle,
+  },
+  coldStartHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  coldStartTitle: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 14.5,
+    color: '#92400E',
+  },
+  coldStartBody: {
+    fontFamily: Fonts.body,
+    fontSize: 12.5,
+    color: '#78350F',
+    lineHeight: 18,
+  },
+  radarCard: {
+    backgroundColor: Colors.white,
+    borderRadius: Radii.card,
+    padding: 16,
+    marginBottom: 14,
+    borderWidth: 1.5,
+    borderColor: Colors.parchmentDim,
+    ...Shadows.subtle,
+  },
+  radarHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  radarHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  radarTitle: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 15,
+    color: Colors.espresso,
+  },
+  radarSub: {
+    fontFamily: Fonts.body,
+    fontSize: 11.5,
+    color: Colors.text.secondary,
+    marginTop: 1,
+  },
+  metricsGrid: {
+    marginTop: 16,
+    gap: 12,
+  },
+  metricItem: {
+    backgroundColor: Colors.parchment,
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  metricTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  metricTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+  },
+  metricIcon: {
+    fontSize: 14,
+  },
+  metricLabel: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 12.5,
+    color: Colors.espresso,
+  },
+  metricCodeBadge: {
+    backgroundColor: '#E2E8F0',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  metricCodeText: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 10,
+    color: '#475569',
+  },
+  metricScoreGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  metricScoreVal: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 12.5,
+    color: Colors.espresso,
+  },
+  metricWeightTag: {
+    fontFamily: Fonts.body,
+    fontSize: 10.5,
+    color: Colors.text.muted,
+  },
+  metricTrack: {
+    height: 6,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: 4,
+  },
+  metricFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  metricDesc: {
+    fontFamily: Fonts.body,
+    fontSize: 11,
+    color: Colors.text.muted,
+  },
+  roadmapCard: {
+    backgroundColor: '#EEF8F1',
+    borderRadius: Radii.card,
+    padding: 16,
+    marginBottom: 14,
+    borderWidth: 1.5,
+    borderColor: '#C6E8D0',
+    ...Shadows.subtle,
+  },
+  roadmapHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginBottom: 12,
+  },
+  roadmapTitle: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 14.5,
+    color: Colors.canopy,
+  },
+  roadmapSub: {
+    fontFamily: Fonts.body,
+    fontSize: 12,
+    color: Colors.espresso,
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  roadmapList: {
+    gap: 8,
+  },
+  roadmapItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  roadmapItemText: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 12.5,
+    color: Colors.espresso,
+    flex: 1,
+  },
 });
+
 

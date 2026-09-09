@@ -31,7 +31,10 @@ export type PaymentMethod =
   | 'MTN_MOMO'
   | 'ORANGE_MONEY'
   | 'CASH_ON_DELIVERY'
-  | 'BANK_TRANSFER';
+  | 'BANK_TRANSFER'
+  | 'STRIPE_CARD'
+  | 'PAYSTACK'
+  | 'FLUTTERWAVE';
 
 export interface User {
   id: string;

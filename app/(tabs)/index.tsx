@@ -24,13 +24,14 @@ import Basket from '@/components/basket';
 import { useAuthStore } from '@/store/authStore';
 import { fetchFeedPostsApi } from '@/components/api/posts';
 import { fetchYieldsApi } from '@/components/api/yields';
-import { Sprout, Plus } from 'lucide-react-native';
+import { Sprout, Plus, Sparkles, Handshake, MapPin } from 'lucide-react-native';
 
 export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuthStore();
   const isScreenFocused = useIsFocused();
   const [activeTab, setActiveTab] = useState('AgroFeed');
+  const [feedMode, setFeedMode] = useState<'all' | 'partner' | 'nearby'>('all');
   const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
   const [feedHeight, setFeedHeight] = useState(0);
   const [feedPosts, setFeedPosts] = useState<Post[]>([]);
@@ -108,6 +109,8 @@ export default function HomeScreen() {
   const filteredPosts =
     activeTab === 'Favorites'
       ? feedPosts.filter((post) => favoritePosts.includes(post.id))
+      : feedMode === 'partner'
+      ? feedPosts.filter((p) => Boolean((p as any).rankingMetadata?.isPartnerBoosted || (p as any).isPartner || (p as any).farmerCreditTier === 'GOLD'))
       : feedPosts;
 
   const onFeedLayout = (e: LayoutChangeEvent) => {
@@ -164,9 +167,35 @@ export default function HomeScreen() {
             </View>
           ) : (
             feedHeight > 0 && (
-              <FlatList
-                data={filteredPosts}
-                renderItem={({ item, index }) => {
+              <View style={{ flex: 1 }}>
+                {/* Engine 2 Algorithmic Ranking Filter Switcher */}
+                <View style={styles.floatingModeContainer}>
+                  <TouchableOpacity
+                    style={[styles.modePill, feedMode === 'all' && styles.modePillActive]}
+                    onPress={() => setFeedMode('all')}
+                    activeOpacity={0.8}
+                  >
+                    <Sparkles size={11} color={feedMode === 'all' ? Colors.gold : Colors.white} />
+                    <Text style={[styles.modePillText, feedMode === 'all' && styles.modePillTextActive]}>
+                      Recommended (Engine 2)
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.modePill, feedMode === 'partner' && styles.modePillActive]}
+                    onPress={() => setFeedMode('partner')}
+                    activeOpacity={0.8}
+                  >
+                    <Handshake size={11} color={feedMode === 'partner' ? Colors.gold : Colors.white} />
+                    <Text style={[styles.modePillText, feedMode === 'partner' && styles.modePillTextActive]}>
+                      AgroPartners (+2.5x)
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                <FlatList
+                  data={filteredPosts}
+                  renderItem={({ item, index }) => {
                   const isItemActive = isScreenFocused && activeTab === 'AgroFeed' && index === activePostIndex;
                   return (
                     <View style={{ height: feedHeight }}>
@@ -193,10 +222,11 @@ export default function HomeScreen() {
                 }
                 contentContainerStyle={{ padding: 0 }}
               />
-            )
-          )}
-        </View>
-      )}
+            </View>
+          )
+        )}
+      </View>
+    )}
 
       {activeTab === 'Favorites' && (
         <ScrollView contentContainerStyle={styles.listContent}>
@@ -285,5 +315,37 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 15,
     fontFamily: Fonts.bodySemiBold,
+  },
+  floatingModeContainer: {
+    position: 'absolute',
+    top: 10,
+    left: 12,
+    zIndex: 10,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  modePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  modePillActive: {
+    backgroundColor: Colors.canopy,
+    borderColor: Colors.gold,
+  },
+  modePillText: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 10.5,
+    color: Colors.white,
+  },
+  modePillTextActive: {
+    fontFamily: Fonts.bodyBold,
+    color: Colors.gold,
   },
 });
