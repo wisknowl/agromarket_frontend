@@ -6,7 +6,10 @@ import {
   FlatList,
   TouchableOpacity,
   StatusBar,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
+
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -17,7 +20,11 @@ import {
   FileText,
   DollarSign,
 } from 'lucide-react-native';
-import { systemNotifications } from '@/mocks/data';
+import {
+  fetchNotificationsApi,
+  markNotificationReadApi,
+  markAllNotificationsReadApi,
+} from '@/components/api/notifications';
 import { NotificationItem } from '@/types';
 import Colors, { Radii, Shadows } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
@@ -25,16 +32,43 @@ import { Fonts } from '@/constants/typography';
 export default function SystemNotificationsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [notifications, setNotifications] = useState<NotificationItem[]>(systemNotifications);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadNotifications = React.useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await fetchNotificationsApi('SYSTEM');
+      setNotifications(Array.isArray(data) ? data : []);
+    } catch (e) {
+      setNotifications([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    loadNotifications();
+  }, [loadNotifications]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadNotifications();
+  };
 
   const markAllRead = () => {
+    markAllNotificationsReadApi();
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
   };
 
   const handleNotificationPress = (item: NotificationItem) => {
+    markNotificationReadApi(item.id);
     setNotifications((prev) =>
       prev.map((n) => (n.id === item.id ? { ...n, isRead: true } : n))
     );
+
 
     if (item.targetType === 'order' && item.targetId) {
       router.push('/(tabs)/cart');
@@ -114,14 +148,24 @@ export default function SystemNotificationsScreen() {
           { paddingBottom: Math.max(insets.bottom, 20) + 24 },
         ]}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.cultivated]} />
+        }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Bell size={48} color={Colors.text.muted} />
-            <Text style={styles.emptyTitle}>No System Notices</Text>
-            <Text style={styles.emptySub}>Platform policy and payment notices will appear here.</Text>
+            {loading ? (
+              <ActivityIndicator size="large" color={Colors.cultivated} />
+            ) : (
+              <>
+                <Bell size={48} color={Colors.text.muted} />
+                <Text style={styles.emptyTitle}>No System Notices</Text>
+                <Text style={styles.emptySub}>Platform policy and payment notices will appear here.</Text>
+              </>
+            )}
           </View>
         }
       />
+
     </View>
   );
 }

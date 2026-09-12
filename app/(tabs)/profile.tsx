@@ -26,10 +26,13 @@ import {
   ShoppingBag,
   Heart,
   Bookmark,
+  BookmarkCheck,
+  Leaf,
   Plus,
   Settings,
   ShieldCheck,
   CreditCard,
+  Wallet,
   Sparkles,
   MessageCircle,
   UserPlus,
@@ -56,8 +59,8 @@ import { useAuthStore } from '@/store/authStore';
 import { useFavoritesStore } from '@/store/favoritesStore';
 import { fetchPublicProfileApi, toggleFollowUserApi, updateMyProfileApi } from '@/components/api/auth';
 import { fetchFeedPostsApi, uploadMediaApi } from '@/components/api/posts';
-import { Post } from '@/types';
-import { agroYields as mockYields, users as mockUsers, farmers as mockFarmers, farms as mockFarms } from '@/mocks/data';
+import { fetchYieldsApi } from '@/components/api/yields';
+import { Post, Yield } from '@/types';
 import PostCard from '@/components/PostCard';
 import YieldCard from '@/components/YieldCard';
 import FarmsList from '@/components/FarmsList';
@@ -67,6 +70,7 @@ import MeetingLeafLogo from '@/components/MeetingLeafLogo';
 import BrandButton from '@/components/ui/BrandButton';
 import FarmerBadge from '@/components/ui/FarmerBadge';
 import ProfileHeaderMenu from '../../modules/farms/components/ProfileHeaderMenu';
+import AgroPatronModal from '@/components/AgroPatronModal';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -74,8 +78,9 @@ export default function ProfileScreen() {
   const params = useLocalSearchParams<{ userId?: string }>();
   const { user: currentUser, isAuthenticated, logout, updateUser } = useAuthStore();
   const savedYieldIds = useFavoritesStore((s) => s.yields);
+  const savedPostIds = useFavoritesStore((s) => s.posts);
 
-  const [activeTab, setActiveTab] = useState<'posts' | 'farms' | 'orders' | 'saved' | 'likes'>('posts');
+  const [activeTab, setActiveTab] = useState<'posts' | 'farms' | 'orders' | 'wishlist'>('posts');
   const [profileData, setProfileData] = useState<any>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [userPosts, setUserPosts] = useState<Post[]>([]);
@@ -87,6 +92,7 @@ export default function ProfileScreen() {
   const viewerFlatListRef = useRef<any>(null);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
+  const [patronModalVisible, setPatronModalVisible] = useState(false);
 
   // Edit Profile State
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -101,63 +107,70 @@ export default function ProfileScreen() {
   const [ordersList, setOrdersList] = useState<any[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
 
+  // Wishlist State (Saved Yields + Saved Stories)
+  const [savedYieldsList, setSavedYieldsList] = useState<Yield[]>([]);
+  const [loadingSaved, setLoadingSaved] = useState(false);
+  const [savedPostsList, setSavedPostsList] = useState<Post[]>([]);
+  const [loadingSavedPosts, setLoadingSavedPosts] = useState(false);
+  const [wishlistFilter, setWishlistFilter] = useState<'all' | 'harvests' | 'stories'>('all');
+
+  const loadSavedYields = useCallback(async () => {
+    if (savedYieldIds.length === 0) {
+      setSavedYieldsList([]);
+      return;
+    }
+    try {
+      setLoadingSaved(true);
+      const allYields = await fetchYieldsApi();
+      setSavedYieldsList(allYields.filter((y) => savedYieldIds.includes(y.id)));
+    } catch (err) {
+      console.warn('Failed to load saved yields:', err);
+      setSavedYieldsList([]);
+    } finally {
+      setLoadingSaved(false);
+    }
+  }, [savedYieldIds]);
+
+  const loadSavedPosts = useCallback(async () => {
+    if (savedPostIds.length === 0) {
+      setSavedPostsList([]);
+      return;
+    }
+    try {
+      setLoadingSavedPosts(true);
+      const allPosts = await fetchFeedPostsApi();
+      if (allPosts) {
+        setSavedPostsList(allPosts.filter((p) => savedPostIds.includes(p.id)));
+      }
+    } catch (err) {
+      console.warn('Failed to load saved posts:', err);
+      setSavedPostsList([]);
+    } finally {
+      setLoadingSavedPosts(false);
+    }
+  }, [savedPostIds]);
+
+  useEffect(() => {
+    loadSavedYields();
+  }, [loadSavedYields]);
+
+  useEffect(() => {
+    loadSavedPosts();
+  }, [loadSavedPosts]);
+
   const loadOrders = async () => {
     if (!isOwner) return;
     try {
       setLoadingOrders(true);
       const data = await fetchMyOrdersApi();
-      if (Array.isArray(data) && data.length > 0) {
+      if (Array.isArray(data)) {
         setOrdersList(data);
       } else {
-        setOrdersList([
-          {
-            id: 'ORD-8412',
-            status: 'ESCROW_LOCKED',
-            currency: 'XAF',
-            totalAmount: 20000,
-            createdAt: new Date().toISOString(),
-            deliveryAddress: 'Bonapriso, Douala',
-            items: [
-              {
-                id: 'i1',
-                quantity: 5,
-                unitPrice: 3500,
-                totalPrice: 17500,
-                yield: {
-                  title: 'Ndop Plateau Heirloom Organic Tomatoes',
-                  unit: 'CRATE',
-                  mediaUrls: ['https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800'],
-                },
-                farmer: { name: 'Tanyi Farms Cooperative' },
-              },
-            ],
-          },
-          {
-            id: 'ORD-7991',
-            status: 'IN_TRANSIT',
-            currency: 'XAF',
-            totalAmount: 38000,
-            createdAt: new Date(Date.now() - 86400000).toISOString(),
-            deliveryAddress: 'Akwa Market, Douala',
-            items: [
-              {
-                id: 'i2',
-                quantity: 10,
-                unitPrice: 3800,
-                totalPrice: 38000,
-                yield: {
-                  title: 'Fresh White Yam Tubers (Volcanic Soil)',
-                  unit: 'BAG',
-                  mediaUrls: ['https://images.unsplash.com/photo-1590165482129-1b8b27698780?w=800'],
-                },
-                farmer: { name: 'Foumbot Highland Growers' },
-              },
-            ],
-          },
-        ]);
+        setOrdersList([]);
       }
-    } catch {
-      // Fallback
+    } catch (err) {
+      console.warn('Failed to load orders:', err);
+      setOrdersList([]);
     } finally {
       setLoadingOrders(false);
     }
@@ -206,60 +219,11 @@ export default function ProfileScreen() {
           setProfileData(data);
           setIsFollowing(Boolean(data.isFollowing));
         } else {
-          // Mock data lookup fallback
-          const foundFarmer = mockFarmers.find((f) => f.id === params.userId || f.userId === params.userId);
-          const foundUser = mockUsers.find((u) => u.id === params.userId || u.farmerProfile?.id === params.userId);
-          const fallbackUser = foundUser || {
-            id: params.userId,
-            name: foundFarmer ? foundFarmer.farmName : 'Victoy Eyong (Foumbot Farm)',
-            email: 'partner@agromarket.com',
-            phone: '+237 671 111 111',
-            avatar: foundFarmer?.profilePhoto || 'https://images.unsplash.com/photo-1605000797499-95a51c5269ae?w=500&auto=format&fit=crop&q=60',
-            role: 'FARMER',
-            isVerified: true,
-            farmerProfile: {
-              id: foundFarmer?.id || 'f1',
-              userId: params.userId,
-              farmName: foundFarmer?.farmName || 'Green Valley Organic Farms',
-              region: foundFarmer?.location || 'Foumbot, West Region',
-              city: 'Foumbot',
-              rating: foundFarmer?.rating || 4.9,
-              totalRatings: 142,
-              totalFollowers: foundFarmer?.followers || 320,
-              bio: foundFarmer?.description || 'Specializing in fresh volcanic soil vegetables, vine tomatoes, and Penja pepper.',
-            },
-            farms: mockFarms,
-          };
-          setProfileData(fallbackUser);
-          setIsFollowing(true);
+          setProfileData(null);
         }
       } catch (err) {
-        // Fallback to mock user
-        const foundFarmer = mockFarmers.find((f) => f.id === params.userId || f.userId === params.userId);
-        const foundUser = mockUsers.find((u) => u.id === params.userId || u.farmerProfile?.id === params.userId);
-        const fallbackUser = foundUser || {
-          id: params.userId,
-          name: foundFarmer ? foundFarmer.farmName : 'Victoy Eyong (Foumbot Farm)',
-          email: 'partner@agromarket.com',
-          phone: '+237 671 111 111',
-          avatar: foundFarmer?.profilePhoto || 'https://images.unsplash.com/photo-1605000797499-95a51c5269ae?w=500&auto=format&fit=crop&q=60',
-          role: 'FARMER',
-          isVerified: true,
-          farmerProfile: {
-            id: foundFarmer?.id || 'f1',
-            userId: params.userId,
-            farmName: foundFarmer?.farmName || 'Green Valley Organic Farms',
-            region: foundFarmer?.location || 'Foumbot, West Region',
-            city: 'Foumbot',
-            rating: foundFarmer?.rating || 4.9,
-            totalRatings: 142,
-            totalFollowers: foundFarmer?.followers || 320,
-            bio: foundFarmer?.description || 'Specializing in fresh volcanic soil vegetables, vine tomatoes, and Penja pepper.',
-          },
-          farms: mockFarms,
-        };
-        setProfileData(fallbackUser);
-        setIsFollowing(true);
+        console.warn('Failed to load profile:', err);
+        setProfileData(null);
       } finally {
         setLoadingProfile(false);
       }
@@ -303,6 +267,8 @@ export default function ProfileScreen() {
     setRefreshing(true);
     loadTargetProfile();
     loadUserPosts();
+    loadSavedYields();
+    loadSavedPosts();
   };
 
   const handleToggleFollow = async () => {
@@ -471,18 +437,11 @@ export default function ProfileScreen() {
       ]
       : []),
     {
-      key: 'saved',
-      label: 'Saved',
-      icon: (color: string) => <Bookmark size={19} color={color} strokeWidth={2} />,
-    },
-    {
-      key: 'likes',
-      label: 'Likes',
-      icon: (color: string) => <Heart size={19} color={color} strokeWidth={2} />,
+      key: 'wishlist',
+      label: 'Wishlist',
+      icon: (color: string) => <BookmarkCheck size={19} color={color} strokeWidth={2} />,
     },
   ];
-
-  const savedYieldsList = mockYields.filter((y) => savedYieldIds.includes(y.id));
 
   return (
     <View style={styles.container}>
@@ -569,77 +528,65 @@ export default function ProfileScreen() {
             </View>
           </View>
 
-          {/* 3. Stats Bar */}
-          {/* 3. Stats Bar with AgroPartners */}
+          {/* 3. Realtime Stats Bar (Farms, AgroPatrons, Patronized Farms, AgroVestors) */}
           <View style={styles.statsBar}>
             <View style={styles.statCol}>
-              <Text style={styles.statNumber}>{targetUser?.farms?.length || 0}</Text>
+              <Text style={styles.statNumber}>{targetUser?.farms?.length ?? targetUser?.farmsCount ?? targetUser?._count?.farms ?? 0}</Text>
               <Text style={styles.statLabel}>Farms</Text>
             </View>
             <View style={styles.statDivider} />
             <TouchableOpacity
               style={styles.statCol}
               onPress={() => router.push('/notifications/followers')}
+              activeOpacity={0.75}
             >
-              <Text style={styles.statNumber}>{targetUser?._count?.followers ?? targetUser?.followersCount ?? 320}</Text>
-              <Text style={styles.statLabel}>Followers</Text>
+              <Text style={styles.statNumber}>{targetUser?.followersCount ?? targetUser?._count?.followers ?? targetUser?.farmerProfile?.totalFollowers ?? 0}</Text>
+              <Text style={styles.statLabel}>AgroPatrons</Text>
             </TouchableOpacity>
             <View style={styles.statDivider} />
             <TouchableOpacity
               style={styles.statCol}
               onPress={() => router.push('/notifications/followers')}
+              activeOpacity={0.75}
             >
-              <Text style={styles.statNumber}>{targetUser?._count?.following ?? targetUser?.followingCount ?? 45}</Text>
-              <Text style={styles.statLabel}>Following</Text>
+              <Text style={styles.statNumber}>{targetUser?.followingCount ?? targetUser?._count?.following ?? 0}</Text>
+              <Text style={styles.statLabel}>Patronized Farms</Text>
             </TouchableOpacity>
             <View style={styles.statDivider} />
             <TouchableOpacity
               style={styles.statCol}
-              onPress={() => router.push('/partners')}
+              onPress={() => router.push('/fintech/loans')}
+              activeOpacity={0.75}
             >
-              <Text style={styles.statNumber}>4</Text>
-              <Text style={styles.statLabel}>Partners</Text>
+              <Text style={styles.statNumber}>{(targetUser as any)?.agroVestorsCount ?? targetUser?.farmerProfile?.loanApplications?.length ?? 0}</Text>
+              <Text style={styles.statLabel}>AgroVestors</Text>
             </TouchableOpacity>
           </View>
 
-          {/* Owner Quick Escrow Vault & Deliveries Shortcut */}
-          {isOwner && (
-            <TouchableOpacity
-              style={styles.escrowOrdersBanner}
-              onPress={() => router.push('/orders')}
-              activeOpacity={0.85}
-            >
-              <View style={styles.escrowOrdersLeft}>
-                <View style={styles.escrowOrdersIconCircle}>
-                  <ShieldCheck size={18} color={Colors.cultivated} strokeWidth={2.4} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.escrowOrdersTitle}>Escrow Orders & Deliveries 🛡️</Text>
-                  <Text style={styles.escrowOrdersSub}>Track Engine 3 FSM states & live payouts</Text>
-                </View>
-              </View>
-              <ChevronRight size={18} color={Colors.cultivated} />
-            </TouchableOpacity>
-          )}
-
-          {/* 4. VISITOR ACTION BAR (Follow & Message) */}
+          {/* 4. VISITOR ACTION BAR (Back & Message) */}
           {!isOwner && (
             <View style={styles.visitorActionsRow}>
               <TouchableOpacity
                 style={[styles.followBtn, isFollowing && styles.followBtnActive]}
-                onPress={handleToggleFollow}
+                onPress={() => {
+                  if (isFollowing) {
+                    handleToggleFollow();
+                  } else {
+                    setPatronModalVisible(true);
+                  }
+                }}
                 disabled={followLoading}
                 activeOpacity={0.85}
               >
                 {isFollowing ? (
                   <>
                     <UserCheck size={16} color={Colors.cultivated} strokeWidth={2.2} />
-                    <Text style={styles.followBtnTextActive}>Following</Text>
+                    <Text style={styles.followBtnTextActive}>AgroPatron ⭐</Text>
                   </>
                 ) : (
                   <>
                     <UserPlus size={16} color={Colors.white} strokeWidth={2.2} />
-                    <Text style={styles.followBtnText}>Follow</Text>
+                    <Text style={styles.followBtnText}>Become an AgroPatron ($2)</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -697,7 +644,7 @@ export default function ProfileScreen() {
                 <Text style={styles.emptyTitle}>No Stories Published Yet</Text>
                 <Text style={styles.emptySubtitle}>
                   {isOwner
-                    ? 'Use the central + button to publish live field updates and harvest videos.'
+                    ? 'Publish live field updates and harvest videos to connect directly with buyers.'
                     : 'This user has not published any harvest updates yet.'}
                 </Text>
                 {isOwner && (
@@ -747,7 +694,7 @@ export default function ProfileScreen() {
                         {isVideo ? (
                           <Play size={10} color="#FFF" fill="#FFF" style={{ marginRight: 3 }} />
                         ) : (
-                          <Heart size={10} color="#FFF" fill="#FFF" style={{ marginRight: 3 }} />
+                          <Leaf size={10} color="#4ADE80" fill="#4ADE80" style={{ marginRight: 3 }} />
                         )}
                         <Text style={styles.gridTileLikesText}>{likes}</Text>
                       </View>
@@ -784,7 +731,38 @@ export default function ProfileScreen() {
                 )}
               </View>
             ) : (
-              <FarmsList farms={targetUser?.farms} isOwner={isOwner} />
+              <View style={{ width: '100%' }}>
+                {isOwner && (
+                  <TouchableOpacity
+                    style={styles.farmHubBanner}
+                    onPress={() => router.push('/farmer/manage')}
+                    activeOpacity={0.88}
+                    accessibilityRole="button"
+                    accessibilityLabel="Open Farm Management Hub"
+                  >
+                    <View style={styles.farmHubBannerLeft}>
+                      <View style={styles.farmHubIconBox}>
+                        <Warehouse size={22} color={Colors.white} strokeWidth={2.2} />
+                      </View>
+                      <View style={{ flex: 1, marginLeft: 12 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Text style={styles.farmHubTitle}>Farm Management Hub</Text>
+                          <View style={styles.farmHubLiveTag}>
+                            <Text style={styles.farmHubLiveTagText}>WORKSPACE</Text>
+                          </View>
+                        </View>
+                        <Text style={styles.farmHubSub}>
+                          List produce batches, record stories & manage credit
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.farmHubArrowCircle}>
+                      <ChevronRight size={18} color={Colors.cultivated} strokeWidth={2.5} />
+                    </View>
+                  </TouchableOpacity>
+                )}
+                <FarmsList farms={targetUser?.farms} isOwner={isOwner} />
+              </View>
             )}
           </View>
         )}
@@ -887,43 +865,182 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        {/* TAB 4: SAVED HARVESTS (BOOKMARKS) */}
-        {activeTab === 'saved' && (
+        {/* TAB 4: WISHLIST (SAVED HARVESTS & STORIES) */}
+        {activeTab === 'wishlist' && (
           <View style={styles.tabContent}>
-            {savedYieldsList.length === 0 ? (
-              <View style={styles.emptyBox}>
-                <Bookmark size={36} color={Colors.soil} strokeWidth={1.5} />
-                <Text style={styles.emptyTitle}>No Saved Harvests</Text>
-                <Text style={styles.emptySubtitle}>
-                  Bookmark fresh produce lots in the marketplace to monitor prices and stock.
+            {/* Wishlist Sub-Filter Pill Bar */}
+            <View style={styles.wishlistSubFilterRow}>
+              <TouchableOpacity
+                style={[
+                  styles.wishlistSubFilterPill,
+                  wishlistFilter === 'all' && styles.wishlistSubFilterPillActive,
+                ]}
+                onPress={() => setWishlistFilter('all')}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.wishlistSubFilterText,
+                    wishlistFilter === 'all' && styles.wishlistSubFilterTextActive,
+                  ]}
+                >
+                  All ({savedYieldsList.length + savedPostsList.length})
                 </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.wishlistSubFilterPill,
+                  wishlistFilter === 'harvests' && styles.wishlistSubFilterPillActive,
+                ]}
+                onPress={() => setWishlistFilter('harvests')}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.wishlistSubFilterText,
+                    wishlistFilter === 'harvests' && styles.wishlistSubFilterTextActive,
+                  ]}
+                >
+                  Harvests ({savedYieldsList.length})
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.wishlistSubFilterPill,
+                  wishlistFilter === 'stories' && styles.wishlistSubFilterPillActive,
+                ]}
+                onPress={() => setWishlistFilter('stories')}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.wishlistSubFilterText,
+                    wishlistFilter === 'stories' && styles.wishlistSubFilterTextActive,
+                  ]}
+                >
+                  Stories ({savedPostsList.length})
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Empty State when no items saved */}
+            {savedYieldsList.length === 0 && savedPostsList.length === 0 ? (
+              <View style={styles.emptyBox}>
+                <BookmarkCheck size={40} color={Colors.cultivated} strokeWidth={1.5} />
+                <Text style={styles.emptyTitle}>Your Wishlist is Empty</Text>
+                <Text style={styles.emptySubtitle}>
+                  Save fresh harvest lots from AgroMarket and video stories from AgroFeed to track prices and order direct.
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+                  <BrandButton
+                    title="Explore AgroMarket"
+                    variant="primary"
+                    size="sm"
+                    onPress={() => router.push('/(tabs)/agro-yields')}
+                  />
+                  <BrandButton
+                    title="Browse AgroFeed"
+                    variant="secondary"
+                    size="sm"
+                    onPress={() => router.push('/(tabs)')}
+                  />
+                </View>
               </View>
             ) : (
-              <View style={styles.savedGrid}>
-                {savedYieldsList.map((item) => (
-                  <YieldCard
-                    key={item.id}
-                    item={item}
-                    popoverVisible={false}
-                    onOpenPopover={() => { }}
-                    onClosePopover={() => { }}
-                  />
-                ))}
+              <View>
+                {/* 1. Saved Harvest Lots Grid */}
+                {(wishlistFilter === 'all' || wishlistFilter === 'harvests') && (
+                  <View style={{ marginBottom: 20 }}>
+                    {wishlistFilter === 'all' && savedYieldsList.length > 0 && (
+                      <View style={styles.wishlistSectionHeader}>
+                        <Text style={styles.wishlistSectionTitle}>Saved Harvest Lots</Text>
+                        <Text style={styles.wishlistSectionBadge}>{savedYieldsList.length}</Text>
+                      </View>
+                    )}
+                    {savedYieldsList.length > 0 ? (
+                      <View style={styles.savedGrid}>
+                        {savedYieldsList.map((item) => (
+                          <YieldCard
+                            key={item.id}
+                            item={item}
+                            popoverVisible={false}
+                            onOpenPopover={() => { }}
+                            onClosePopover={() => { }}
+                          />
+                        ))}
+                      </View>
+                    ) : wishlistFilter === 'harvests' ? (
+                      <View style={styles.emptyBox}>
+                        <Text style={styles.emptyTitle}>No Saved Harvests</Text>
+                        <Text style={styles.emptySubtitle}>Bookmark fresh lots in the AgroMarket to monitor stocks.</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                )}
+
+                {/* 2. Saved Harvest Stories (3-column grid / viewer) */}
+                {(wishlistFilter === 'all' || wishlistFilter === 'stories') && (
+                  <View>
+                    {wishlistFilter === 'all' && savedPostsList.length > 0 && (
+                      <View style={styles.wishlistSectionHeader}>
+                        <Text style={styles.wishlistSectionTitle}>Saved Harvest Stories</Text>
+                        <Text style={styles.wishlistSectionBadge}>{savedPostsList.length}</Text>
+                      </View>
+                    )}
+                    {savedPostsList.length > 0 ? (
+                      <View style={styles.postsGrid}>
+                        {savedPostsList.map((post, idx) => {
+                          const isVideo = Boolean(
+                            post.isVideo ||
+                            (typeof post.mediaUrl === 'string' &&
+                              (post.mediaUrl.endsWith('.mp4') || post.mediaUrl.includes('video')))
+                          );
+                          const mediaUri =
+                            post.mediaUrl ||
+                            post.media ||
+                            'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=500';
+                          const likes = post.likesCount ?? post.likes ?? 0;
+
+                          return (
+                            <TouchableOpacity
+                              key={post.id || `saved-post-${idx}`}
+                              style={styles.gridTile}
+                              activeOpacity={0.85}
+                              onPress={() => {
+                                setUserPosts(savedPostsList);
+                                openPostViewer(idx);
+                              }}
+                            >
+                              <Image
+                                source={{ uri: mediaUri }}
+                                style={styles.gridTileImage}
+                                resizeMode="cover"
+                              />
+                              <View style={styles.gridTileOverlay} />
+                              <View style={styles.gridTileBadge}>
+                                {isVideo ? (
+                                  <Play size={10} color="#FFF" fill="#FFF" style={{ marginRight: 3 }} />
+                                ) : (
+                                  <Leaf size={10} color="#4ADE80" fill="#4ADE80" style={{ marginRight: 3 }} />
+                                )}
+                                <Text style={styles.gridTileLikesText}>{likes}</Text>
+                              </View>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    ) : wishlistFilter === 'stories' ? (
+                      <View style={styles.emptyBox}>
+                        <Text style={styles.emptyTitle}>No Saved Stories</Text>
+                        <Text style={styles.emptySubtitle}>Bookmark harvest stories in the AgroFeed to rewatch them here.</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                )}
               </View>
             )}
-          </View>
-        )}
-
-        {/* TAB 5: LIKES */}
-        {activeTab === 'likes' && (
-          <View style={styles.tabContent}>
-            <View style={styles.emptyBox}>
-              <Heart size={36} color={Colors.clay} strokeWidth={1.5} />
-              <Text style={styles.emptyTitle}>Liked Harvest Stories</Text>
-              <Text style={styles.emptySubtitle}>
-                Stories and harvest videos you have liked in the AgroFeed appear here.
-              </Text>
-            </View>
           </View>
         )}
       </ScrollView>
@@ -1107,6 +1224,20 @@ export default function ProfileScreen() {
           </View>
         </View>
       </Modal>
+
+      {targetUser && (
+        <AgroPatronModal
+          visible={patronModalVisible}
+          onClose={() => setPatronModalVisible(false)}
+          farmerId={targetUser.id}
+          farmerName={targetUser.name || 'Verified Farmer'}
+          farmName={targetUser.farms?.[0]?.name}
+          onSuccess={() => {
+            setIsFollowing(true);
+            loadTargetProfile();
+          }}
+        />
+      )}
     </View>
   );
 }
@@ -1267,27 +1398,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-around',
     width: '100%',
-    paddingVertical: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 4,
     backgroundColor: Colors.parchment,
     borderRadius: Radii.card,
     borderWidth: 1,
     borderColor: Colors.parchmentDim,
-    marginBottom: 12,
+    marginBottom: 14,
   },
   statCol: {
     alignItems: 'center',
+    justifyContent: 'center',
     flex: 1,
+    paddingHorizontal: 2,
   },
   statNumber: {
     fontFamily: Fonts.monoBold,
-    fontSize: 16,
+    fontSize: 16.5,
     color: Colors.espresso,
+    textAlign: 'center',
   },
   statLabel: {
     fontFamily: Fonts.bodyMedium,
-    fontSize: 13,
+    fontSize: 11.5,
     color: Colors.text.secondary,
-    marginTop: 2,
+    marginTop: 3,
+    textAlign: 'center',
+    lineHeight: 14,
   },
   statDivider: {
     width: 1,
@@ -1787,5 +1924,117 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.bodyBold,
     fontSize: 10,
     color: Colors.gold,
+  },
+  farmHubBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.white,
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 4,
+    padding: 14,
+    borderRadius: Radii.card,
+    borderWidth: 1.5,
+    borderColor: Colors.cultivated,
+    ...Shadows.subtle,
+  },
+  farmHubBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 8,
+  },
+  farmHubIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: Colors.cultivated,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: Colors.cultivated,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  farmHubTitle: {
+    fontFamily: Fonts.displayBold,
+    fontSize: 15,
+    color: Colors.canopy,
+  },
+  farmHubLiveTag: {
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  farmHubLiveTagText: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 9,
+    color: Colors.cultivated,
+    letterSpacing: 0.5,
+  },
+  farmHubSub: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 12,
+    color: Colors.text.secondary,
+    marginTop: 2,
+  },
+  farmHubArrowCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(13, 92, 58, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  wishlistSubFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  wishlistSubFilterPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: Radii.pill,
+    backgroundColor: Colors.parchment,
+    borderWidth: 1,
+    borderColor: Colors.parchmentDim,
+  },
+  wishlistSubFilterPillActive: {
+    backgroundColor: Colors.canopy,
+    borderColor: Colors.canopy,
+  },
+  wishlistSubFilterText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 12.5,
+    color: Colors.espresso,
+  },
+  wishlistSubFilterTextActive: {
+    color: Colors.white,
+  },
+  wishlistSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  wishlistSectionTitle: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 15,
+    color: Colors.espresso,
+  },
+  wishlistSectionBadge: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 11,
+    color: Colors.white,
+    backgroundColor: Colors.cultivated,
+    paddingHorizontal: 7,
+    paddingVertical: 1.5,
+    borderRadius: 8,
   },
 });

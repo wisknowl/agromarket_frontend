@@ -45,8 +45,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="agro-yields"
         options={{
-          title: 'Harvests',
-          headerTitle: 'Direct Harvests',
+          title: 'AgroMarket',
+          headerTitle: 'AgroMarket',
         }}
       />
       <Tabs.Screen

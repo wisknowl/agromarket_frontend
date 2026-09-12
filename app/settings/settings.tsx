@@ -27,6 +27,7 @@ import {
   Sparkles,
   Warehouse,
   Bookmark,
+  BookmarkCheck,
   Heart,
   Landmark,
   ChevronRight,
@@ -65,8 +66,7 @@ export default function SettingsScreen() {
   const [privacySettings, setPrivacySettings] = useState<Record<string, AudienceOption>>({
     posts: 'EVERYONE',
     farms: 'EVERYONE',
-    saved: 'ONLY_ME',
-    likes: 'PARTNERS',
+    wishlist: 'ONLY_ME',
     credit: 'FINANCIAL_ONLY',
   });
 
@@ -88,19 +88,11 @@ export default function SettingsScreen() {
       allowedOptions: ['EVERYONE', 'PARTNERS', 'ONLY_ME'],
     },
     {
-      id: 'saved',
-      title: 'Saved Harvests Tab',
-      subtitle: 'Who can see the produce and deals you bookmarked',
-      icon: Bookmark,
-      currentValue: privacySettings.saved,
-      allowedOptions: ['EVERYONE', 'PARTNERS', 'ONLY_ME'],
-    },
-    {
-      id: 'likes',
-      title: 'Liked Harvests Tab',
-      subtitle: 'Who can see the posts and harvest updates you liked',
-      icon: Heart,
-      currentValue: privacySettings.likes,
+      id: 'wishlist',
+      title: 'Wishlist (Saved Harvests & Stories)',
+      subtitle: 'Who can see the produce lots and stories in your wishlist',
+      icon: BookmarkCheck,
+      currentValue: privacySettings.wishlist,
       allowedOptions: ['EVERYONE', 'PARTNERS', 'ONLY_ME'],
     },
     {

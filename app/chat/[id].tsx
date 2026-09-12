@@ -30,111 +30,148 @@ import {
   Sparkles,
   ShoppingBag,
 } from 'lucide-react-native';
-import { conversations, agroYields } from '@/mocks/data';
-import { Message, TradeOffer, OfferStatus } from '@/types';
+import { Message, TradeOffer, OfferStatus, Yield } from '@/types';
+import {
+  fetchConversationMessagesApi,
+  fetchConversationDetailsApi,
+  getOrCreateConversationWithUserApi,
+  sendMessageApi,
+} from '@/components/api/chat';
+import { fetchYieldsApi } from '@/components/api/yields';
+import { useAuthStore } from '@/store/authStore';
 import Colors, { Radii, Shadows } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
-
-const initialChatMessages: Record<string, Message[]> = {
-  c1: [
-    {
-      id: 'm1',
-      conversationId: 'c1',
-      senderId: 'f1',
-      receiverId: 'user',
-      content: 'Hello Victoy! Are the fresh vine tomatoes in Foumbot available for bulk loading tomorrow?',
-      type: 'TEXT',
-      isRead: true,
-      createdAt: '2026-09-07T09:30:00Z',
-      timestamp: '09:30 AM',
-    },
-    {
-      id: 'm2',
-      conversationId: 'c1',
-      senderId: 'user',
-      receiverId: 'f1',
-      content: '',
-      type: 'VOICE',
-      isRead: true,
-      createdAt: '2026-09-07T09:35:00Z',
-      timestamp: '09:35 AM',
-      voiceNote: {
-        durationSeconds: 18,
-      },
-    },
-    {
-      id: 'm3',
-      conversationId: 'c1',
-      senderId: 'f1',
-      receiverId: 'user',
-      content: 'Yes! Here is our special wholesale trade deal reserved for AgroPartners:',
-      type: 'OFFER_CARD',
-      isRead: true,
-      createdAt: '2026-09-07T10:00:00Z',
-      timestamp: '10:00 AM',
-      tradeOffer: {
-        id: 'off-1',
-        yieldId: 'y1',
-        yieldTitle: 'Fresh Foumbot Vine Tomatoes (Grade A)',
-        yieldImage: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=500&auto=format&fit=crop&q=60',
-        unit: 'CRATE',
-        quantity: 20,
-        offeredPricePerUnit: 20000,
-        originalPricePerUnit: 22000,
-        totalAmount: 400000,
-        status: 'PENDING',
-        notes: 'Priority harvest batch loaded directly onto Canter truck at 6:00 AM.',
-      },
-    },
-  ],
-};
 
 export default function ChatScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { user: currentUser } = useAuthStore();
+
   const [inputText, setInputText] = useState('');
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
   const [offerModalVisible, setOfferModalVisible] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
 
   // Offer modal state
-  const [selectedYield, setSelectedYield] = useState(agroYields[0]);
+  const [availableYields, setAvailableYields] = useState<Yield[]>([]);
+  const [selectedYield, setSelectedYield] = useState<Yield | null>(null);
   const [offerQuantity, setOfferQuantity] = useState('10');
   const [offerPrice, setOfferPrice] = useState('20000');
 
-  const conversation =
-    conversations.find((c) => c.id === id || c.participantId === id) || conversations[0];
+  const [activeConversation, setActiveConversation] = useState<any>(null);
+  const [targetUser, setTargetUser] = useState<any>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
 
-  const [messages, setMessages] = useState<Message[]>(
-    initialChatMessages[conversation.id] || initialChatMessages.c1
-  );
+  const loadChat = React.useCallback(async () => {
+    if (!id) return;
+    setLoading(true);
+    try {
+      // 1. Try to fetch as conversationId
+      let convResult: any = null;
+      try {
+        convResult = await fetchConversationDetailsApi(id);
+      } catch (e) {
+        // Fallback to fetch as userId
+      }
 
-  const handleSendMessage = () => {
-    if (inputText.trim() === '') return;
+      if (convResult && convResult.conversation) {
+        setActiveConversation(convResult.conversation);
+        setTargetUser(convResult.targetUser);
+        const msgs = await fetchConversationMessagesApi(convResult.conversation.id);
+        setMessages(msgs);
+      } else {
+        // 2. Fetch or create with userId
+        const withUser = await getOrCreateConversationWithUserApi(id);
+        if (withUser && withUser.conversation) {
+          setActiveConversation(withUser.conversation);
+          setTargetUser(withUser.targetUser);
+          const msgs = await fetchConversationMessagesApi(withUser.conversation.id);
+          setMessages(msgs);
+        }
+      }
+    } catch (error) {
+      console.warn('Could not initialize chat from backend:', error);
+      setActiveConversation({ id, participantId: id });
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
 
-    const newMsg: Message = {
-      id: `msg-${Date.now()}`,
-      conversationId: conversation.id,
-      senderId: 'user',
-      receiverId: conversation.participantId || 'f1',
-      content: inputText.trim(),
+  React.useEffect(() => {
+    loadChat();
+    fetchYieldsApi().then((data) => {
+      if (Array.isArray(data) && data.length > 0) {
+        setAvailableYields(data);
+        setSelectedYield(data[0]);
+      }
+    });
+  }, [loadChat]);
+
+
+  const conversationName =
+    targetUser?.farmerProfile?.farmName ||
+    targetUser?.name ||
+    activeConversation?.participantName ||
+    'AgroPartner';
+
+  const conversationAvatar =
+    targetUser?.avatarUrl ||
+    activeConversation?.participantAvatar ||
+    'https://images.unsplash.com/photo-1605000797499-95a51c5269ae?w=500&auto=format&fit=crop&q=60';
+
+  const isVerified = Boolean(targetUser?.isVerified || activeConversation?.isVerified);
+
+  const handleSendMessage = async () => {
+    if (inputText.trim() === '' || sending) return;
+    const textToSend = inputText.trim();
+    setInputText('');
+
+    const targetReceiverId =
+      targetUser?.id || activeConversation?.participantId || activeConversation?.participantBId || id;
+
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMsg: Message = {
+      id: tempId,
+      conversationId: activeConversation?.id || id || 'conv',
+      senderId: currentUser?.id || 'user',
+      receiverId: targetReceiverId,
+      content: textToSend,
       type: 'TEXT',
       isRead: false,
       createdAt: new Date().toISOString(),
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
-    setMessages((prev) => [...prev, newMsg]);
-    setInputText('');
+    setMessages((prev) => [...prev, optimisticMsg]);
+
+    try {
+      setSending(true);
+      const res = await sendMessageApi(targetReceiverId, textToSend);
+      if (res && res.message) {
+        setMessages((prev) => prev.map((m) => (m.id === tempId ? res.message : m)));
+        if (res.conversation) {
+          setActiveConversation(res.conversation);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to send message:', err);
+    } finally {
+      setSending(false);
+    }
   };
 
   const handleSendVoiceNote = () => {
+    const targetReceiverId =
+      targetUser?.id || activeConversation?.participantId || activeConversation?.participantBId || id;
+
     const newMsg: Message = {
       id: `voice-${Date.now()}`,
-      conversationId: conversation.id,
-      senderId: 'user',
-      receiverId: conversation.participantId || 'f1',
-      content: '',
+      conversationId: activeConversation?.id || 'conv',
+      senderId: currentUser?.id || 'user',
+      receiverId: targetReceiverId,
+      content: 'Voice note (12s)',
       type: 'VOICE',
       isRead: false,
       createdAt: new Date().toISOString(),
@@ -147,21 +184,25 @@ export default function ChatScreen() {
     setMessages((prev) => [...prev, newMsg]);
   };
 
+
   const handleCreateOffer = () => {
+    if (!selectedYield) return;
     const qty = parseFloat(offerQuantity) || 1;
     const price = parseFloat(offerPrice) || 1500;
+
     const total = qty * price;
 
     const offerMsg: Message = {
       id: `offer-${Date.now()}`,
-      conversationId: conversation.id,
-      senderId: 'user',
-      receiverId: conversation.participantId || 'f1',
+      conversationId: activeConversation?.id || id || 'conv',
+      senderId: currentUser?.id || 'user',
+      receiverId: targetUser?.id || activeConversation?.participantId || id || 'f1',
       content: 'I have proposed a wholesale trade offer:',
       type: 'OFFER_CARD',
       isRead: false,
       createdAt: new Date().toISOString(),
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+
       tradeOffer: {
         id: `off-${Date.now()}`,
         yieldId: selectedYield.id,
@@ -211,9 +252,10 @@ export default function ChatScreen() {
   };
 
   const handleNavigateToPublicProfile = () => {
-    const targetUserId = conversation.participantId || conversation.farmerId || 'f1';
+    const targetUserId = targetUser?.id || activeConversation?.participantId || id || 'f1';
     router.push(`/profile/${targetUserId}` as any);
   };
+
 
   const renderMessageBubble = ({ item }: { item: Message }) => {
     const isMe = item.senderId === 'user';
@@ -375,22 +417,19 @@ export default function ChatScreen() {
           <View style={styles.headerAvatarWrapper}>
             <Image
               source={{
-                uri:
-                  conversation.participantAvatar ||
-                  conversation.farmerAvatar ||
-                  'https://images.unsplash.com/photo-1605000797499-95a51c5269ae?w=500&auto=format&fit=crop&q=60',
+                uri: conversationAvatar,
               }}
               style={styles.headerAvatar}
             />
-            {conversation.isOnline && <View style={styles.headerOnlineDot} />}
+            <View style={styles.headerOnlineDot} />
           </View>
 
           <View style={styles.headerInfoCol}>
             <View style={styles.headerNameRow}>
               <Text style={styles.headerName} numberOfLines={1}>
-                {conversation.participantName || conversation.farmerName}
+                {conversationName}
               </Text>
-              {conversation.isVerified && (
+              {isVerified && (
                 <ShieldCheck size={16} color={Colors.cultivated} style={{ marginLeft: 4 }} />
               )}
             </View>
@@ -402,11 +441,12 @@ export default function ChatScreen() {
 
         <TouchableOpacity
           style={styles.callShortcutBtn}
-          onPress={() => Alert.alert('Voice Call', `Calling ${conversation.participantName || 'Partner'} via secure AgroMarket line...`)}
+          onPress={() => Alert.alert('Voice Call', `Calling ${conversationName} via secure AgroMarket line...`)}
         >
           <Phone size={18} color={Colors.espresso} />
         </TouchableOpacity>
       </View>
+
 
       {/* Keyboard Avoiding Container for Message List and Input Bar */}
       <KeyboardAvoidingView
@@ -479,19 +519,21 @@ export default function ChatScreen() {
             </Text>
 
             {/* Produce Selector Preview */}
-            <View style={styles.modalYieldPreview}>
-              <Image source={{ uri: selectedYield.image }} style={styles.modalYieldImg} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.modalYieldTitle}>{selectedYield.title}</Text>
-                <Text style={styles.modalYieldPrice}>
-                  Standard: {selectedYield.pricePerUnit || selectedYield.price} FCFA/{selectedYield.unit}
-                </Text>
+            {selectedYield && (
+              <View style={styles.modalYieldPreview}>
+                <Image source={{ uri: selectedYield.image || (selectedYield.mediaUrls && selectedYield.mediaUrls[0]) || '' }} style={styles.modalYieldImg} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalYieldTitle}>{selectedYield.title}</Text>
+                  <Text style={styles.modalYieldPrice}>
+                    Standard: {selectedYield.pricePerUnit || selectedYield.price} FCFA/{selectedYield.unit}
+                  </Text>
+                </View>
               </View>
-            </View>
+            )}
 
             {/* Quantity Input */}
             <View style={styles.formRow}>
-              <Text style={styles.formLabel}>Quantity ({selectedYield.unit}s):</Text>
+              <Text style={styles.formLabel}>Quantity ({selectedYield?.unit || 'Unit'}s):</Text>
               <TextInput
                 style={styles.modalInput}
                 keyboardType="numeric"
@@ -502,7 +544,7 @@ export default function ChatScreen() {
 
             {/* Proposed Price Input */}
             <View style={styles.formRow}>
-              <Text style={styles.formLabel}>Proposed Price per {selectedYield.unit} (FCFA):</Text>
+              <Text style={styles.formLabel}>Proposed Price per {selectedYield?.unit || 'Unit'} (FCFA):</Text>
               <TextInput
                 style={styles.modalInput}
                 keyboardType="numeric"

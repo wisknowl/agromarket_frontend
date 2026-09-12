@@ -1,8 +1,8 @@
 import { apiClient } from './client';
 import { Yield, Category } from '../../types';
-import { yields as mockYields, categories as mockCategories } from '../../mocks/data';
 
 export const normalizeYield = (item: any): Yield => {
+
   if (!item) return item;
   const rawPrice = item.price ?? item.pricePerUnit ?? 0;
   const price = typeof rawPrice === 'number' ? rawPrice : Number(rawPrice) || 0;
@@ -21,14 +21,15 @@ export const fetchYieldsApi = async (params?: {
   region?: string;
   search?: string;
   isWholesale?: boolean;
+  farmId?: string;
 }): Promise<Yield[]> => {
   try {
     const res = await apiClient.get('/yields', { params });
     const data = Array.isArray(res.data) ? res.data : [];
     return data.map(normalizeYield);
   } catch (error) {
-    console.warn('Backend unavailable, falling back to local Cameroonian mock yields');
-    return mockYields;
+    console.error('Failed to fetch yields from backend:', error);
+    return [];
   }
 };
 
@@ -37,25 +38,21 @@ export const fetchCategoriesApi = async (): Promise<Category[]> => {
     const res = await apiClient.get('/yields/categories');
     return res.data;
   } catch (error) {
-    return mockCategories;
+    console.error('Failed to fetch categories from backend:', error);
+    return [];
   }
 };
 
 export const fetchYieldByIdApi = async (id: string): Promise<Yield> => {
-  try {
-    const res = await apiClient.get(`/yields/${id}`);
-    return normalizeYield(res.data);
-  } catch (error) {
-    const found = mockYields.find((y) => y.id === id);
-    if (!found) throw new Error('Produce not found');
-    return found;
-  }
+  const res = await apiClient.get(`/yields/${id}`);
+  return normalizeYield(res.data);
 };
 
 export const createYieldApi = async (data: any): Promise<Yield> => {
   const res = await apiClient.post('/yields', data);
   return normalizeYield(res.data);
 };
+
 
 export const fetchFarmYieldsApi = async (farmId: string): Promise<Yield[]> => {
   try {

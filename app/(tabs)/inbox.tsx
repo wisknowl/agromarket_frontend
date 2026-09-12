@@ -11,8 +11,11 @@ import {
   StatusBar,
   Modal,
   Pressable,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Search,
@@ -29,14 +32,10 @@ import {
   Globe,
   Lock,
 } from 'lucide-react-native';
-import {
-  conversations,
-  systemNotifications,
-  activityNotifications,
-  followerNotifications,
-  agroPartners,
-} from '@/mocks/data';
-import { Conversation } from '@/types';
+import { Conversation, AgroPartner } from '@/types';
+import { fetchUserConversationsApi } from '@/components/api/chat';
+import { fetchNotificationsApi, fetchAgroPartnersApi } from '@/components/api/notifications';
+import { useAuthStore } from '@/store/authStore';
 import Colors, { Radii, Shadows } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
 
@@ -45,28 +44,81 @@ type PresenceMode = 'PARTNERS' | 'PUBLIC' | 'PRIVATE';
 export default function InboxScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { isAuthenticated } = useAuthStore();
   const [searchVisible, setSearchVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'DEALS' | 'UNREAD'>('ALL');
   const [presenceModalVisible, setPresenceModalVisible] = useState(false);
   const [presenceMode, setPresenceMode] = useState<PresenceMode>('PARTNERS');
 
-  const unreadSystemCount = systemNotifications.filter((n) => !n.isRead).length;
-  const unreadActivityCount = activityNotifications.filter((n) => !n.isRead).length;
-  const unreadFollowersCount = followerNotifications.filter((n) => !n.isRead).length;
+  const [conversationList, setConversationList] = useState<Conversation[]>([]);
+  const [partnersList, setPartnersList] = useState<AgroPartner[]>([]);
+  const [unreadSystemCount, setUnreadSystemCount] = useState(0);
+  const [unreadActivityCount, setUnreadActivityCount] = useState(0);
+  const [unreadFollowersCount, setUnreadFollowersCount] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const filteredConversations = conversations.filter((conv) => {
+  const loadConversations = React.useCallback(async () => {
+    if (!isAuthenticated) {
+      setConversationList([]);
+      setPartnersList([]);
+      return;
+    }
+    try {
+      setLoading(true);
+      const [convData, allNotifs, partners] = await Promise.all([
+        fetchUserConversationsApi(),
+        fetchNotificationsApi(),
+        fetchAgroPartnersApi(),
+      ]);
+
+      if (Array.isArray(convData)) {
+        setConversationList(convData);
+      }
+      if (Array.isArray(partners)) {
+        setPartnersList(partners);
+      }
+      if (Array.isArray(allNotifs)) {
+        setUnreadSystemCount(
+          allNotifs.filter(
+            (n) => (n.category === 'SYSTEM' || n.category === 'FINTECH' || n.category === 'ORDER') && !n.isRead
+          ).length
+        );
+        setUnreadActivityCount(allNotifs.filter((n) => n.category === 'ACTIVITY' && !n.isRead).length);
+        setUnreadFollowersCount(allNotifs.filter((n) => n.category === 'FOLLOW' && !n.isRead).length);
+      }
+    } catch (err) {
+      console.warn('Could not fetch inbox data from backend:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [isAuthenticated]);
+
+  React.useEffect(() => {
+    loadConversations();
+  }, [loadConversations]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadConversations();
+  };
+
+
+  const filteredConversations = conversationList.filter((conv) => {
     const matchesSearch =
       (conv.participantName?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-      (conv.farmerName?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+      ((conv as any).farmerName?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
       (conv.lastMessage?.toLowerCase() || '').includes(searchQuery.toLowerCase());
 
     if (!matchesSearch) return false;
 
-    if (activeFilter === 'DEALS') return conv.hasActiveOffer || conv.lastMessageType === 'OFFER_CARD';
+    if (activeFilter === 'DEALS') return (conv as any).hasActiveOffer || (conv as any).lastMessageType === 'OFFER_CARD';
     if (activeFilter === 'UNREAD') return (conv.unreadCount || 0) > 0;
     return true;
   });
+
 
   const renderConversationRow = ({ item }: { item: Conversation }) => {
     const isUnread = (item.unreadCount || 0) > 0;
@@ -216,7 +268,11 @@ export default function InboxScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom, 20) + 70 }]}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.cultivated]} />
+        }
       >
+
         {/* TikTok-Style 3-Hub Header Channels */}
         <View style={styles.hubContainer}>
           {/* Channel 1: System Notices */}
@@ -269,22 +325,23 @@ export default function InboxScreen() {
                 </View>
               )}
             </View>
-            <Text style={styles.hubLabel}>AgroPartners</Text>
-            <Text style={styles.hubSub}>Mutual Follows</Text>
+            <Text style={styles.hubLabel}>AgroPatrons</Text>
+            <Text style={styles.hubSub}>Patrons & Community</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Active AgroPartners Horizontal Strip (Clean partner avatars only) */}
+        {/* Active AgroPatrons Horizontal Strip (Clean patron avatars only) */}
         <View style={styles.partnersStripSection}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Active AgroPartners</Text>
+            <Text style={styles.sectionTitle}>Active AgroPatrons</Text>
             <TouchableOpacity onPress={() => router.push('/notifications/followers')}>
-              <Text style={styles.viewAllText}>View All ({agroPartners.length})</Text>
+              <Text style={styles.viewAllText}>View All ({partnersList.length})</Text>
             </TouchableOpacity>
           </View>
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.partnersStrip}>
-            {agroPartners.map((partner) => (
+            {partnersList.map((partner) => (
+
               <TouchableOpacity
                 key={partner.id}
                 style={styles.partnerItem}

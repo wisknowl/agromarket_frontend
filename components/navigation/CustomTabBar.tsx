@@ -14,7 +14,6 @@ import {
   ShoppingBag,
   MessageSquare,
   User,
-  Plus,
 } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
@@ -76,7 +75,7 @@ export default function CustomTabBar({
       case 'index':
         return 'AgroFeed';
       case 'agro-yields':
-        return 'Harvests';
+        return 'AgroMarket';
       case 'cart':
         return 'Basket';
       case 'inbox':
@@ -88,8 +87,6 @@ export default function CustomTabBar({
     }
   };
 
-  // If user is a farmer, we place the bulging "+" button in the middle
-  // Left 2 items (index, agro-yields), Center Bulge (+), Right 2 items (cart or inbox, profile)
   return (
     <View style={[styles.tabBarContainer, { paddingBottom: bottomInset, height: TAB_BAR_HEIGHT + bottomInset }]}>
       {/* Flat Top border line */}
@@ -100,24 +97,6 @@ export default function CustomTabBar({
         {state.routes.map((route, index) => {
           const { options } = descriptors[route.key];
           const isFocused = state.index === index;
-
-          // For users with at least one farm, entirely replace the center 'cart' tab with the + Post button (NO text below)
-          if (userHasFarm && route.name === 'cart') {
-            return (
-              <TouchableOpacity
-                key="center-create-post-tab"
-                style={styles.centerPlusTabItem}
-                onPress={() => router.push('/feed/create')}
-                activeOpacity={0.85}
-                accessibilityRole="button"
-                accessibilityLabel="Create Harvest Story"
-              >
-                <View style={styles.centerPlusCircle}>
-                  <Plus size={24.5} color={Colors.white} strokeWidth={3} />
-                </View>
-              </TouchableOpacity>
-            );
-          }
 
           const onPress = () => {
             const event = navigation.emit({

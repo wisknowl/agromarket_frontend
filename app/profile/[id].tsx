@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,9 +7,8 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  FlatList,
-  Dimensions,
   StatusBar,
+  RefreshControl,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,158 +22,156 @@ import {
   Sparkles,
   Warehouse,
   Bookmark,
+  BookmarkCheck,
   Heart,
   Share2,
-  Lock,
+  UserX,
+  Crown,
 } from 'lucide-react-native';
-import {
-  users as mockUsers,
-  farmers as mockFarmers,
-  farms as mockFarms,
-  posts as mockPosts,
-  agroYields as mockYields,
-} from '@/mocks/data';
 import { fetchPublicProfileApi, toggleFollowUserApi } from '@/components/api/auth';
 import { fetchFeedPostsApi } from '@/components/api/posts';
-import { Post, AgroYield, Farm } from '@/types';
+import { fetchFarmYieldsApi, fetchYieldsApi } from '@/components/api/yields';
+import { fetchFarmPatronStatusApi } from '@/components/api/fintech';
+import AgroPatronModal from '@/components/AgroPatronModal';
+import { Post, Yield, Farm } from '@/types';
+import Colors, { Radii, Shadows } from '@/constants/colors';
+import { Fonts } from '@/constants/typography';
 import PostCard from '@/components/PostCard';
 import YieldCard from '@/components/YieldCard';
 import FarmsList from '@/components/FarmsList';
-import Colors, { Radii, Shadows } from '@/constants/colors';
-import { Fonts } from '@/constants/typography';
 import FarmerBadge from '@/components/ui/FarmerBadge';
 
-export default function PublicProfileViewScreen() {
+export default function UserPublicProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
 
-  const [activeTab, setActiveTab] = useState<'posts' | 'farms' | 'saved' | 'likes'>('posts');
+  const [activeTab, setActiveTab] = useState<'posts' | 'farms' | 'produce' | 'wishlist'>('posts');
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [profileData, setProfileData] = useState<any>(null);
   const [userPosts, setUserPosts] = useState<Post[]>([]);
-  const [userYields, setUserYields] = useState<AgroYield[]>([]);
+  const [userYields, setUserYields] = useState<Yield[]>([]);
   const [userFarms, setUserFarms] = useState<Farm[]>([]);
-  const [isFollowing, setIsFollowing] = useState(true);
+  const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
+  const [isPatron, setIsPatron] = useState(false);
+  const [patronModalVisible, setPatronModalVisible] = useState(false);
 
-  useEffect(() => {
-    loadProfile();
-  }, [id]);
-
-  const loadProfile = async () => {
+  const loadProfile = useCallback(async () => {
     if (!id) return;
-    setLoading(true);
-
     try {
-      // 1. Try real backend API
+      setLoading(true);
       const data = await fetchPublicProfileApi(id);
       if (data) {
         setProfileData(data);
         setIsFollowing(Boolean(data.isFollowing));
+        setUserFarms(data.farms || []);
+
+        if (Array.isArray(data.posts) && data.posts.length > 0) {
+          setUserPosts(
+            data.posts.map((p: any) => ({
+              ...p,
+              farmerId: p.farmerId || p.userId || data.id,
+              farmerName: p.farm?.name || data.name || 'Agro Farmer',
+              farmerAvatar:
+                p.farm?.coverPhoto ||
+                data.avatarUrl ||
+                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500',
+              media: p.mediaUrl,
+              likes: p.likesCount ?? p.likes?.length ?? 0,
+              comments: p.comments || [],
+            }))
+          );
+        } else {
+          const posts = await fetchFeedPostsApi({ userId: id });
+          setUserPosts(posts || []);
+        }
+
+        if (data.farms && data.farms.length > 0) {
+          const yields = await fetchFarmYieldsApi(data.farms[0].id);
+          setUserYields(yields || []);
+        } else {
+          const yields = await fetchYieldsApi({ farmId: id });
+          setUserYields(yields || []);
+        }
       } else {
-        resolveMockProfile(id);
+        setProfileData(null);
       }
     } catch (e) {
-      resolveMockProfile(id);
+      console.warn('Failed to load profile:', e);
+      setProfileData(null);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  };
+  }, [id]);
 
-  const resolveMockProfile = (targetId: string) => {
-    // 1. Check in users
-    const foundUser = mockUsers.find(
-      (u) =>
-        u.id === targetId ||
-        u.farmerProfile?.id === targetId ||
-        u.farmerProfile?.userId === targetId ||
-        u.wholesalerProfile?.id === targetId ||
-        u.transporterProfile?.id === targetId
-    );
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
 
-    // 2. Check in farmers
-    const foundFarmer = mockFarmers.find(
-      (f) => f.id === targetId || f.userId === targetId
-    );
-
-    // 3. Resolve matched profile
-    const resolvedUser = foundUser || {
-      id: targetId,
-      name: foundFarmer ? foundFarmer.farmName : 'Victoy Eyong',
-      email: 'farmer@agromarket.com',
-      phone: '+237 671 111 111',
-      avatar:
-        foundFarmer?.profilePhoto ||
-        'https://images.unsplash.com/photo-1605000797499-95a51c5269ae?w=500&auto=format&fit=crop&q=60',
-      role: 'FARMER',
-      isVerified: true,
-      farmerProfile: {
-        id: foundFarmer?.id || 'f1',
-        userId: targetId,
-        farmName: foundFarmer?.farmName || 'Green Valley Organic Farms',
-        region: foundFarmer?.location || 'Foumbot, West Region',
-        city: 'Foumbot',
-        rating: foundFarmer?.rating || 4.9,
-        totalRatings: 142,
-        totalFollowers: foundFarmer?.followers || 320,
-        creditTier: 'GOLD',
-        creditScore: 780,
-        bio:
-          foundFarmer?.description ||
-          'Specializing in fresh volcanic soil vegetables, vine tomatoes, and Penja pepper in Foumbot valley.',
-      },
-    };
-
-    setProfileData(resolvedUser);
-    setIsFollowing(true);
-
-    // 4. Resolve exact farms
-    const resolvedFarms = mockFarms.filter(
-      (f) => f.userId === resolvedUser.id || f.id === targetId
-    );
-    setUserFarms(resolvedFarms.length > 0 ? resolvedFarms : [mockFarms[0]]);
-
-    // 5. Resolve exact posts created by this user
-    const farmerIdMatch = resolvedUser.farmerProfile?.id || resolvedUser.id;
-    const resolvedPosts = mockPosts.filter(
-      (p) =>
-        p.farmerId === farmerIdMatch ||
-        p.farmerId === resolvedUser.id ||
-        p.userId === resolvedUser.id
-    );
-    setUserPosts(resolvedPosts.length > 0 ? resolvedPosts : [mockPosts[0]]);
-
-    // 6. Resolve exact produce yields
-    const resolvedYields = mockYields.filter(
-      (y) => y.farmerId === farmerIdMatch || y.farmerId === resolvedUser.id
-    );
-    setUserYields(resolvedYields.length > 0 ? resolvedYields : [mockYields[0]]);
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadProfile();
   };
 
   const handleToggleFollow = async () => {
     if (!profileData?.id) return;
     setFollowLoading(true);
     try {
-      await toggleFollowUserApi(profileData.id);
-      setIsFollowing((prev) => !prev);
+      const res = await toggleFollowUserApi(profileData.id);
+      setIsFollowing(res?.isFollowing ?? !isFollowing);
     } catch (e) {
-      setIsFollowing((prev) => !prev);
+      console.error('Failed to toggle follow:', e);
     } finally {
       setFollowLoading(false);
     }
   };
 
   const handleOpenChat = () => {
-    router.push('/chat/c1');
+    if (profileData?.id) {
+      router.push(`/chat/${profileData.id}` as any);
+    }
   };
 
-  if (loading || !profileData) {
+  if (loading && !refreshing) {
     return (
       <View style={styles.loadingContainer}>
         <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
         <ActivityIndicator size="large" color={Colors.cultivated} />
         <Text style={styles.loadingText}>Loading AgroMarket Profile...</Text>
+      </View>
+    );
+  }
+
+  if (!profileData) {
+    return (
+      <View style={styles.notFoundContainer}>
+        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+        <View style={[styles.topBar, { paddingTop: Math.max(insets.top, 16) + 8, width: '100%' }]}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => router.back()}
+            activeOpacity={0.7}
+          >
+            <ArrowLeft size={22} color={Colors.espresso} />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.notFoundContent}>
+          <UserX size={56} color={Colors.text.muted} />
+          <Text style={styles.notFoundTitle}>Profile Not Found</Text>
+          <Text style={styles.notFoundText}>
+            This member profile could not be found or has not been configured yet.
+          </Text>
+          <TouchableOpacity
+            style={styles.backBtnPill}
+            onPress={() => router.back()}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.backBtnPillText}>Return to Directory</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -194,13 +191,15 @@ export default function PublicProfileViewScreen() {
   const followerCount =
     profileData.farmerProfile?.totalFollowers ||
     profileData.followersCount ||
-    320;
+    0;
+
+  const followingCount = profileData.followingCount || 0;
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      {/* Standalone Top Bar with Back Button (No bottom TabBar) */}
+      {/* Standalone Top Bar with Back Button */}
       <View style={[styles.topBar, { paddingTop: Math.max(insets.top, 16) + 8 }]}>
         <TouchableOpacity
           style={styles.backBtn}
@@ -228,6 +227,13 @@ export default function PublicProfileViewScreen() {
           styles.scrollContent,
           { paddingBottom: Math.max(insets.bottom, 20) + 30 },
         ]}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[Colors.cultivated]}
+          />
+        }
       >
         {/* Profile Card Info */}
         <View style={styles.profileHeaderCard}>
@@ -238,7 +244,7 @@ export default function PublicProfileViewScreen() {
                   uri:
                     profileData.avatarUrl ||
                     profileData.avatar ||
-                    'https://images.unsplash.com/photo-1605000797499-95a51c5269ae?w=500&auto=format&fit=crop&q=60',
+                    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500',
                 }}
                 style={styles.avatar}
               />
@@ -293,37 +299,36 @@ export default function PublicProfileViewScreen() {
             <View style={styles.statDivider} />
             <View style={styles.statCol}>
               <Text style={styles.statNumber}>{followerCount}</Text>
-              <Text style={styles.statLabel}>Followers</Text>
+              <Text style={styles.statLabel}>AgroPatrons</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statCol}>
-              <Text style={styles.statNumber}>45</Text>
-              <Text style={styles.statLabel}>Following</Text>
+              <Text style={styles.statNumber}>{followingCount}</Text>
+              <Text style={styles.statLabel}>Patronized Farms</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statCol}>
-              <Text style={styles.statNumber}>4</Text>
-              <Text style={styles.statLabel}>Partners</Text>
+              <Text style={styles.statNumber}>{(profileData as any)?.agroVestorsCount ?? profileData.farmerProfile?.loanApplications?.length ?? 0}</Text>
+              <Text style={styles.statLabel}>AgroVestors</Text>
             </View>
           </View>
 
-          {/* Visitor Action Bar: Follow / Following & Message */}
+          {/* Visitor Action Bar: AgroPatron & Message */}
           <View style={styles.visitorActionsRow}>
             <TouchableOpacity
-              style={[styles.followBtn, isFollowing && styles.followBtnActive]}
-              onPress={handleToggleFollow}
-              disabled={followLoading}
+              style={[styles.followBtn, isPatron && styles.patronBtnActive]}
+              onPress={() => setPatronModalVisible(true)}
               activeOpacity={0.85}
             >
-              {isFollowing ? (
+              {isPatron ? (
                 <>
-                  <UserCheck size={16} color={Colors.cultivated} strokeWidth={2.2} />
-                  <Text style={styles.followBtnTextActive}>AgroPartner 🤝</Text>
+                  <Crown size={16} color="#B45309" strokeWidth={2.4} />
+                  <Text style={styles.patronBtnTextActive}>Active AgroPatron ⭐</Text>
                 </>
               ) : (
                 <>
-                  <UserPlus size={16} color={Colors.white} strokeWidth={2.2} />
-                  <Text style={styles.followBtnText}>Follow & Connect</Text>
+                  <Crown size={16} color={Colors.white} strokeWidth={2.4} />
+                  <Text style={styles.followBtnText}>Become an AgroPatron ($2)</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -339,7 +344,7 @@ export default function PublicProfileViewScreen() {
           </View>
         </View>
 
-        {/* Public Visible Tabs (Filtered: No Orders Tab, No Owner Controls) */}
+        {/* Public Visible Tabs */}
         <View style={styles.tabBar}>
           <TouchableOpacity
             style={[styles.tabItem, activeTab === 'posts' && styles.tabItemActive]}
@@ -362,22 +367,22 @@ export default function PublicProfileViewScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.tabItem, activeTab === 'saved' && styles.tabItemActive]}
-            onPress={() => setActiveTab('saved')}
+            style={[styles.tabItem, activeTab === 'produce' && styles.tabItemActive]}
+            onPress={() => setActiveTab('produce')}
           >
-            <Bookmark size={18} color={activeTab === 'saved' ? Colors.cultivated : Colors.text.muted} />
-            <Text style={[styles.tabLabel, activeTab === 'saved' && styles.tabLabelActive]}>
-              Produce
+            <Bookmark size={18} color={activeTab === 'produce' ? Colors.cultivated : Colors.text.muted} />
+            <Text style={[styles.tabLabel, activeTab === 'produce' && styles.tabLabelActive]}>
+              Produce ({userYields.length})
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.tabItem, activeTab === 'likes' && styles.tabItemActive]}
-            onPress={() => setActiveTab('likes')}
+            style={[styles.tabItem, activeTab === 'wishlist' && styles.tabItemActive]}
+            onPress={() => setActiveTab('wishlist')}
           >
-            <Heart size={18} color={activeTab === 'likes' ? Colors.cultivated : Colors.text.muted} />
-            <Text style={[styles.tabLabel, activeTab === 'likes' && styles.tabLabelActive]}>
-              Likes
+            <BookmarkCheck size={18} color={activeTab === 'wishlist' ? Colors.cultivated : Colors.text.muted} />
+            <Text style={[styles.tabLabel, activeTab === 'wishlist' && styles.tabLabelActive]}>
+              Wishlist
             </Text>
           </TouchableOpacity>
         </View>
@@ -385,43 +390,73 @@ export default function PublicProfileViewScreen() {
         {/* Tab Content Display */}
         <View style={styles.tabContentArea}>
           {activeTab === 'posts' && (
-            <View style={styles.postsList}>
-              {userPosts.map((post) => (
-                <PostCard key={post.id} post={post} />
-              ))}
-            </View>
+            userPosts.length === 0 ? (
+              <View style={styles.emptyTabArea}>
+                <Text style={styles.emptyTabText}>No posts shared yet by this producer.</Text>
+              </View>
+            ) : (
+              <View style={styles.postsList}>
+                {userPosts.map((post) => (
+                  <PostCard key={post.id} post={post} />
+                ))}
+              </View>
+            )
           )}
 
           {activeTab === 'farms' && (
-            <View>
-              <FarmsList farms={userFarms} isOwner={false} />
-            </View>
+            userFarms.length === 0 ? (
+              <View style={styles.emptyTabArea}>
+                <Text style={styles.emptyTabText}>No registered farms listed yet.</Text>
+              </View>
+            ) : (
+              <View>
+                <FarmsList farms={userFarms} isOwner={false} />
+              </View>
+            )
           )}
 
-          {activeTab === 'saved' && (
-            <View style={styles.yieldsGrid}>
-              {userYields.map((yieldItem) => (
-                <View key={yieldItem.id} style={{ width: '48%', marginBottom: 12 }}>
-                  <YieldCard
-                    item={yieldItem}
-                    popoverVisible={false}
-                    onOpenPopover={() => {}}
-                    onClosePopover={() => {}}
-                  />
-                </View>
-              ))}
-            </View>
+          {activeTab === 'produce' && (
+            userYields.length === 0 ? (
+              <View style={styles.emptyTabArea}>
+                <Text style={styles.emptyTabText}>No active produce yields currently listed.</Text>
+              </View>
+            ) : (
+              <View style={styles.yieldsGrid}>
+                {userYields.map((yieldItem) => (
+                  <View key={yieldItem.id} style={{ width: '48%', marginBottom: 12 }}>
+                    <YieldCard
+                      item={yieldItem}
+                      popoverVisible={false}
+                      onOpenPopover={() => {}}
+                      onClosePopover={() => {}}
+                    />
+                  </View>
+                ))}
+              </View>
+            )
           )}
 
-          {activeTab === 'likes' && (
-            <View style={styles.postsList}>
-              {userPosts.map((post) => (
-                <PostCard key={post.id} post={post} />
-              ))}
+          {activeTab === 'wishlist' && (
+            <View style={styles.emptyTabArea}>
+              <Text style={styles.emptyTabText}>Wishlist stories and harvests are kept private.</Text>
             </View>
           )}
         </View>
       </ScrollView>
+
+      {profileData && (
+        <AgroPatronModal
+          visible={patronModalVisible}
+          onClose={() => setPatronModalVisible(false)}
+          farmerId={profileData.id}
+          farmerName={profileData.name}
+          farmName={userFarms[0]?.name || `${profileData.name}'s Farm`}
+          onSuccess={() => {
+            setIsPatron(true);
+            loadProfile();
+          }}
+        />
+      )}
     </View>
   );
 }
@@ -442,6 +477,42 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.body,
     fontSize: 14,
     color: Colors.text.secondary,
+  },
+  notFoundContainer: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  notFoundContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    gap: 12,
+  },
+  notFoundTitle: {
+    fontFamily: Fonts.displayItalic,
+    fontSize: 20,
+    color: Colors.espresso,
+    marginTop: 8,
+  },
+  notFoundText: {
+    fontFamily: Fonts.body,
+    fontSize: 14,
+    color: Colors.text.secondary,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  backBtnPill: {
+    marginTop: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 22,
+    borderRadius: Radii.pill,
+    backgroundColor: Colors.cultivated,
+  },
+  backBtnPillText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 14,
+    color: Colors.white,
   },
   topBar: {
     flexDirection: 'row',
@@ -588,17 +659,22 @@ const styles = StyleSheet.create({
   statCol: {
     flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 2,
   },
   statNumber: {
     fontFamily: Fonts.monoBold,
-    fontSize: 15,
+    fontSize: 15.5,
     color: Colors.espresso,
+    textAlign: 'center',
   },
   statLabel: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 11,
     color: Colors.text.secondary,
-    marginTop: 1,
+    marginTop: 2,
+    textAlign: 'center',
+    lineHeight: 13,
   },
   statDivider: {
     width: 1,
@@ -688,5 +764,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+  },
+  emptyTabArea: {
+    paddingVertical: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyTabText: {
+    fontFamily: Fonts.body,
+    fontSize: 13,
+    color: Colors.text.secondary,
+  },
+  patronBtnActive: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#FDE68A',
+    borderWidth: 1.5,
+  },
+  patronBtnTextActive: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 13.5,
+    color: '#92400E',
   },
 });

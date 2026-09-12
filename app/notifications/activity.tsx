@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   Image,
   StatusBar,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,7 +19,11 @@ import {
   Star,
   Sparkles,
 } from 'lucide-react-native';
-import { activityNotifications } from '@/mocks/data';
+
+import {
+  fetchNotificationsApi,
+  markNotificationReadApi,
+} from '@/components/api/notifications';
 import { NotificationItem } from '@/types';
 import Colors, { Radii, Shadows } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
@@ -26,7 +32,31 @@ export default function ActivityNotificationsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState<'ALL' | 'LIKES' | 'COMMENTS' | 'REVIEWS'>('ALL');
-  const [notifications, setNotifications] = useState<NotificationItem[]>(activityNotifications);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadNotifications = React.useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await fetchNotificationsApi('ACTIVITY');
+      setNotifications(Array.isArray(data) ? data : []);
+    } catch (e) {
+      setNotifications([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    loadNotifications();
+  }, [loadNotifications]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadNotifications();
+  };
 
   const filteredData = notifications.filter((item) => {
     if (filter === 'LIKES') return item.title.toLowerCase().includes('like');
@@ -36,10 +66,11 @@ export default function ActivityNotificationsScreen() {
   });
 
   const handleItemPress = (item: NotificationItem) => {
-    // Mark as read
+    markNotificationReadApi(item.id);
     setNotifications((prev) =>
       prev.map((n) => (n.id === item.id ? { ...n, isRead: true } : n))
     );
+
 
     if (item.targetType === 'post') {
       // Navigate to harvest story feed / modal
@@ -141,16 +172,26 @@ export default function ActivityNotificationsScreen() {
           { paddingBottom: Math.max(insets.bottom, 20) + 24 },
         ]}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.cultivated]} />
+        }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Sparkles size={48} color={Colors.text.muted} />
-            <Text style={styles.emptyTitle}>No Activities Yet</Text>
-            <Text style={styles.emptySub}>
-              When buyers and farmers interact with your harvest posts and yields, you'll see them here.
-            </Text>
+            {loading ? (
+              <ActivityIndicator size="large" color={Colors.cultivated} />
+            ) : (
+              <>
+                <Sparkles size={48} color={Colors.text.muted} />
+                <Text style={styles.emptyTitle}>No Activities Yet</Text>
+                <Text style={styles.emptySub}>
+                  When buyers and farmers interact with your harvest posts and yields, you'll see them here.
+                </Text>
+              </>
+            )}
           </View>
         }
       />
+
     </View>
   );
 }

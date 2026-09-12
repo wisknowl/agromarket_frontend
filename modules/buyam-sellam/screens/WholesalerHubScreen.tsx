@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,8 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import {
   Store,
@@ -13,14 +15,41 @@ import {
 import Colors, { Radii, Shadows } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
 import BrandButton from '@/components/ui/BrandButton';
-import { agroYields } from '@/mocks/data';
+import { fetchWholesaleDealsApi } from '@/components/api/wholesaler';
+import { Yield } from '@/types';
 import { useRouter } from 'expo-router';
 
 export default function WholesalerHubScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'bulkDeals' | 'demands' | 'partners'>('bulkDeals');
+  const [bulkYields, setBulkYields] = useState<Yield[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const bulkYields = agroYields.filter((item) => item.isWholesaleBulkAvailable);
+  const loadBulkDeals = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await fetchWholesaleDealsApi();
+      setBulkYields(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.warn('Failed to load wholesale deals from backend:', e);
+      setBulkYields([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+
+  useEffect(() => {
+    loadBulkDeals();
+  }, [loadBulkDeals]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadBulkDeals();
+  };
+
 
   return (
     <View style={styles.container}>
@@ -85,7 +114,14 @@ export default function WholesalerHubScreen() {
       </View>
 
       {/* Content */}
-      <ScrollView style={styles.scrollArea} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollArea}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.cultivated]} />
+        }
+      >
+
         {activeTab === 'bulkDeals' && (
           <View style={styles.dealsList}>
             {bulkYields.map((yieldItem) => {

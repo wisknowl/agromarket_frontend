@@ -12,6 +12,7 @@ import {
   Platform,
   RefreshControl,
   Image,
+  Modal,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -41,6 +42,9 @@ import {
   ChevronUp,
   Shield,
   Zap,
+  X,
+  Smartphone,
+  CreditCard,
 } from 'lucide-react-native';
 import Colors, { Radii, Shadows } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
@@ -50,13 +54,18 @@ import {
   fetchLoanProductsApi,
   fetchMyLoanApplicationsApi,
   applyForLoanApi,
+  fetchAgroVestorCampaignsApi,
+  pledgeAgroVestorInvestmentApi,
+  fetchMyAgroVestmentsApi,
   CreditScoreResponse,
+  AgroVestorCampaign,
+  AgroVestorInvestment,
 } from '@/components/api/fintech';
 import { LoanProduct, LoanApplication } from '@/types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-type TabMode = 'products' | 'my_loans';
+type TabMode = 'products' | 'agrovestor' | 'my_loans';
 
 export default function LoansScreen() {
   const router = useRouter();
@@ -76,6 +85,17 @@ export default function LoansScreen() {
   const [tierFilter, setTierFilter] = useState<string>('ALL');
   const [showRadar, setShowRadar] = useState(true);
 
+  // AgroVestor State
+  const [campaigns, setCampaigns] = useState<AgroVestorCampaign[]>([]);
+  const [myInvestments, setMyInvestments] = useState<AgroVestorInvestment[]>([]);
+  const [investModalVisible, setInvestModalVisible] = useState(false);
+  const [selectedCampaign, setSelectedCampaign] = useState<AgroVestorCampaign | null>(null);
+  const [pledgeAmount, setPledgeAmount] = useState('25000');
+  const [pledgeCategory, setPledgeCategory] = useState<'MOBILE_MONEY' | 'CARD' | 'BANK_TRANSFER' | 'AGROWALLET'>('MOBILE_MONEY');
+  const [pledgeProvider, setPledgeProvider] = useState<'M_PESA' | 'AIRTEL' | 'MTN' | 'ORANGE' | 'WAVE'>('M_PESA');
+  const [pledgePhone, setPledgePhone] = useState(currentUser?.phone || '+254 712 345 678');
+  const [pledging, setPledging] = useState(false);
+
   // Form states
   const [requestedAmount, setRequestedAmount] = useState('500000');
   const [purpose, setPurpose] = useState('Purchasing hybrid tomato seeds, NPK 20-10-10 fertilizer and drip irrigation hoses for upcoming harvest season.');
@@ -83,10 +103,12 @@ export default function LoansScreen() {
 
   const loadFintechData = useCallback(async () => {
     try {
-      const [scoreRes, productsRes, myLoansRes] = await Promise.all([
+      const [scoreRes, productsRes, myLoansRes, campaignsRes, investmentsRes] = await Promise.all([
         fetchFarmerCreditScoreApi().catch(() => null),
         fetchLoanProductsApi().catch(() => []),
         fetchMyLoanApplicationsApi().catch(() => []),
+        fetchAgroVestorCampaignsApi().catch(() => []),
+        fetchMyAgroVestmentsApi().catch(() => []),
       ]);
 
       if (scoreRes) setScoreData(scoreRes);
@@ -98,6 +120,8 @@ export default function LoansScreen() {
         }
       }
       if (myLoansRes) setMyLoans(myLoansRes);
+      if (campaignsRes) setCampaigns(campaignsRes);
+      if (investmentsRes) setMyInvestments(investmentsRes);
     } catch (err) {
       console.warn('Failed to load fintech telemetry:', err);
     } finally {
@@ -169,7 +193,7 @@ export default function LoansScreen() {
     { key: 'reviewBayesian' as const, label: 'Bayesian Customer Rating', code: 'M3', weight: `${Math.round((weights.reviewBayesian ?? 0.12) * 100)}%`, icon: '⭐', desc: 'Prior-weighted buyer satisfaction' },
     { key: 'listingFrequency' as const, label: 'Produce Varieties & Updates', code: 'M2', weight: `${Math.round((weights.listingFrequency ?? 0.10) * 100)}%`, icon: '🌿', desc: 'Active catalog regularity' },
     { key: 'engagementVelocity' as const, label: 'Story & Offer Engagement', code: 'M6', weight: `${Math.round((weights.engagementVelocity ?? 0.08) * 100)}%`, icon: '⚡', desc: 'Likes, comments, and P2P offers' },
-    { key: 'networkReach' as const, label: 'Trade Follower Network', code: 'M5', weight: `${Math.round((weights.networkReach ?? 0.05) * 100)}%`, icon: '👥', desc: 'Verified buyers & transporters' },
+    { key: 'networkReach' as const, label: 'AgroPatron & Trade Network', code: 'M5', weight: `${Math.round((weights.networkReach ?? 0.05) * 100)}%`, icon: '👥', desc: 'Verified patrons & transporters' },
     { key: 'kycCompliance' as const, label: 'Identity, GPS & Cooperative', code: 'M8', weight: `${Math.round((weights.kycCompliance ?? 0.05) * 100)}%`, icon: '📍', desc: 'National ID, farm GPS & cooperative' },
   ];
 
@@ -241,6 +265,50 @@ export default function LoansScreen() {
     }
   };
 
+  const openInvestModal = (camp: AgroVestorCampaign) => {
+    setSelectedCampaign(camp);
+    setPledgeAmount(String(camp.minPledge || 25000));
+    setInvestModalVisible(true);
+  };
+
+  const handlePledgeInvestment = async () => {
+    if (!selectedCampaign) return;
+    const amt = parseFloat(pledgeAmount);
+    if (isNaN(amt) || amt < selectedCampaign.minPledge) {
+      Alert.alert('Invalid Amount', `Minimum investment for this campaign is ${selectedCampaign.minPledge.toLocaleString()} FCFA`);
+      return;
+    }
+    try {
+      setPledging(true);
+      const provider = pledgeCategory === 'MOBILE_MONEY' ? pledgeProvider : pledgeCategory;
+      const res = await pledgeAgroVestorInvestmentApi({
+        campaignId: selectedCampaign.id,
+        amount: amt,
+        paymentMethod: pledgeCategory,
+        paymentProvider: provider,
+        currency: 'XAF',
+      });
+      Alert.alert(
+        'AgroVestment Secured! 🚀🌾',
+        `Your investment of ${amt.toLocaleString()} FCFA has been locked into Engine 3 Smart Escrow via ${provider.replace('_', ' ')}. Projected return: ${res.investment?.projectedReturnAmount?.toLocaleString()} FCFA (+${selectedCampaign.expectedRoiPercent}% in ${selectedCampaign.durationMonths} months).`,
+        [
+          {
+            text: 'View Portfolio',
+            onPress: () => {
+              setInvestModalVisible(false);
+              setActiveTab('my_loans');
+              loadFintechData();
+            },
+          },
+        ]
+      );
+    } catch (err: any) {
+      Alert.alert('Investment Error', err.message || 'Could not complete investment pledge');
+    } finally {
+      setPledging(false);
+    }
+  };
+
   const filteredProducts = products.filter((p) => {
     if (tierFilter === 'ALL') return true;
     return p.requiredCreditTier === tierFilter;
@@ -273,7 +341,7 @@ export default function LoansScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* 2. DUAL-TAB SELECTOR */}
+      {/* 2. THREE-WAY TAB SELECTOR */}
       <View style={styles.tabToggleRow}>
         <TouchableOpacity
           style={[styles.tabToggleBtn, activeTab === 'products' && styles.tabToggleBtnActive]}
@@ -281,7 +349,7 @@ export default function LoansScreen() {
           activeOpacity={0.8}
         >
           <Wallet
-            size={18}
+            size={16}
             color={activeTab === 'products' ? Colors.cultivated : Colors.text.secondary}
             strokeWidth={activeTab === 'products' ? 2.4 : 2}
           />
@@ -291,7 +359,27 @@ export default function LoansScreen() {
               activeTab === 'products' && styles.tabToggleTextActive,
             ]}
           >
-            Available Credit Lines
+            Credit Lines
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tabToggleBtn, activeTab === 'agrovestor' && styles.tabToggleBtnActive]}
+          onPress={() => setActiveTab('agrovestor')}
+          activeOpacity={0.8}
+        >
+          <TrendingUp
+            size={16}
+            color={activeTab === 'agrovestor' ? Colors.cultivated : Colors.text.secondary}
+            strokeWidth={activeTab === 'agrovestor' ? 2.4 : 2}
+          />
+          <Text
+            style={[
+              styles.tabToggleText,
+              activeTab === 'agrovestor' && styles.tabToggleTextActive,
+            ]}
+          >
+            AgroVestor 🚀
           </Text>
         </TouchableOpacity>
 
@@ -301,7 +389,7 @@ export default function LoansScreen() {
           activeOpacity={0.8}
         >
           <Layers
-            size={18}
+            size={16}
             color={activeTab === 'my_loans' ? Colors.cultivated : Colors.text.secondary}
             strokeWidth={activeTab === 'my_loans' ? 2.4 : 2}
           />
@@ -311,7 +399,7 @@ export default function LoansScreen() {
               activeTab === 'my_loans' && styles.tabToggleTextActive,
             ]}
           >
-            My Loans ({myLoans.length})
+            Portfolio ({myLoans.length + myInvestments.length})
           </Text>
         </TouchableOpacity>
       </View>
@@ -757,7 +845,151 @@ export default function LoansScreen() {
             )}
 
             {/* ============================================================ */}
-            {/* VIEW 2: MY LOANS & REPAYMENT PIPELINE */}
+            {/* VIEW 2: AGROVESTOR P2P CROWDLENDING CAMPAIGNS */}
+            {/* ============================================================ */}
+            {activeTab === 'agrovestor' && (
+              <View style={styles.sectionWrap}>
+                {/* AgroVestor Explainer Banner */}
+                <View style={styles.agrovestorHeroBanner}>
+                  <View style={styles.agrovestorHeroHeader}>
+                    <Sparkles size={20} color={Colors.gold} strokeWidth={2.4} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.agrovestorHeroTitle}>AgroVestor Crowdlending</Text>
+                      <Text style={styles.agrovestorHeroSubtitle}>
+                        Direct Farm Sponsorship Powered by Engine 1 Underwriting
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.agrovestorHeroBody}>
+                    Invest in verified seasonal crop cycles. Every farm is audited with the 8 Victory Eyong Tabi Behavioral Credit Metrics. Capital is locked into Engine 3 Smart Escrow and disbursed strictly according to verified agricultural input milestones.
+                  </Text>
+                  <View style={styles.agrovestorHeroStatsRow}>
+                    <View style={styles.agrovestorHeroStat}>
+                      <Text style={styles.agrovestorHeroStatVal}>15% - 28%</Text>
+                      <Text style={styles.agrovestorHeroStatLabel}>Target Seasonal ROI</Text>
+                    </View>
+                    <View style={styles.agrovestorHeroDivider} />
+                    <View style={styles.agrovestorHeroStat}>
+                      <Text style={styles.agrovestorHeroStatVal}>Engine 3</Text>
+                      <Text style={styles.agrovestorHeroStatLabel}>Escrow Protection</Text>
+                    </View>
+                    <View style={styles.agrovestorHeroDivider} />
+                    <View style={styles.agrovestorHeroStat}>
+                      <Text style={styles.agrovestorHeroStatVal}>0%</Text>
+                      <Text style={styles.agrovestorHeroStatLabel}>Unhedged Default</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Campaigns List Header */}
+                <View style={styles.sectionHeaderRow}>
+                  <View>
+                    <Text style={styles.sectionTitle}>Open Harvest Campaigns</Text>
+                    <Text style={styles.sectionSub}>Select a verified farm to sponsor this season</Text>
+                  </View>
+                </View>
+
+                {campaigns.length === 0 ? (
+                  <View style={styles.emptyCard}>
+                    <Leaf size={36} color={Colors.cultivated} />
+                    <Text style={styles.emptyCardTitle}>No Open Campaigns Currently</Text>
+                    <Text style={styles.emptyCardSub}>
+                      All verified farm cycles are fully funded. New seasonal planting campaigns undergo credit assessment and will open soon.
+                    </Text>
+                  </View>
+                ) : (
+                  campaigns.map((camp) => {
+                    const pct = Math.min(100, Math.round(((camp.fundedAmount || 0) / (camp.targetAmount || 1)) * 100));
+                    return (
+                      <View key={camp.id} style={styles.campaignCard}>
+                        {/* Farm / Farmer Header */}
+                        <View style={styles.campaignHeader}>
+                          <View style={styles.campaignFarmerInfo}>
+                            <View style={styles.campaignAvatar}>
+                              <Text style={styles.campaignAvatarText}>
+                                {camp.farmer?.name || camp.farmerName
+                                  ? (camp.farmer?.name || camp.farmerName)![0].toUpperCase()
+                                  : '🌿'}
+                              </Text>
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <View style={styles.campaignFarmerNameRow}>
+                                <Text style={styles.campaignFarmName}>{camp.farm?.name || camp.farmName || 'Verified Agro Enterprise'}</Text>
+                                <ShieldCheck size={15} color={Colors.cultivated} />
+                              </View>
+                              <Text style={styles.campaignFarmerLocation}>
+                                {camp.farmer?.name || camp.farmerName || 'Lead Producer'} • {camp.farm?.location || camp.region || 'Southwest / Littoral'}
+                              </Text>
+                            </View>
+                          </View>
+
+                          {/* Credit Tier & Score Badge */}
+                          <View style={styles.campaignTierBadge}>
+                            <Award size={13} color={Colors.gold} />
+                            <Text style={styles.campaignTierText}>{camp.creditTier} ({camp.creditScore} pts)</Text>
+                          </View>
+                        </View>
+
+                        {/* Title & Description */}
+                        <Text style={styles.campaignTitle}>{camp.title}</Text>
+                        <Text style={styles.campaignCropTag}>🌾 Crop: {camp.cropType}</Text>
+                        <Text style={styles.campaignDesc} numberOfLines={3}>{camp.description}</Text>
+
+                        {/* Funding Progress Bar */}
+                        <View style={styles.campaignProgressSection}>
+                          <View style={styles.campaignProgressLabels}>
+                            <Text style={styles.campaignFundedText}>
+                              {camp.fundedAmount.toLocaleString()} FCFA raised
+                            </Text>
+                            <Text style={styles.campaignTargetText}>
+                              Goal: {camp.targetAmount.toLocaleString()} FCFA ({pct}%)
+                            </Text>
+                          </View>
+                          <View style={styles.campaignProgressTrack}>
+                            <View style={[styles.campaignProgressFill, { width: `${pct}%` }]} />
+                          </View>
+                        </View>
+
+                        {/* Metrics specs */}
+                        <View style={styles.campaignSpecsRow}>
+                          <View style={styles.campaignSpecCol}>
+                            <Text style={styles.campaignSpecLabel}>Est. Return</Text>
+                            <Text style={[styles.campaignSpecVal, { color: Colors.cultivated }]}>
+                              +{camp.expectedRoiPercent}% ROI
+                            </Text>
+                          </View>
+                          <View style={styles.campaignSpecCol}>
+                            <Text style={styles.campaignSpecLabel}>Cycle Tenor</Text>
+                            <Text style={styles.campaignSpecVal}>{camp.durationMonths} Months</Text>
+                          </View>
+                          <View style={styles.campaignSpecCol}>
+                            <Text style={styles.campaignSpecLabel}>Min Pledge</Text>
+                            <Text style={styles.campaignSpecVal}>{camp.minPledge.toLocaleString()} FCFA</Text>
+                          </View>
+                          <View style={styles.campaignSpecCol}>
+                            <Text style={styles.campaignSpecLabel}>AgroVestors</Text>
+                            <Text style={styles.campaignSpecVal}>{camp.backersCount} Pledged</Text>
+                          </View>
+                        </View>
+
+                        {/* Action CTA Button */}
+                        <TouchableOpacity
+                          style={styles.investCtaBtn}
+                          onPress={() => openInvestModal(camp)}
+                          activeOpacity={0.85}
+                        >
+                          <TrendingUp size={16} color="#FFFFFF" strokeWidth={2.4} />
+                          <Text style={styles.investCtaBtnText}>AgroVest in this Harvest (from {camp.minPledge.toLocaleString()} FCFA)</Text>
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })
+                )}
+              </View>
+            )}
+
+            {/* ============================================================ */}
+            {/* VIEW 3: MY LOANS & AGROVESTOR PORTFOLIO */}
             {/* ============================================================ */}
             {activeTab === 'my_loans' && (
               <View style={styles.sectionWrap}>
@@ -773,7 +1005,7 @@ export default function LoansScreen() {
                     <Wallet size={36} color={Colors.text.muted} />
                     <Text style={styles.emptyCardTitle}>No Loan Applications Yet</Text>
                     <Text style={styles.emptyCardSub}>
-                      Submit an application from the "Available Credit Lines" tab to access planting season financing.
+                      Submit an application from the "Credit Lines" tab to access planting season financing.
                     </Text>
                     <TouchableOpacity
                       style={styles.emptyActionBtn}
@@ -855,11 +1087,340 @@ export default function LoansScreen() {
                     );
                   })
                 )}
+
+                {/* ---------------- AGROVESTOR PORTFOLIO SECTION ---------------- */}
+                <View style={[styles.sectionHeaderRow, { marginTop: 24 }]}>
+                  <View>
+                    <Text style={styles.sectionTitle}>AgroVestor Harvest Portfolio</Text>
+                    <Text style={styles.sectionSub}>Sponsorships & Escrow-Protected Investments</Text>
+                  </View>
+                </View>
+
+                {myInvestments.length === 0 ? (
+                  <View style={styles.emptyCard}>
+                    <TrendingUp size={36} color={Colors.text.muted} />
+                    <Text style={styles.emptyCardTitle}>No Farm Investments Yet</Text>
+                    <Text style={styles.emptyCardSub}>
+                      Support verified farmers by pledging in the AgroVestor tab and earn seasonal returns on harvest sales.
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.emptyActionBtn}
+                      onPress={() => setActiveTab('agrovestor')}
+                    >
+                      <Text style={styles.emptyActionBtnText}>Explore AgroVestor Campaigns</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  myInvestments.map((inv) => {
+                    const statusConfig: Record<string, { bg: string; text: string; label: string }> = {
+                      PLEDGED: { bg: '#FEF3C7', text: '#92400E', label: 'ESCROW PLEDGED' },
+                      ESCROW_LOCKED: { bg: '#E0F2FE', text: '#0369A1', label: 'ESCROW LOCKED' },
+                      DISBURSED_TO_FARMER: { bg: '#F3E8FF', text: '#6B21A8', label: 'INPUTS PROCURED' },
+                      HARVEST_IN_PROGRESS: { bg: '#EEF8F1', text: Colors.cultivated, label: 'HARVEST GROWING' },
+                      REPAID: { bg: '#DCFCE7', text: '#15803D', label: 'PAYOUT COMPLETED' },
+                      CANCELLED: { bg: '#FEE2E2', text: '#991B1B', label: 'CANCELLED & REFUNDED' },
+                    };
+                    const badge = statusConfig[inv.status] || { bg: Colors.parchment, text: Colors.espresso, label: inv.status };
+                    return (
+                      <View key={inv.id} style={styles.investmentCard}>
+                        <View style={styles.investmentHeader}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.investmentTitle}>{inv.campaign?.title || inv.campaignTitle || 'Seasonal Harvest Support'}</Text>
+                            <Text style={styles.investmentFarmSub}>
+                              {inv.campaign?.farm?.name || inv.farmName || 'Verified Producer'} • {new Date(inv.createdAt || inv.investedAt || Date.now()).toLocaleDateString()}
+                            </Text>
+                          </View>
+                          <View style={[styles.loanAppStatusBadge, { backgroundColor: badge.bg }]}>
+                            <Text style={[styles.loanAppStatusText, { color: badge.text }]}>{badge.label}</Text>
+                          </View>
+                        </View>
+
+                        <View style={styles.loanAppSpecsRow}>
+                          <View style={styles.loanAppSpecCol}>
+                            <Text style={styles.loanAppSpecLabel}>Pledged Capital</Text>
+                            <Text style={styles.loanAppSpecVal}>{Number(inv.amount ?? inv.amountInvested ?? 0).toLocaleString()} FCFA</Text>
+                          </View>
+                          <View style={styles.loanAppSpecCol}>
+                            <Text style={styles.loanAppSpecLabel}>Projected Return</Text>
+                            <Text style={[styles.loanAppSpecVal, { color: Colors.cultivated }]}>
+                              {Number(inv.projectedReturnAmount).toLocaleString()} FCFA
+                            </Text>
+                          </View>
+                          <View style={styles.loanAppSpecCol}>
+                            <Text style={styles.loanAppSpecLabel}>Channel</Text>
+                            <Text style={styles.loanAppSpecVal}>{inv.paymentMethod.replace('_', ' ')}</Text>
+                          </View>
+                        </View>
+
+                        <View style={styles.investmentFooter}>
+                          <ShieldCheck size={14} color={Colors.cultivated} />
+                          <Text style={styles.investmentEscrowTag}>
+                            Secured under Engine 3 Smart Escrow Settlement
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })
+                )}
               </View>
             )}
           </>
         )}
       </ScrollView>
+
+      {/* 5. AGROVESTOR PLEDGE MODAL */}
+      <Modal
+        visible={investModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setInvestModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalSheet, { paddingBottom: Math.max(insets.bottom + 20, 30) }]}>
+            {/* Modal Header */}
+            <View style={styles.modalHeaderRow}>
+              <View style={styles.modalHeaderTitleGroup}>
+                <TrendingUp size={22} color={Colors.cultivated} strokeWidth={2.4} />
+                <Text style={styles.modalTitle}>Back Harvest with AgroVestor</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setInvestModalVisible(false)}
+                style={styles.modalCloseBtn}
+                activeOpacity={0.7}
+              >
+                <X size={20} color={Colors.espresso} />
+              </TouchableOpacity>
+            </View>
+
+            {selectedCampaign && (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {/* Campaign Context Pill */}
+                <View style={styles.modalCampSummary}>
+                  <Text style={styles.modalCampTitle}>{selectedCampaign.title}</Text>
+                  <Text style={styles.modalCampSub}>
+                    {selectedCampaign.farm?.name || selectedCampaign.farmName || 'Verified Producer'} • Tier: {selectedCampaign.creditTier} ({selectedCampaign.creditScore} pts)
+                  </Text>
+                  <View style={styles.modalRoiBadge}>
+                    <Text style={styles.modalRoiBadgeText}>
+                      +{selectedCampaign.expectedRoiPercent}% Projected Return in {selectedCampaign.durationMonths} Months
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Amount Selection */}
+                <Text style={styles.inputLabel}>Investment Pledge Amount (FCFA)</Text>
+                <View style={styles.presetChipsRow}>
+                  {[25000, 50000, 100000, 250000, 500000].map((preset) => (
+                    <TouchableOpacity
+                      key={preset}
+                      style={[
+                        styles.presetChip,
+                        pledgeAmount === String(preset) && styles.presetChipActive,
+                      ]}
+                      onPress={() => setPledgeAmount(String(preset))}
+                    >
+                      <Text
+                        style={[
+                          styles.presetChipText,
+                          pledgeAmount === String(preset) && styles.presetChipTextActive,
+                        ]}
+                      >
+                        {preset >= 1000000 ? `${preset / 1000000}M` : `${preset / 1000}k`}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <TextInput
+                  style={styles.amountInput}
+                  value={pledgeAmount}
+                  onChangeText={setPledgeAmount}
+                  keyboardType="numeric"
+                  placeholder="Enter investment amount"
+                  placeholderTextColor={Colors.text.muted}
+                />
+
+                {/* Multi-Channel Payment Method Selector */}
+                <Text style={[styles.inputLabel, { marginTop: 14 }]}>Payment & Escrow Disbursal Channel</Text>
+                <View style={styles.paymentCategoryRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.paymentCatChip,
+                      pledgeCategory === 'MOBILE_MONEY' && styles.paymentCatChipActive,
+                    ]}
+                    onPress={() => setPledgeCategory('MOBILE_MONEY')}
+                  >
+                    <Smartphone size={15} color={pledgeCategory === 'MOBILE_MONEY' ? Colors.cultivated : Colors.text.secondary} />
+                    <Text style={[styles.paymentCatText, pledgeCategory === 'MOBILE_MONEY' && styles.paymentCatTextActive]}>
+                      Mobile Money
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.paymentCatChip,
+                      pledgeCategory === 'CARD' && styles.paymentCatChipActive,
+                    ]}
+                    onPress={() => setPledgeCategory('CARD')}
+                  >
+                    <CreditCard size={15} color={pledgeCategory === 'CARD' ? Colors.cultivated : Colors.text.secondary} />
+                    <Text style={[styles.paymentCatText, pledgeCategory === 'CARD' && styles.paymentCatTextActive]}>
+                      Card (Visa/MC)
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.paymentCatChip,
+                      pledgeCategory === 'BANK_TRANSFER' && styles.paymentCatChipActive,
+                    ]}
+                    onPress={() => setPledgeCategory('BANK_TRANSFER')}
+                  >
+                    <Building2 size={15} color={pledgeCategory === 'BANK_TRANSFER' ? Colors.cultivated : Colors.text.secondary} />
+                    <Text style={[styles.paymentCatText, pledgeCategory === 'BANK_TRANSFER' && styles.paymentCatTextActive]}>
+                      Bank Wire
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.paymentCatChip,
+                      pledgeCategory === 'AGROWALLET' && styles.paymentCatChipActive,
+                    ]}
+                    onPress={() => setPledgeCategory('AGROWALLET')}
+                  >
+                    <Wallet size={15} color={pledgeCategory === 'AGROWALLET' ? Colors.cultivated : Colors.text.secondary} />
+                    <Text style={[styles.paymentCatText, pledgeCategory === 'AGROWALLET' && styles.paymentCatTextActive]}>
+                      AgroWallet
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Sub-providers for Mobile Money across Africa */}
+                {pledgeCategory === 'MOBILE_MONEY' && (
+                  <View style={styles.momoProvidersRow}>
+                    {(
+                      [
+                        { id: 'M_PESA', label: 'M-Pesa 🇰🇪🇹🇿' },
+                        { id: 'AIRTEL', label: 'Airtel 🇳🇬🇺🇬' },
+                        { id: 'MTN', label: 'MTN MoMo 🇬🇭🇨🇲' },
+                        { id: 'ORANGE', label: 'Orange Money 🇸🇳🇨🇮' },
+                        { id: 'WAVE', label: 'Wave 🇸🇳🇨🇮' },
+                      ] as const
+                    ).map((prov) => (
+                      <TouchableOpacity
+                        key={prov.id}
+                        style={[
+                          styles.providerChip,
+                          pledgeProvider === prov.id && styles.providerChipActive,
+                        ]}
+                        onPress={() => setPledgeProvider(prov.id)}
+                      >
+                        <Text
+                          style={[
+                            styles.providerChipText,
+                            pledgeProvider === prov.id && styles.providerChipTextActive,
+                          ]}
+                        >
+                          {prov.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+
+                {/* Account / Phone / Reference Input */}
+                {pledgeCategory !== 'AGROWALLET' ? (
+                  <>
+                    <Text style={[styles.inputLabel, { marginTop: 8 }]}>
+                      {pledgeCategory === 'MOBILE_MONEY'
+                        ? 'Mobile Money Phone Number'
+                        : pledgeCategory === 'CARD'
+                        ? 'Cardholder Reference / Phone'
+                        : 'Bank Account / IBAN Reference'}
+                    </Text>
+                    <TextInput
+                      style={styles.amountInput}
+                      value={pledgePhone}
+                      onChangeText={setPledgePhone}
+                      keyboardType={pledgeCategory === 'MOBILE_MONEY' ? 'phone-pad' : 'default'}
+                      placeholder={
+                        pledgeCategory === 'MOBILE_MONEY'
+                          ? '+254 / +237 / +234 / +225 ...'
+                          : pledgeCategory === 'CARD'
+                          ? 'Name on card or account ref'
+                          : 'Bank name & account or IBAN'
+                      }
+                      placeholderTextColor={Colors.text.muted}
+                    />
+                  </>
+                ) : (
+                  <View style={styles.walletNoticePill}>
+                    <Wallet size={16} color={Colors.cultivated} />
+                    <Text style={styles.walletNoticeText}>
+                      Pledged capital will be reserved directly from your verified in-app AgroWallet.
+                    </Text>
+                  </View>
+                )}
+
+                {/* Projected Return Breakdown */}
+                {(() => {
+                  const amt = parseFloat(pledgeAmount) || 0;
+                  const profit = Math.round(amt * ((selectedCampaign.expectedRoiPercent || 20) / 100));
+                  const total = amt + profit;
+                  return (
+                    <View style={styles.calcSummaryBox}>
+                      <Text style={styles.calcSummaryTitle}>Investment Return Projection</Text>
+                      <View style={styles.calcRow}>
+                        <Text style={styles.calcLabel}>Pledged Capital</Text>
+                        <Text style={styles.calcVal}>{amt.toLocaleString()} FCFA</Text>
+                      </View>
+                      <View style={styles.calcRow}>
+                        <Text style={styles.calcLabel}>
+                          Projected Gain (+{selectedCampaign.expectedRoiPercent}%)
+                        </Text>
+                        <Text style={[styles.calcVal, { color: Colors.cultivated }]}>
+                          + {profit.toLocaleString()} FCFA
+                        </Text>
+                      </View>
+                      <View style={styles.calcDivider} />
+                      <View style={styles.calcRow}>
+                        <Text style={styles.calcTotalLabel}>Total Harvest Payout</Text>
+                        <Text style={styles.calcTotalVal}>{total.toLocaleString()} FCFA</Text>
+                      </View>
+                      <View style={styles.repaymentNoticePill}>
+                        <ShieldCheck size={16} color={Colors.cultivated} />
+                        <Text style={styles.repaymentNoticeText}>
+                          Capital is held in Engine 3 Smart Escrow. Funds are released strictly against verified seed, fertilizer, and harvest inspection checkpoints.
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })()}
+
+                {/* Action CTA */}
+                <TouchableOpacity
+                  style={[styles.submitLoanBtn, pledging && { opacity: 0.75 }]}
+                  onPress={handlePledgeInvestment}
+                  disabled={pledging}
+                  activeOpacity={0.85}
+                >
+                  {pledging ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <TrendingUp size={18} color="#FFFFFF" />
+                      <Text style={styles.submitLoanBtnText}>
+                        AgroVest {(parseFloat(pledgeAmount) || 0).toLocaleString()} FCFA in Escrow 🚀
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1711,6 +2272,397 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     color: Colors.espresso,
     flex: 1,
+  },
+  // AgroVestor Styles
+  agrovestorHeroBanner: {
+    backgroundColor: Colors.canopy,
+    borderRadius: Radii.card,
+    padding: 18,
+    marginBottom: 20,
+    ...Shadows.subtle,
+  },
+  agrovestorHeroHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 8,
+  },
+  agrovestorHeroTitle: {
+    fontFamily: Fonts.displayBold,
+    fontSize: 17,
+    color: Colors.white,
+  },
+  agrovestorHeroSubtitle: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 12,
+    color: Colors.gold,
+    marginTop: 1,
+  },
+  agrovestorHeroBody: {
+    fontFamily: Fonts.body,
+    fontSize: 13,
+    color: Colors.parchment,
+    lineHeight: 18,
+    marginBottom: 16,
+  },
+  agrovestorHeroStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  agrovestorHeroStat: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  agrovestorHeroStatVal: {
+    fontFamily: Fonts.displayBold,
+    fontSize: 16,
+    color: Colors.white,
+  },
+  agrovestorHeroStatLabel: {
+    fontFamily: Fonts.body,
+    fontSize: 10.5,
+    color: Colors.parchment,
+    marginTop: 2,
+  },
+  agrovestorHeroDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  campaignCard: {
+    backgroundColor: Colors.white,
+    borderRadius: Radii.card,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    ...Shadows.subtle,
+  },
+  campaignHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  campaignFarmerInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  campaignAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#EEF8F1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  campaignAvatarText: {
+    fontSize: 18,
+  },
+  campaignFarmerNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  campaignFarmName: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 14.5,
+    color: Colors.espresso,
+  },
+  campaignFarmerLocation: {
+    fontFamily: Fonts.body,
+    fontSize: 11.5,
+    color: Colors.text.secondary,
+    marginTop: 1,
+  },
+  campaignTierBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  campaignTierText: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 11,
+    color: '#92400E',
+  },
+  campaignTitle: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 16,
+    color: Colors.espresso,
+    marginBottom: 4,
+  },
+  campaignCropTag: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 12.5,
+    color: Colors.cultivated,
+    marginBottom: 6,
+  },
+  campaignDesc: {
+    fontFamily: Fonts.body,
+    fontSize: 13,
+    color: Colors.text.secondary,
+    lineHeight: 18,
+    marginBottom: 14,
+  },
+  campaignProgressSection: {
+    marginBottom: 14,
+  },
+  campaignProgressLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  campaignFundedText: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 13,
+    color: Colors.canopy,
+  },
+  campaignTargetText: {
+    fontFamily: Fonts.body,
+    fontSize: 12,
+    color: Colors.text.secondary,
+  },
+  campaignProgressTrack: {
+    height: 8,
+    backgroundColor: Colors.parchmentDim,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  campaignProgressFill: {
+    height: '100%',
+    backgroundColor: Colors.cultivated,
+    borderRadius: 4,
+  },
+  campaignSpecsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.parchment,
+    padding: 10,
+    borderRadius: 10,
+    marginBottom: 14,
+  },
+  campaignSpecCol: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  campaignSpecLabel: {
+    fontFamily: Fonts.body,
+    fontSize: 11,
+    color: Colors.text.secondary,
+  },
+  campaignSpecVal: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 13,
+    color: Colors.espresso,
+    marginTop: 2,
+  },
+  investCtaBtn: {
+    backgroundColor: Colors.cultivated,
+    borderRadius: 12,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    ...Shadows.subtle,
+  },
+  investCtaBtnText: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 14,
+    color: Colors.white,
+  },
+  investmentCard: {
+    backgroundColor: Colors.white,
+    borderRadius: Radii.card,
+    padding: 16,
+    marginBottom: 14,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    ...Shadows.subtle,
+  },
+  investmentHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  investmentTitle: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 14.5,
+    color: Colors.espresso,
+  },
+  investmentFarmSub: {
+    fontFamily: Fonts.body,
+    fontSize: 12,
+    color: Colors.text.secondary,
+    marginTop: 2,
+  },
+  investmentFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  investmentEscrowTag: {
+    fontFamily: Fonts.body,
+    fontSize: 11.5,
+    color: Colors.cultivated,
+  },
+  // Modal Styles
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    maxHeight: '90%',
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  modalHeaderTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  modalTitle: {
+    fontFamily: Fonts.displayBold,
+    fontSize: 18,
+    color: Colors.espresso,
+  },
+  modalCloseBtn: {
+    padding: 6,
+  },
+  modalCampSummary: {
+    backgroundColor: '#EEF8F1',
+    borderRadius: Radii.card,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#C6E8D0',
+  },
+  modalCampTitle: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 15,
+    color: Colors.canopy,
+  },
+  modalCampSub: {
+    fontFamily: Fonts.body,
+    fontSize: 12,
+    color: Colors.espresso,
+    marginTop: 2,
+  },
+  modalRoiBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: Colors.cultivated,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginTop: 8,
+  },
+  modalRoiBadgeText: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 11,
+    color: Colors.white,
+  },
+  paymentCategoryRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  paymentCatChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    backgroundColor: Colors.parchment,
+  },
+  paymentCatChipActive: {
+    borderColor: Colors.cultivated,
+    backgroundColor: '#EEF8F1',
+  },
+  paymentCatText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 12,
+    color: Colors.text.secondary,
+  },
+  paymentCatTextActive: {
+    color: Colors.canopy,
+  },
+  momoProvidersRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 12,
+  },
+  providerChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: '#FFFFFF',
+  },
+  providerChipActive: {
+    borderColor: Colors.cultivated,
+    backgroundColor: '#DCFCE7',
+  },
+  providerChipText: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 11,
+    color: Colors.text.secondary,
+  },
+  providerChipTextActive: {
+    color: Colors.canopy,
+    fontFamily: Fonts.bodyBold,
+  },
+  walletNoticePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#EEF8F1',
+    borderWidth: 1,
+    borderColor: '#C6E8D0',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  walletNoticeText: {
+    flex: 1,
+    fontFamily: Fonts.body,
+    fontSize: 12,
+    color: Colors.canopy,
   },
 });
 

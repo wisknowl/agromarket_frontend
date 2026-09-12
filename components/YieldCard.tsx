@@ -7,10 +7,10 @@ import { useCartStore } from '@/store/cartStore';
 import { useFavoritesStore } from '@/store/favoritesStore';
 import Colors, { Radii, Shadows } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
-import { farmers } from '@/mocks/data';
 import Popover, { PopoverPlacement } from 'react-native-popover-view';
 import PriceTag from './ui/PriceTag';
 import FarmerBadge from './ui/FarmerBadge';
+
 
 interface YieldCardProps {
   item: AgroYield;
@@ -60,22 +60,30 @@ export default function YieldCard({
     }
   };
 
+  // Resolve real farmer & farm details from backend payload
+  const farm = item.farm;
+  const farmer = item.farmer || (farm as any)?.farmerProfile;
+  const farmerUser = farmer?.user || (farm as any)?.user;
+  const farmerTargetId = farmerUser?.id || (farm as any)?.userId || item.farmerId;
+  const farmLocation = farm?.city || farm?.region || item.originRegion || farmer?.region || 'Cameroon';
+  const creditTier = farmer?.creditTier || 'BRONZE';
+  const isGoldTier = creditTier === 'GOLD' || creditTier === 'PLATINUM' || (farmer?.creditScore && farmer.creditScore >= 700);
+  const farmerAvatar = farmerUser?.avatarUrl || farmer?.profilePhoto || farm?.avatarPhoto;
+
   const handleChatWithFarmer = () => {
-    if (farmer?.id) {
+    if (farmerTargetId) {
       onClosePopover();
-      router.push(`/chat/${farmer.id}`);
+      router.push(`/chat/${farmerTargetId}`);
     }
   };
-
-  const farmer = farmers.find((f) => f.id === item.farmerId);
 
   return (
     <View style={styles.container} ref={cardRef}>
       <Pressable onPress={handlePress} style={styles.imageContainer}>
         <Image source={{ uri: item.image }} style={styles.image} />
-        {farmer?.creditScore && farmer.creditScore >= 700 ? (
+        {isGoldTier ? (
           <View style={styles.floatingBadge}>
-            <FarmerBadge tier="GOLD" label="Gold" size="sm" />
+            <FarmerBadge tier={creditTier as any} label={creditTier === 'PLATINUM' ? 'Platinum' : 'Gold'} size="sm" />
           </View>
         ) : null}
       </Pressable>
@@ -98,7 +106,7 @@ export default function YieldCard({
         </View>
 
         <Text style={styles.locationText} numberOfLines={1}>
-          📍 {farmer?.location || 'Cameroon'}
+          📍 {farmLocation}
         </Text>
       </View>
 
@@ -145,9 +153,9 @@ export default function YieldCard({
               </Pressable>
 
               <Pressable style={styles.modalRow} onPress={handleChatWithFarmer}>
-                {farmer?.profilePhoto ? (
+                {farmerAvatar ? (
                   <Image
-                    source={{ uri: farmer.profilePhoto }}
+                    source={{ uri: farmerAvatar }}
                     style={styles.farmerAvatar}
                   />
                 ) : (
@@ -162,6 +170,7 @@ export default function YieldCard({
     </View>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {

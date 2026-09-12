@@ -18,6 +18,9 @@ import {
   Sparkles,
   Film,
   ShieldCheck,
+  Wallet,
+  Crown,
+  TrendingUp,
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import Colors, { Radii, Shadows } from '@/constants/colors';
@@ -61,6 +64,19 @@ export default function ProfileHeaderMenu() {
             </View>
 
             <View style={styles.divider} />
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => handleNavigate('/wallet')}
+            >
+              <View style={[styles.itemIconCircle, { backgroundColor: '#eef8f1' }]}>
+                <Wallet size={18} color={Colors.cultivated} strokeWidth={2.4} />
+              </View>
+              <View style={styles.itemTextContainer}>
+                <Text style={styles.itemTitle}>AgroWallet & Escrow Vault 💳</Text>
+                <Text style={styles.itemSub}>Balance, escrow releases & patron passes</Text>
+              </View>
+            </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.menuItem}
@@ -119,11 +135,11 @@ export default function ProfileHeaderMenu() {
               onPress={() => handleNavigate('/fintech/loans')}
             >
               <View style={[styles.itemIconCircle, { backgroundColor: '#faf5ff' }]}>
-                <Landmark size={18} color="#7c3aed" strokeWidth={2.2} />
+                <TrendingUp size={18} color="#7c3aed" strokeWidth={2.2} />
               </View>
               <View style={styles.itemTextContainer}>
-                <Text style={styles.itemTitle}>Agri-Fintech & Njangi</Text>
-                <Text style={styles.itemSub}>Credit scoring & seasonal loans</Text>
+                <Text style={styles.itemTitle}>AgroVestor Crowdlending 🚀</Text>
+                <Text style={styles.itemSub}>Credit scoring & 15-28% ROI campaigns</Text>
               </View>
             </TouchableOpacity>
 
@@ -132,11 +148,11 @@ export default function ProfileHeaderMenu() {
               onPress={() => handleNavigate('/partners')}
             >
               <View style={[styles.itemIconCircle, { backgroundColor: '#fef7ee' }]}>
-                <Film size={18} color={Colors.gold} strokeWidth={2.2} />
+                <Crown size={18} color={Colors.gold} strokeWidth={2.2} />
               </View>
               <View style={styles.itemTextContainer}>
-                <Text style={styles.itemTitle}>AgroPartners Feed 🤝</Text>
-                <Text style={styles.itemSub}>Stories from mutual connections</Text>
+                <Text style={styles.itemTitle}>AgroPatron Feed ⭐</Text>
+                <Text style={styles.itemSub}>Stories from patronized farms</Text>
               </View>
             </TouchableOpacity>
 

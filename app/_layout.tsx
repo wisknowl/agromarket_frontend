@@ -219,6 +219,13 @@ function RootLayoutNav() {
             presentation: 'card',
           }}
         />
+        <Stack.Screen
+          name="wallet"
+          options={{
+            headerShown: false,
+            presentation: 'card',
+          }}
+        />
       </Stack>
     </>
   );

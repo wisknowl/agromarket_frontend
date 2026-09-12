@@ -14,7 +14,7 @@ import { X, Video, Image as ImageIcon, ShoppingBag, Sparkles } from 'lucide-reac
 import Colors, { Radii } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
 import BrandButton from '@/components/ui/BrandButton';
-import { agroYields } from '@/mocks/data';
+import { fetchYieldsApi } from '@/components/api/yields';
 import { AgroYield } from '@/types';
 
 interface CreatePostModalProps {
@@ -38,6 +38,16 @@ export default function CreatePostModal({
   const [isVideo, setIsVideo] = useState(false);
   const [isShoppable, setIsShoppable] = useState(false);
   const [selectedYield, setSelectedYield] = useState<AgroYield | null>(null);
+  const [availableYields, setAvailableYields] = useState<AgroYield[]>([]);
+
+  React.useEffect(() => {
+    if (visible && isShoppable && availableYields.length === 0) {
+      fetchYieldsApi().then((data) => {
+        if (Array.isArray(data)) setAvailableYields(data);
+      });
+    }
+  }, [visible, isShoppable]);
+
 
   const handleSubmit = () => {
     if (!content.trim()) return;
@@ -124,8 +134,9 @@ export default function CreatePostModal({
               <View style={styles.yieldPickerSection}>
                 <Text style={styles.pickerTitle}>Select from your catalog:</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.yieldsScroll}>
-                  {agroYields.slice(0, 5).map((item) => {
+                  {availableYields.map((item) => {
                     const isSelected = selectedYield?.id === item.id;
+
                     const itemImage = item.image || (item.mediaUrls && item.mediaUrls[0]) || '';
                     return (
                       <TouchableOpacity

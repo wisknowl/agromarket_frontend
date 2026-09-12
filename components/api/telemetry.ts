@@ -8,7 +8,7 @@ export interface TelemetryPayload {
     watchDurationSeconds?: number;
     videoTotalSeconds?: number;
     completedPercentage?: number;
-    reactionType?: 'fresh' | 'demand' | 'ready' | 'partner';
+    reactionType?: 'fresh' | 'demand' | 'ready' | 'fairPrice' | 'partner';
     [key: string]: any;
   };
   timestamp?: string;

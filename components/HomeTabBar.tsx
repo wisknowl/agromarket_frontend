@@ -8,30 +8,34 @@ interface TabHeaderProps {
   tabs: string[];
   activeTab: string;
   onTabChange: (tab: string) => void;
+  rightAction?: React.ReactNode;
 }
 
-export default function HomeTabBar({ tabs, activeTab, onTabChange }: TabHeaderProps) {
+export default function HomeTabBar({ tabs, activeTab, onTabChange, rightAction }: TabHeaderProps) {
   const insets = useSafeAreaInsets();
   const paddingTop = Platform.OS === 'ios' ? insets.top : Math.max(insets.top, 16);
 
   return (
     <View style={[styles.container, { paddingTop: paddingTop + 4 }]}>
-      <View style={styles.tabsRow}>
-        {tabs.map((tab) => {
-          const isActive = activeTab === tab;
-          return (
-            <Pressable
-              key={tab}
-              style={[styles.tab, isActive && styles.activeTab]}
-              onPress={() => onTabChange(tab)}
-            >
-              <Text style={[styles.tabText, isActive && styles.activeTabText]}>
-                {tab}
-              </Text>
-              {isActive && <View style={styles.indicator} />}
-            </Pressable>
-          );
-        })}
+      <View style={styles.headerRow}>
+        <View style={styles.tabsRow}>
+          {tabs.map((tab) => {
+            const isActive = activeTab === tab;
+            return (
+              <Pressable
+                key={tab}
+                style={[styles.tab, isActive && styles.activeTab]}
+                onPress={() => onTabChange(tab)}
+              >
+                <Text style={[styles.tabText, isActive && styles.activeTabText]}>
+                  {tab}
+                </Text>
+                {isActive && <View style={styles.indicator} />}
+              </Pressable>
+            );
+          })}
+        </View>
+        {rightAction && <View style={styles.rightActionWrapper}>{rightAction}</View>}
       </View>
     </View>
   );
@@ -42,13 +46,21 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     borderBottomWidth: 1,
     borderBottomColor: Colors.parchmentDim,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     zIndex: 10,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   tabsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 20,
+    gap: 16,
+  },
+  rightActionWrapper: {
+    paddingBottom: 2,
   },
   tab: {
     paddingVertical: 12,

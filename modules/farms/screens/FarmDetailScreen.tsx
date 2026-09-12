@@ -36,6 +36,8 @@ import {
   Handshake,
   Award,
   Percent,
+  Crown,
+  TrendingUp,
 } from 'lucide-react-native';
 import Colors, { Radii, Shadows } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
@@ -44,6 +46,8 @@ import { useCartStore } from '@/store/cartStore';
 import { useUIStore } from '@/store/uiStore';
 import { fetchFarmByIdApi, createProduceApi, fetchPartnerStatusApi, requestPartnerApi } from '../api';
 import { toggleFollowUserApi } from '@/components/api/auth';
+import { fetchFarmPatronStatusApi } from '@/components/api/fintech';
+import AgroPatronModal from '@/components/AgroPatronModal';
 import YieldCard from '@/components/YieldCard';
 import PostCard from '@/components/PostCard';
 import FarmerBadge from '@/components/ui/FarmerBadge';
@@ -76,6 +80,8 @@ export default function FarmDetailScreen() {
   const [followLoading, setFollowLoading] = useState(false);
   const [isAgroPartner, setIsAgroPartner] = useState(false);
   const [partnerLoading, setPartnerLoading] = useState(false);
+  const [isPatron, setIsPatron] = useState(false);
+  const [patronModalVisible, setPatronModalVisible] = useState(false);
 
   // Produce Creation Modal State
   const [showAddProduceModal, setShowAddProduceModal] = useState(false);
@@ -104,6 +110,14 @@ export default function FarmDetailScreen() {
         useUIStore.getState().setActiveFarmId(data.id);
       }
       setIsFollowing(Boolean(data.isFollowingOwner));
+
+      if (data?.userId) {
+        fetchFarmPatronStatusApi(data.userId)
+          .then((st) => {
+            if (st?.isPatron) setIsPatron(true);
+          })
+          .catch(() => {});
+      }
 
       if (data?.userId && user?.id && data.userId !== user.id) {
         const partnerStatus = await fetchPartnerStatusApi(data.userId);
@@ -339,7 +353,7 @@ export default function FarmDetailScreen() {
             <View style={styles.statDivider} />
             <View style={styles.statCol}>
               <Text style={styles.statNumber}>{farmOwner._count?.followers ?? 0}</Text>
-              <Text style={styles.statLabel}>Owner Followers</Text>
+              <Text style={styles.statLabel}>AgroPatrons</Text>
             </View>
           </View>
 
@@ -385,11 +399,11 @@ export default function FarmDetailScreen() {
                   View Credit Radar & 10% Auto-Escrow Loan Limit →
                 </Text>
               </TouchableOpacity>
-            ) : isAgroPartner ? (
+            ) : isPatron ? (
               <View style={styles.wholesalePartnerBanner}>
-                <Percent size={13} color={Colors.canopy} />
+                <Crown size={13} color={Colors.canopy} />
                 <Text style={styles.wholesalePartnerBannerText}>
-                  Mutual Partner Active: 20% Wholesale Discount Applied
+                  ⭐ AgroPatron Active: 8% Direct Harvest Discount Unlocked
                 </Text>
               </View>
             ) : null}
@@ -422,34 +436,23 @@ export default function FarmDetailScreen() {
               // VISITOR / BUYER BUTTONS
               <View style={styles.visitorActionsRow}>
                 <TouchableOpacity
-                  style={[styles.partnerBtn, isAgroPartner && styles.partnerBtnActive]}
-                  onPress={handleToggleAgroPartner}
-                  disabled={partnerLoading}
+                  style={[styles.partnerBtn, isPatron && styles.patronBtnActive]}
+                  onPress={() => setPatronModalVisible(true)}
                   activeOpacity={0.85}
                 >
-                  <Handshake size={16} color={isAgroPartner ? Colors.gold : Colors.white} strokeWidth={2.2} />
-                  <Text style={[styles.partnerBtnText, isAgroPartner && styles.partnerBtnTextActive]}>
-                    {isAgroPartner ? 'AgroPartner' : 'Partner'}
+                  <Crown size={16} color={isPatron ? '#B45309' : Colors.gold} strokeWidth={2.2} />
+                  <Text style={[styles.partnerBtnText, isPatron && styles.patronBtnTextActive]}>
+                    {isPatron ? 'AgroPatron Active ⭐' : 'Become an AgroPatron ($2)'}
                   </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.followBtn, isFollowing && styles.followBtnActive]}
-                  onPress={handleToggleFollow}
-                  disabled={followLoading}
+                  style={styles.followBtn}
+                  onPress={() => router.push('/fintech/loans')}
                   activeOpacity={0.85}
                 >
-                  {isFollowing ? (
-                    <>
-                      <UserCheck size={16} color={Colors.cultivated} strokeWidth={2.2} />
-                      <Text style={styles.followBtnTextActive}>Following</Text>
-                    </>
-                  ) : (
-                    <>
-                      <UserPlus size={16} color={Colors.white} strokeWidth={2.2} />
-                      <Text style={styles.followBtnText}>Follow</Text>
-                    </>
-                  )}
+                  <TrendingUp size={16} color={Colors.white} strokeWidth={2.2} />
+                  <Text style={styles.followBtnText}>AgroVest</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -864,6 +867,20 @@ export default function FarmDetailScreen() {
 
       {/* Floating Basket */}
       <Basket />
+
+      {farm && (
+        <AgroPatronModal
+          visible={patronModalVisible}
+          onClose={() => setPatronModalVisible(false)}
+          farmerId={farm.userId || farm.id}
+          farmerName={farm.user?.name || farmOwner.name || farm.name}
+          farmName={farm.name}
+          onSuccess={() => {
+            setIsPatron(true);
+            loadFarmData();
+          }}
+        />
+      )}
     </View>
   );
 }
@@ -1098,6 +1115,30 @@ const styles = StyleSheet.create({
   visitorActionsRow: {
     flexDirection: 'row',
     gap: 10,
+  },
+  partnerBtn: {
+    flex: 1.4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: Colors.canopy,
+    paddingVertical: 12,
+    borderRadius: Radii.pill,
+  },
+  partnerBtnText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 13,
+    color: Colors.white,
+  },
+  patronBtnActive: {
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1.5,
+    borderColor: '#FDE68A',
+  },
+  patronBtnTextActive: {
+    color: '#92400E',
+    fontFamily: Fonts.bodyBold,
   },
   followBtn: {
     flex: 1.2,
@@ -1505,29 +1546,6 @@ const styles = StyleSheet.create({
     color: Colors.canopy,
   },
 
-  partnerBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: Colors.canopy,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: Radii.pill,
-    borderWidth: 1,
-    borderColor: Colors.gold,
-  },
-  partnerBtnActive: {
-    backgroundColor: Colors.gold,
-    borderColor: Colors.gold,
-  },
-  partnerBtnText: {
-    fontFamily: Fonts.bodyBold,
-    fontSize: 12,
-    color: Colors.gold,
-  },
-  partnerBtnTextActive: {
-    color: Colors.espresso,
-  },
 
   // M3 Verified Reviews Styles
   reviewsContainer: {

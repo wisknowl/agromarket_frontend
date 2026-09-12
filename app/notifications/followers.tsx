@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,8 @@ import {
   Image,
   TextInput,
   StatusBar,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,8 +23,9 @@ import {
   ShieldCheck,
   Film,
 } from 'lucide-react-native';
-import { agroPartners, followerNotifications } from '@/mocks/data';
-import { AgroPartner } from '@/types';
+import { fetchAgroPartnersApi, fetchNotificationsApi } from '@/components/api/notifications';
+import { toggleFollowUserApi } from '@/components/api/auth';
+import { AgroPartner, NotificationItem } from '@/types';
 import Colors, { Radii, Shadows } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
 
@@ -31,8 +34,39 @@ export default function FollowersHubScreen() {
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<'PARTNERS' | 'NEW_FOLLOWERS'>('PARTNERS');
   const [searchQuery, setSearchQuery] = useState('');
-  const [partnersList, setPartnersList] = useState<AgroPartner[]>(agroPartners);
+  const [partnersList, setPartnersList] = useState<AgroPartner[]>([]);
+  const [followersList, setFollowersList] = useState<NotificationItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [followedBackIds, setFollowedBackIds] = useState<string[]>([]);
+
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [partners, notifs] = await Promise.all([
+        fetchAgroPartnersApi(),
+        fetchNotificationsApi('FOLLOW'),
+      ]);
+      setPartnersList(Array.isArray(partners) ? partners : []);
+      setFollowersList(Array.isArray(notifs) ? notifs : []);
+    } catch (e) {
+      console.warn('Failed to load followers/partners:', e);
+      setPartnersList([]);
+      setFollowersList([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadData();
+  };
 
   const filteredPartners = partnersList.filter(
     (p) =>
@@ -41,13 +75,21 @@ export default function FollowersHubScreen() {
       p.region.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const toggleFollowBack = (id: string, name: string) => {
+  const toggleFollowBack = async (id: string, targetUserId?: string) => {
+    if (targetUserId) {
+      try {
+        await toggleFollowUserApi(targetUserId);
+      } catch (err) {
+        console.error('Follow toggle error:', err);
+      }
+    }
     if (followedBackIds.includes(id)) {
       setFollowedBackIds((prev) => prev.filter((i) => i !== id));
     } else {
       setFollowedBackIds((prev) => [...prev, id]);
     }
   };
+
 
   const renderPartnerItem = ({ item }: { item: AgroPartner }) => (
     <View style={styles.partnerCard}>
@@ -86,7 +128,7 @@ export default function FollowersHubScreen() {
       <View style={styles.actionButtonsCol}>
         <TouchableOpacity
           style={styles.messageBtn}
-          onPress={() => router.push('/chat/c1')}
+          onPress={() => router.push(`/chat/${item.userId || item.id}` as any)}
           activeOpacity={0.75}
         >
           <MessageCircle size={15} color={Colors.white} />
@@ -112,34 +154,34 @@ export default function FollowersHubScreen() {
     return (
       <View style={styles.partnerCard}>
         <TouchableOpacity
-          onPress={() => router.push(`/profile/${item.targetId || 'f1'}` as any)}
+          onPress={() => router.push(`/profile/${item.actorId || item.userId || item.targetId || item.id}` as any)}
           activeOpacity={0.8}
         >
           <Image
-            source={{ uri: item.avatarUrl || 'https://randomuser.me/api/portraits/lego/1.jpg' }}
+            source={{ uri: item.actorAvatar || item.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150' }}
             style={styles.avatar}
           />
         </TouchableOpacity>
         <View style={styles.partnerInfo}>
-          <Text style={styles.partnerName}>{item.actorName || item.title}</Text>
+          <Text style={styles.partnerName}>{item.actorName || item.title || 'Agro Partner'}</Text>
           <Text style={styles.farmName}>{item.message}</Text>
-          <Text style={styles.timestampText}>{item.timestamp}</Text>
+          <Text style={styles.timestampText}>{item.timestamp || (item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '')}</Text>
         </View>
 
         <TouchableOpacity
           style={[styles.followBackBtn, isFollowedBack && styles.followingBtn]}
-          onPress={() => toggleFollowBack(item.id, item.actorName)}
+          onPress={() => toggleFollowBack(item.id, item.actorId || item.userId)}
           activeOpacity={0.75}
         >
           {isFollowedBack ? (
             <>
               <UserCheck size={14} color={Colors.cultivated} />
-              <Text style={styles.followingBtnText}>Partners 🤝</Text>
+              <Text style={styles.followingBtnText}>AgroPatron ⭐</Text>
             </>
           ) : (
             <>
               <UserPlus size={14} color={Colors.white} />
-              <Text style={styles.followBackBtnText}>Follow Back</Text>
+              <Text style={styles.followBackBtnText}>Patronize Back ⭐</Text>
             </>
           )}
         </TouchableOpacity>
@@ -162,8 +204,8 @@ export default function FollowersHubScreen() {
           <ArrowLeft size={20} color={Colors.espresso} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>AgroPartners & Followers</Text>
-          <Text style={styles.headerSubtitle}>Mutual agricultural trade connections</Text>
+          <Text style={styles.headerTitle}>AgroPatrons & Community</Text>
+          <Text style={styles.headerSubtitle}>Verified farm patrons & trade supporters</Text>
         </View>
       </View>
 
@@ -173,7 +215,7 @@ export default function FollowersHubScreen() {
           <Search size={18} color={Colors.text.muted} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search partners by farm, crop, or city..."
+            placeholder="Search patrons by farm, crop, or city..."
             placeholderTextColor={Colors.text.muted}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -189,7 +231,7 @@ export default function FollowersHubScreen() {
           activeOpacity={0.75}
         >
           <Text style={[styles.tabText, activeTab === 'PARTNERS' && styles.activeTabText]}>
-            Mutual AgroPartners ({partnersList.length})
+            Active AgroPatrons ({partnersList.length})
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -198,7 +240,7 @@ export default function FollowersHubScreen() {
           activeOpacity={0.75}
         >
           <Text style={[styles.tabText, activeTab === 'NEW_FOLLOWERS' && styles.activeTabText]}>
-            New Followers ({followerNotifications.length})
+            Recent Patrons ({followersList.length})
           </Text>
         </TouchableOpacity>
       </View>
@@ -207,11 +249,15 @@ export default function FollowersHubScreen() {
       <View style={styles.infoBanner}>
         <Sparkles size={18} color={Colors.gold} />
         <Text style={styles.infoBannerText}>
-          When you and another producer/buyer follow each other, you unlock <Text style={{ fontFamily: Fonts.bodyBold, color: Colors.cultivated }}>AgroPartners</Text> trade privileges and priority offers!
+          AgroPatrons unlock exclusive <Text style={{ fontFamily: Fonts.bodyBold, color: Colors.cultivated }}>8% harvest discounts</Text>, 48h priority harvest access, and continuous farm diary updates!
         </Text>
       </View>
 
-      {activeTab === 'PARTNERS' ? (
+      {loading && !refreshing ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={Colors.cultivated} />
+        </View>
+      ) : activeTab === 'PARTNERS' ? (
         <FlatList
           data={filteredPartners}
           renderItem={renderPartnerItem}
@@ -221,10 +267,20 @@ export default function FollowersHubScreen() {
             { paddingBottom: Math.max(insets.bottom, 20) + 24 },
           ]}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.cultivated]} />
+          }
+          ListEmptyComponent={
+            <View style={{ padding: 40, alignItems: 'center' }}>
+              <Text style={{ fontFamily: Fonts.body, color: Colors.text.secondary }}>
+                No active AgroPatrons found.
+              </Text>
+            </View>
+          }
         />
       ) : (
         <FlatList
-          data={followerNotifications}
+          data={followersList}
           renderItem={renderFollowerNotificationItem}
           keyExtractor={(item) => item.id}
           contentContainerStyle={[
@@ -232,6 +288,16 @@ export default function FollowersHubScreen() {
             { paddingBottom: Math.max(insets.bottom, 20) + 24 },
           ]}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.cultivated]} />
+          }
+          ListEmptyComponent={
+            <View style={{ padding: 40, alignItems: 'center' }}>
+              <Text style={{ fontFamily: Fonts.body, color: Colors.text.secondary }}>
+                No recent patrons yet.
+              </Text>
+            </View>
+          }
         />
       )}
     </View>
