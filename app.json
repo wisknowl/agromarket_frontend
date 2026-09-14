@@ -6,10 +6,11 @@
     "orientation": "portrait",
     "icon": "./assets/images/agromarket.png",
     "scheme": "agromarket",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/images/agromarket.png",
+      "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
     "ios": {
@@ -26,6 +27,11 @@
         "foregroundImage": "./assets/images/agromarket.png",
         "backgroundColor": "#ffffff"
       },
+      "splash": {
+        "image": "./assets/images/agromarket.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#ffffff"
+      },
       "softwareKeyboardLayoutMode": "resize",
       "package": "com.wisknowl.agromarket"
     },
@@ -40,8 +46,8 @@
         "expo-navigation-bar",
         {
           "position": "relative",
-          "behavior": "overlay-swipe",
-          "backgroundColor": "#00000000"
+          "backgroundColor": "#ffffff",
+          "buttonStyle": "dark"
         }
       ],
       "expo-font",

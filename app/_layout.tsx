@@ -74,13 +74,14 @@ export default function RootLayout() {
     }
   }, [loaded, error]);
 
-  // Sync Android system navigation bar style safely (supporting edge-to-edge)
+  // Sync Android system navigation bar style (solid white bar with dark buttons)
   useEffect(() => {
     if (Platform.OS === 'android') {
       try {
+        (NavigationBar as any).setBackgroundColorAsync?.('#ffffff');
         (NavigationBar as any).setButtonStyleAsync?.('dark');
       } catch (e) {
-        // Edge-to-edge mode handles background/border automatically
+        // Fallback gracefully
       }
     }
   }, []);
