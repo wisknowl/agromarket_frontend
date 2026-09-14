@@ -31,6 +31,13 @@ import { Fonts } from '@/constants/typography';
 
 import { FeatureFlagProvider } from '../core/feature-flags/useFeatureFlags';
 import { LocaleProvider } from '@/context/LocaleContext';
+import GlobalCartFlightOverlay from '@/components/cart/GlobalCartFlightOverlay';
+import { useRouter } from 'expo-router';
+import { useAuthStore } from '@/store/authStore';
+import {
+  registerForPushNotificationsAsync,
+  addNotificationResponseListener,
+} from '@/services/notifications';
 
 export const unstable_settings = {
   initialRouteName: 'auth/login',
@@ -62,16 +69,16 @@ export default function RootLayout() {
   }, [error]);
 
   useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
+    if (loaded || error) {
+      SplashScreen.hideAsync().catch(() => {});
     }
-  }, [loaded]);
+  }, [loaded, error]);
 
   // Sync Android system navigation bar style safely (supporting edge-to-edge)
   useEffect(() => {
     if (Platform.OS === 'android') {
       try {
-        NavigationBar.setButtonStyleAsync('dark');
+        (NavigationBar as any).setButtonStyleAsync?.('dark');
       } catch (e) {
         // Edge-to-edge mode handles background/border automatically
       }
@@ -109,10 +116,29 @@ function NavigationLogger() {
 }
 
 function RootLayoutNav() {
+  const router = useRouter();
+  const { isAuthenticated, user } = useAuthStore();
+
+  // Auto-register device for push notifications when user is signed in
+  useEffect(() => {
+    if (isAuthenticated && user?.id) {
+      registerForPushNotificationsAsync();
+    }
+  }, [isAuthenticated, user?.id]);
+
+  // Deep link directly to chat when a push notification banner is tapped
+  useEffect(() => {
+    const cleanup = addNotificationResponseListener((conversationId) => {
+      router.push(`/chat/${conversationId}` as any);
+    });
+
+    return cleanup;
+  }, [router]);
+
   return (
     <>
       <NavigationLogger />
-      <StatusBar style="dark" backgroundColor="transparent" translucent />
+      <StatusBar style="dark" />
       <Stack
         screenOptions={{
           headerBackTitle: 'Back',
@@ -227,6 +253,7 @@ function RootLayoutNav() {
           }}
         />
       </Stack>
+      <GlobalCartFlightOverlay />
     </>
   );
 }

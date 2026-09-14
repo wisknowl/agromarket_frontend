@@ -1,500 +1,397 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
-  FlatList,
   StyleSheet,
   Animated,
-  Pressable,
   Image,
-  Easing,
   Dimensions,
+  Platform,
+  Easing,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCartStore } from '@/store/cartStore';
+import { useRegionalContainerStore } from '@/store/regionalContainerStore';
+import { useCartAnimationStore } from '@/store/cartAnimationStore';
 import Colors, { Radii, Shadows } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
-import { ShoppingBag, Plus, Minus, Trash2, ArrowRight } from 'lucide-react-native';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const FREE_DELIVERY_COUNT = 10;
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface BasketProps {
   onGoToCart?: () => void;
-  lastAddedItem?: {
-    yield: { image: string };
-  };
+  isAgroFeed?: boolean;
+  isInTabs?: boolean;
 }
 
-export default function Basket({ onGoToCart, lastAddedItem }: BasketProps) {
+export default function Basket({
+  onGoToCart,
+  isAgroFeed = false,
+  isInTabs = isAgroFeed,
+}: BasketProps) {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [expanded, setExpanded] = useState(false);
-  const animation = useRef(new Animated.Value(0)).current;
-  const badgeScale = useRef(new Animated.Value(1)).current;
-  const [removingId, setRemovingId] = useState<string | null>(null);
-  const { items, getTotal, updateQuantity, removeFromCart } = useCartStore();
-  const [staggerAnims, setStaggerAnims] = useState<Animated.Value[]>([]);
-  const progressAnim = useRef(new Animated.Value(0)).current;
-  const [showFlyImage, setShowFlyImage] = useState(false);
-  const flyAnim = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
-  const [flyImageUri, setFlyImageUri] = useState<string | null>(null);
-  const shakeAnim = useRef(new Animated.Value(0)).current;
-
-  const totalItems = items.reduce((sum: number, item: any) => sum + item.quantity, 0);
+  const items = useCartStore((s) => s.items);
+  const getTotal = useCartStore((s) => s.getTotal);
+  const totalItems = items.reduce((sum, i) => sum + i.quantity, 0);
   const totalAmount = getTotal();
-  const progress = Math.min(totalItems / FREE_DELIVERY_COUNT, 1);
 
-  const triggerShake = () => {
-    Animated.sequence([
-      Animated.timing(shakeAnim, { toValue: 1, duration: 50, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: -1, duration: 50, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: 1, duration: 50, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
-    ]).start();
-  };
+  const container = useRegionalContainerStore((s) => s.getContainer());
+  const activeFly = useCartAnimationStore((s) => s.activeFly);
+  const setBasketCoords = useCartAnimationStore((s) => s.setBasketCoords);
+  const basketBounceTimestamp = useCartAnimationStore((s) => s.basketBounceTimestamp);
 
-  useEffect(() => {
-    Animated.sequence([
-      Animated.timing(badgeScale, { toValue: 1.3, duration: 120, useNativeDriver: true }),
-      Animated.timing(badgeScale, { toValue: 1, duration: 120, useNativeDriver: true }),
-    ]).start();
-    triggerShake();
-  }, [totalItems]);
+  // Basket root animations
+  const basketScale = useRef(new Animated.Value(isAgroFeed ? 0 : 1)).current;
+  const basketOpacity = useRef(new Animated.Value(isAgroFeed ? 0 : 1)).current;
+  const basketTranslateY = useRef(new Animated.Value(isAgroFeed ? 60 : 0)).current;
+  const badgeScale = useRef(new Animated.Value(1)).current;
 
-  useEffect(() => {
-    Animated.timing(progressAnim, {
-      toValue: progress,
-      duration: 400,
-      useNativeDriver: false,
-    }).start();
-  }, [progress]);
+  // Periodic Beep / Heartbeat pulse animations
+  const beaconScale = useRef(new Animated.Value(1)).current;
+  const beaconOpacity = useRef(new Animated.Value(0)).current;
+  const pulseScale = useRef(new Animated.Value(1)).current;
 
-  useEffect(() => {
-    if (expanded && items.length) {
-      const anims = items.map(() => new Animated.Value(0));
-      setStaggerAnims(anims);
-      Animated.stagger(
-        70,
-        anims.map((anim) =>
-          Animated.timing(anim, { toValue: 1, duration: 300, useNativeDriver: true })
-        )
-      ).start();
+  // Unified physical positioning:
+  // TabBar total height is TAB_BAR_HEIGHT (62) + bottomInset
+  const bottomInset = insets.bottom;
+  const TAB_BAR_HEIGHT = 62;
+  const unifiedOnScreenBottom = TAB_BAR_HEIGHT + bottomInset + 14;
+
+  // On tab screens (AgroFeed, AgroMarket), container already sits above the tab bar,
+  // so bottom: 14 places it 14px above the tab bar (= unifiedOnScreenBottom from device bottom).
+  // On stack screens (FarmDetailScreen, YieldDetailScreen), container goes to screen bottom,
+  // so bottom: unifiedOnScreenBottom places it at the exact same physical height on screen.
+  const bottomOffset = isInTabs ? 14 : unifiedOnScreenBottom;
+  const BASKET_SIZE = 64;
+  const BASKET_RIGHT = 18;
+
+  const basketCircleRef = useRef<View>(null);
+  const hideTimerRef = useRef<any>(null);
+
+  // Measure basket circle window position and update global store
+  const measureAndUpdateCoords = useCallback(() => {
+    if (basketCircleRef.current) {
+      basketCircleRef.current.measureInWindow((x, y, w, h) => {
+        if (x && y && w && h && w > 0 && h > 0) {
+          setBasketCoords({
+            x: x + w / 2,
+            y: y + h / 2,
+          });
+        }
+      });
     }
-  }, [expanded, items.length]);
+  }, [setBasketCoords]);
 
-  const handleQuantity = (id: string, delta: number) => {
-    const item = items.find((i) => i.id === id);
-    if (!item) return;
-    const newQty = item.quantity + delta;
-    if (newQty < 1) return;
-    updateQuantity(id, newQty);
-  };
+  // Update default coordinates on mount / layout
+  useEffect(() => {
+    const defaultTargetX = SCREEN_WIDTH - BASKET_RIGHT - BASKET_SIZE / 2;
+    const defaultTargetY = SCREEN_HEIGHT - unifiedOnScreenBottom - BASKET_SIZE / 2;
+    setBasketCoords({ x: defaultTargetX, y: defaultTargetY });
+  }, [unifiedOnScreenBottom, setBasketCoords]);
 
-  const handleExpand = () => {
-    setExpanded(true);
-    Animated.timing(animation, {
-      toValue: 1,
-      duration: 350,
-      useNativeDriver: false,
-      easing: Easing.out(Easing.cubic),
-    }).start();
-  };
+  // When activeFly starts on AgroFeed, spring the basket into view immediately:
+  useEffect(() => {
+    if (!activeFly) return;
 
-  const handleCollapse = () => {
-    Animated.timing(animation, {
-      toValue: 0,
-      duration: 350,
-      useNativeDriver: false,
-      easing: Easing.in(Easing.cubic),
-    }).start(() => setExpanded(false));
-  };
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
 
-  const baseHeight = 74 + Math.max(insets.bottom, 0);
-  const expandedHeight = 420 + Math.max(insets.bottom, 0);
-
-  const containerHeight = animation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [baseHeight, expandedHeight],
-  });
-  const collapsedOpacity = animation.interpolate({
-    inputRange: [0, 0.5],
-    outputRange: [1, 0],
-    extrapolate: 'clamp',
-  });
-  const expandedOpacity = animation.interpolate({
-    inputRange: [0.5, 1],
-    outputRange: [0, 1],
-    extrapolate: 'clamp',
-  });
-
-  const handleDelete = (id: string) => {
-    setRemovingId(id);
-    const itemIndex = items.findIndex((i) => i.id === id);
-    if (staggerAnims[itemIndex]) {
-      Animated.timing(staggerAnims[itemIndex], {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }).start(() => {
-        removeFromCart(id);
-        setRemovingId(null);
+    if (isAgroFeed) {
+      Animated.parallel([
+        Animated.spring(basketScale, {
+          toValue: 1,
+          friction: 6,
+          tension: 70,
+          useNativeDriver: true,
+        }),
+        Animated.timing(basketOpacity, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.spring(basketTranslateY, {
+          toValue: 0,
+          friction: 7,
+          tension: 80,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        measureAndUpdateCoords();
       });
     } else {
-      removeFromCart(id);
-      setRemovingId(null);
+      measureAndUpdateCoords();
+    }
+  }, [activeFly, isAgroFeed, measureAndUpdateCoords]);
+
+  // When produce lands (basketBounceTimestamp fires), trigger elastic bounce & badge pop:
+  useEffect(() => {
+    if (!basketBounceTimestamp) return;
+
+    Animated.sequence([
+      Animated.parallel([
+        Animated.sequence([
+          Animated.timing(basketScale, { toValue: 1.32, duration: 110, useNativeDriver: true }),
+          Animated.spring(basketScale, { toValue: 1, friction: 4, tension: 90, useNativeDriver: true }),
+        ]),
+        Animated.sequence([
+          Animated.timing(badgeScale, { toValue: 1.5, duration: 110, useNativeDriver: true }),
+          Animated.spring(badgeScale, { toValue: 1, friction: 5, tension: 100, useNativeDriver: true }),
+        ]),
+      ]),
+    ]).start();
+
+    // If on AgroFeed, dwell for 1200ms showing the count, then smoothly slide down:
+    if (isAgroFeed) {
+      hideTimerRef.current = setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(basketOpacity, {
+            toValue: 0,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+          Animated.timing(basketTranslateY, {
+            toValue: 60,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+          Animated.timing(basketScale, {
+            toValue: 0.6,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }, 1200);
+    }
+
+    return () => {
+      if (hideTimerRef.current) {
+        clearTimeout(hideTimerRef.current);
+      }
+    };
+  }, [basketBounceTimestamp, isAgroFeed]);
+
+  // Periodic "beeping" heartbeat beacon every 5.5s when basket contains at least 1 item
+  useEffect(() => {
+    if (isAgroFeed || totalItems === 0) return;
+
+    const interval = setInterval(() => {
+      beaconScale.setValue(1);
+      beaconOpacity.setValue(0.75);
+
+      Animated.parallel([
+        // 1. Radar beacon ripple expanding outward
+        Animated.timing(beaconScale, {
+          toValue: 1.68,
+          duration: 900,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(beaconOpacity, {
+          toValue: 0,
+          duration: 900,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        }),
+        // 2. Basket container heartbeat double-nudge
+        Animated.sequence([
+          Animated.timing(pulseScale, { toValue: 1.15, duration: 150, useNativeDriver: true }),
+          Animated.timing(pulseScale, { toValue: 0.95, duration: 120, useNativeDriver: true }),
+          Animated.timing(pulseScale, { toValue: 1.08, duration: 140, useNativeDriver: true }),
+          Animated.spring(pulseScale, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true }),
+        ]),
+        // 3. Badge attention pop
+        Animated.sequence([
+          Animated.timing(badgeScale, { toValue: 1.35, duration: 150, useNativeDriver: true }),
+          Animated.spring(badgeScale, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true }),
+        ]),
+      ]).start();
+    }, 5500);
+
+    return () => clearInterval(interval);
+  }, [isAgroFeed, totalItems]);
+
+  const handlePressBasket = () => {
+    if (onGoToCart) {
+      onGoToCart();
+    } else {
+      router.push('/cart');
     }
   };
 
-  if (items.length === 0) return null;
+  // For non-AgroFeed pages, hide if cart has 0 items and no active flying event
+  if (!isAgroFeed && totalItems === 0 && !activeFly) {
+    return null;
+  }
+
+  const combinedScale = Animated.multiply(basketScale, pulseScale);
 
   return (
-    <>
-      {expanded && (
-        <Pressable
-          style={styles.blurOverlay}
-          pointerEvents="auto"
-          onPress={handleCollapse}
+    <Animated.View
+      onLayout={measureAndUpdateCoords}
+      style={[
+        styles.floatingBasketWrapper,
+        {
+          bottom: bottomOffset,
+          transform: [
+            { translateY: basketTranslateY },
+            { scale: combinedScale },
+          ],
+          opacity: basketOpacity,
+        },
+      ]}
+    >
+      {/* Periodic Beeping Radar Beacon Ring */}
+      {totalItems > 0 && (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.beaconRing,
+            {
+              transform: [{ scale: beaconScale }],
+              opacity: beaconOpacity,
+            },
+          ]}
         />
       )}
 
-      <Animated.View
-        style={[
-          styles.container,
-          {
-            height: containerHeight,
-            paddingBottom: Math.max(insets.bottom + 8, 12),
-          },
-        ]}
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={handlePressBasket}
+        style={styles.basketTouchable}
+        accessibilityLabel={`Open ${container.shortName} with ${totalItems} items`}
       >
-        <Animated.View
-          style={{
-            flex: 1,
-            transform: [
-              {
-                translateX: shakeAnim.interpolate({
-                  inputRange: [-1, 1],
-                  outputRange: [-6, 6],
-                }),
-              },
-            ],
-          }}
-        >
-          {expanded && (
-            <View style={styles.progressBarContainer}>
-              <Animated.View
-                style={[
-                  styles.progressBar,
-                  {
-                    width: progressAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: ['0%', '100%'],
-                    }),
-                  },
-                ]}
-              />
-              <Text style={styles.progressText}>
-                {totalItems} / {FREE_DELIVERY_COUNT} for Direct Cooperative Delivery
-              </Text>
-            </View>
-          )}
+        <View ref={basketCircleRef} style={styles.basketCircle}>
+          <Image
+            source={container.image}
+            style={styles.containerImage}
+            resizeMode="cover"
+          />
+          {/* Gloss highlight */}
+          <View style={styles.glossOverlay} />
+        </View>
 
-          {!expanded && (
-            <Animated.View style={{ opacity: collapsedOpacity }}>
-              <View style={styles.row}>
-                <FlatList
-                  horizontal
-                  data={items}
-                  keyExtractor={(item) => item.id}
-                  renderItem={({ item }) => (
-                    <View style={styles.itemRow}>
-                      <Image
-                        source={{ uri: item.yield.image }}
-                        style={styles.itemImage}
-                      />
-                      <View style={styles.badge}>
-                        <Text style={styles.badgeText}>{item.quantity}</Text>
-                      </View>
-                    </View>
-                  )}
-                  showsHorizontalScrollIndicator={false}
-                />
-                <TouchableOpacity
-                  style={styles.viewBasket}
-                  onPress={handleExpand}
-                >
-                  <Text style={styles.viewBasketText}>Open Basket</Text>
-                  <Animated.View style={{ transform: [{ scale: badgeScale }] }}>
-                    <View style={styles.basketIconCircle}>
-                      <ShoppingBag size={18} color={Colors.gold} strokeWidth={2.2} />
-                      <View style={styles.iconBadge}>
-                        <Text style={styles.iconBadgeText}>{totalItems}</Text>
-                      </View>
-                    </View>
-                  </Animated.View>
-                </TouchableOpacity>
-              </View>
-            </Animated.View>
-          )}
+        {/* Item Count Badge */}
+        {totalItems > 0 && (
+          <Animated.View
+            style={[
+              styles.badgeContainer,
+              { transform: [{ scale: badgeScale }] },
+            ]}
+          >
+            <Text style={styles.badgeText}>
+              {totalItems > 99 ? '99+' : totalItems}
+            </Text>
+          </Animated.View>
+        )}
 
-          {expanded && (
-            <Animated.View style={{ flex: 1, opacity: expandedOpacity }}>
-              <View style={styles.expandedContent}>
-                <FlatList
-                  data={items}
-                  keyExtractor={(item) => item.id}
-                  renderItem={({ item, index }) => (
-                    <Animated.View
-                      style={[
-                        styles.expandedItemRow,
-                        {
-                          transform: [{ scale: staggerAnims[index] || 1 }],
-                          opacity: staggerAnims[index] || 1,
-                        },
-                      ]}
-                    >
-                      <Image
-                        source={{ uri: item.yield.image }}
-                        style={styles.expandedItemImage}
-                      />
-                      <View style={styles.expandedItemInfo}>
-                        <Text style={styles.expandedItemTitle} numberOfLines={1}>
-                          {item.yield.title}
-                        </Text>
-                        <Text style={styles.expandedItemPrice}>
-                          {item.yield.price} FCFA / {item.yield.unit}
-                        </Text>
-                      </View>
-                      <View style={styles.quantityControls}>
-                        <Pressable
-                          style={styles.qtyBtn}
-                          onPress={() => handleQuantity(item.id, -1)}
-                        >
-                          <Minus size={14} color={Colors.espresso} />
-                        </Pressable>
-                        <Text style={styles.quantityText}>{item.quantity}</Text>
-                        <Pressable
-                          style={styles.qtyBtn}
-                          onPress={() => handleQuantity(item.id, 1)}
-                        >
-                          <Plus size={14} color={Colors.espresso} />
-                        </Pressable>
-                      </View>
-                      <TouchableOpacity
-                        onPress={() => handleDelete(item.id)}
-                        style={{ marginLeft: 10 }}
-                      >
-                        <Trash2 size={18} color={Colors.clay} />
-                      </TouchableOpacity>
-                    </Animated.View>
-                  )}
-                />
-
-                <View style={styles.bottomRow}>
-                  <TouchableOpacity
-                    style={styles.goToCartButton}
-                    onPress={onGoToCart}
-                  >
-                    <ShoppingBag size={18} color={Colors.espresso} />
-                    <Text style={styles.goToCartText}>
-                      Proceed to Checkout ({totalAmount.toLocaleString()} FCFA)
-                    </Text>
-                    <ArrowRight size={16} color={Colors.espresso} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </Animated.View>
-          )}
-        </Animated.View>
-      </Animated.View>
-    </>
+        {/* Running Subtotal Mini-Pill (Non-AgroFeed or when settled) */}
+        {!isAgroFeed && totalAmount > 0 && (
+          <View style={styles.pricePill}>
+            <Text style={styles.pricePillText} numberOfLines={1}>
+              {totalAmount > 99999
+                ? `${Math.round(totalAmount / 1000)}k`
+                : totalAmount.toLocaleString()}{' '}
+              F
+            </Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  floatingBasketWrapper: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: Colors.canopy,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 12,
-    zIndex: 100,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(246, 238, 221, 0.2)',
-    ...Shadows.card,
+    right: 18,
+    zIndex: 999,
+    alignItems: 'center',
   },
-  blurOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(14, 37, 21, 0.6)',
-    zIndex: 99,
-  },
-  progressBarContainer: {
-    height: 22,
-    backgroundColor: 'rgba(246, 238, 221, 0.15)',
-    borderRadius: Radii.pill,
-    marginBottom: 10,
+  basketTouchable: {
+    alignItems: 'center',
     justifyContent: 'center',
+  },
+  basketCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: Colors.parchment,
+    borderWidth: 2.5,
+    borderColor: Colors.gold,
     overflow: 'hidden',
-  },
-  progressBar: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    backgroundColor: Colors.gold,
-    borderRadius: Radii.pill,
-  },
-  progressText: {
-    alignSelf: 'center',
-    color: Colors.parchment,
-    fontFamily: Fonts.bodyMedium,
-    fontSize: 11,
-    zIndex: 2,
-  },
-  row: {
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+    ...Shadows.card,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.28,
+    shadowRadius: 6,
   },
-  itemRow: {
-    marginRight: 10,
-    backgroundColor: Colors.white,
-    borderRadius: Radii.chip,
-    padding: 3,
-    position: 'relative',
+  containerImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
   },
-  itemImage: {
-    width: 44,
-    height: 44,
-    borderRadius: 6,
+  glossOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 32,
   },
-  badge: {
+  badgeContainer: {
     position: 'absolute',
-    top: -4,
-    right: -4,
-    backgroundColor: Colors.gold,
-    borderRadius: Radii.pill,
+    top: -3,
+    right: -3,
+    backgroundColor: Colors.cultivated,
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
     paddingHorizontal: 5,
-    paddingVertical: 1,
-    minWidth: 16,
     alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: Colors.white,
+    ...Shadows.subtle,
+    elevation: 4,
   },
   badgeText: {
-    color: Colors.espresso,
-    fontSize: 10,
-    fontFamily: Fonts.monoBold,
-  },
-  viewBasket: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.gold,
-    paddingVertical: 9,
-    paddingHorizontal: 15,
-    borderRadius: Radii.pill,
-    marginLeft: 12,
-    gap: 8,
-    ...Shadows.subtle,
-  },
-  viewBasketText: {
-    fontFamily: Fonts.bodyBold,
-    fontSize: 13,
-    color: Colors.espresso,
-  },
-  basketIconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: Colors.espresso,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  iconBadge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    backgroundColor: Colors.cultivated,
-    borderRadius: Radii.pill,
-    paddingHorizontal: 4,
-    minWidth: 14,
-    alignItems: 'center',
-  },
-  iconBadgeText: {
     color: Colors.white,
-    fontSize: 9,
     fontFamily: Fonts.monoBold,
-  },
-  expandedContent: {
-    flex: 1,
-  },
-  expandedItemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 6,
-    justifyContent: 'space-between',
-    backgroundColor: Colors.white,
-    borderRadius: Radii.card,
-    padding: 10,
-  },
-  expandedItemImage: {
-    width: 46,
-    height: 46,
-    borderRadius: 8,
-  },
-  expandedItemInfo: {
-    flex: 1,
-    marginLeft: 10,
-  },
-  expandedItemTitle: {
-    fontFamily: Fonts.bodySemiBold,
-    fontSize: 14,
-    color: Colors.espresso,
-  },
-  expandedItemPrice: {
-    fontFamily: Fonts.monoBold,
-    color: Colors.soil,
-    fontSize: 12,
-    marginTop: 2,
-  },
-  quantityControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  qtyBtn: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: Colors.parchment,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  quantityText: {
-    fontFamily: Fonts.monoBold,
-    fontSize: 14,
-    color: Colors.espresso,
-    minWidth: 18,
+    fontSize: 10.5,
     textAlign: 'center',
   },
-  bottomRow: {
-    marginTop: 12,
-  },
-  goToCartButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.gold,
+  pricePill: {
+    backgroundColor: Colors.canopy,
     borderRadius: Radii.pill,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    gap: 8,
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+    marginTop: -7,
+    borderWidth: 1,
+    borderColor: Colors.gold,
+    ...Shadows.subtle,
+    elevation: 4,
   },
-  goToCartText: {
-    fontFamily: Fonts.bodyBold,
-    fontSize: 14,
-    color: Colors.espresso,
+  pricePillText: {
+    color: Colors.gold,
+    fontFamily: Fonts.monoBold,
+    fontSize: 10,
+    letterSpacing: 0.2,
+  },
+  beaconRing: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 2.5,
+    borderColor: Colors.gold,
+    backgroundColor: 'rgba(212, 160, 23, 0.18)',
+    zIndex: -1,
   },
 });

@@ -19,7 +19,7 @@ import { useRouter } from 'expo-router';
 import { CameraView, CameraType, useCameraPermissions, useMicrophonePermissions, FlashMode } from 'expo-camera';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { Video, ResizeMode } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import Svg, { Circle } from 'react-native-svg';
 import {
   X,
@@ -92,6 +92,27 @@ const SUGGESTED_HASHTAGS = [
   '#HighlandPotatoes',
   '#WholesaleProduce',
 ];
+
+function RecordedVideoPlayer({ uri, style, isMuted = false }: { uri: string; style: any; isMuted?: boolean }) {
+  const player = useVideoPlayer(uri, (p) => {
+    p.loop = true;
+    p.muted = isMuted;
+    p.play();
+  });
+
+  useEffect(() => {
+    player.muted = isMuted;
+  }, [isMuted, player]);
+
+  return (
+    <VideoView
+      player={player}
+      style={style}
+      contentFit="cover"
+      nativeControls={false}
+    />
+  );
+}
 
 export default function CreatePostCameraScreen() {
   const router = useRouter();
@@ -538,14 +559,10 @@ export default function CreatePostCameraScreen() {
                 <Text style={styles.previewTextDisplay}>{textContent || caption}</Text>
               </View>
             ) : isVideoMedia && capturedMediaUri ? (
-              <Video
-                source={{ uri: capturedMediaUri }}
+              <RecordedVideoPlayer
+                uri={capturedMediaUri}
                 style={styles.previewImage}
-                resizeMode={ResizeMode.COVER}
-                isLooping
-                shouldPlay
                 isMuted
-                useNativeControls={false}
               />
             ) : (
               <Image
@@ -725,23 +742,19 @@ export default function CreatePostCameraScreen() {
 
         {/* Full-Screen Media Display */}
         {mode === 'Text' ? (
-          <View style={[StyleSheet.absoluteFillObject, { backgroundColor: selectedTextBg.color, justifyContent: 'center', alignItems: 'center', padding: 28 }]}>
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: selectedTextBg.color, justifyContent: 'center', alignItems: 'center', padding: 28 }]}>
             <Text style={styles.fullScreenTextDisplay}>{textContent || caption}</Text>
           </View>
         ) : isVideoMedia && capturedMediaUri ? (
-          <Video
-            source={{ uri: capturedMediaUri }}
-            style={StyleSheet.absoluteFillObject}
-            resizeMode={ResizeMode.COVER}
-            isLooping
-            shouldPlay
+          <RecordedVideoPlayer
+            uri={capturedMediaUri}
+            style={StyleSheet.absoluteFill}
             isMuted={isPreviewMuted}
-            useNativeControls={false}
           />
         ) : (
           <Image
             source={{ uri: capturedMediaUri || 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=1000' }}
-            style={StyleSheet.absoluteFillObject}
+            style={StyleSheet.absoluteFill}
             resizeMode="cover"
           />
         )}
@@ -750,7 +763,7 @@ export default function CreatePostCameraScreen() {
         {selectedFilter.id !== 'normal' && mode !== 'Text' && (
           <View
             style={[
-              StyleSheet.absoluteFillObject,
+              StyleSheet.absoluteFill,
               { backgroundColor: selectedFilter.color, pointerEvents: 'none' },
             ]}
           />
@@ -954,14 +967,14 @@ export default function CreatePostCameraScreen() {
       {permission?.granted ? (
         <CameraView
           ref={cameraRef}
-          style={StyleSheet.absoluteFillObject}
+          style={StyleSheet.absoluteFill}
           facing={facing}
           flash={flash}
           enableTorch={flash === 'on'}
           mode={mode === 'Photo' ? 'picture' : 'video'}
         />
       ) : (
-        <View style={[StyleSheet.absoluteFillObject, styles.cameraPlaceholder]}>
+        <View style={[StyleSheet.absoluteFill, styles.cameraPlaceholder]}>
           <View style={styles.permissionPrompt}>
             <View style={styles.cameraIconBadge}>
               <CameraIcon size={38} color={Colors.gold} />
@@ -985,7 +998,7 @@ export default function CreatePostCameraScreen() {
       {selectedFilter.id !== 'normal' && mode !== 'Text' && (
         <View
           style={[
-            StyleSheet.absoluteFillObject,
+            StyleSheet.absoluteFill,
             { backgroundColor: selectedFilter.color, pointerEvents: 'none' },
           ]}
         />
@@ -993,7 +1006,7 @@ export default function CreatePostCameraScreen() {
 
       {/* Text Mode Canvas */}
       {mode === 'Text' && (
-        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: selectedTextBg.color, zIndex: 10 }]}>
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: selectedTextBg.color, zIndex: 10 }]}>
           <View style={styles.textModeCanvas}>
             <TextInput
               style={styles.textModeInput}
@@ -1476,7 +1489,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 3,
   },
   countdownOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
     alignItems: 'center',
     justifyContent: 'center',

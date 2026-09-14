@@ -13,14 +13,20 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.wisknowl.agromarket",
+      "infoPlist": {
+        "NSCameraUsageDescription": "AgroMarket needs access to your camera to take and upload photos of harvest produce and farm verification documents.",
+        "NSPhotoLibraryUsageDescription": "AgroMarket needs access to your photo library to select photos of harvest yields, farm facilities, and profile pictures.",
+        "NSMicrophoneUsageDescription": "AgroMarket needs access to your microphone to record and send voice notes in direct chat with farmers and buyers."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/agromarket.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
+      "softwareKeyboardLayoutMode": "resize",
       "package": "com.wisknowl.agromarket"
     },
     "web": {
@@ -33,12 +39,15 @@
       [
         "expo-navigation-bar",
         {
-          "position": "absolute",
-          "visibility": "visible",
+          "position": "relative",
           "behavior": "overlay-swipe",
-          "backgroundColor": "#FFFFFF"
+          "backgroundColor": "#00000000"
         }
-      ]
+      ],
+      "expo-font",
+      "expo-splash-screen",
+      "expo-status-bar",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": false

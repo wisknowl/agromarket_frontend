@@ -10,16 +10,16 @@ import {
   RefreshControl,
   TouchableOpacity,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect, useIsFocused } from 'expo-router';
 import HomeTabBar from '@/components/HomeTabBar';
 import PostCard from '@/components/PostCard';
 import { Post } from '@/types';
 import Colors from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
-import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { useAuthStore } from '@/store/authStore';
 import { fetchFeedPostsApi } from '@/components/api/posts';
 import { Sprout, Plus, Star, Compass } from 'lucide-react-native';
+import Basket from '@/components/basket';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -197,6 +197,8 @@ export default function HomeScreen() {
           )
         )}
       </View>
+      {/* Ephemeral AgroFeed Flying Basket */}
+      <Basket isAgroFeed={true} isInTabs={true} />
     </View>
   );
 }

@@ -258,7 +258,12 @@ export default function ChatScreen() {
 
 
   const renderMessageBubble = ({ item }: { item: Message }) => {
-    const isMe = item.senderId === 'user';
+    const currentUserId = currentUser?.id;
+    const isMe = Boolean(
+      (currentUserId && item.senderId === currentUserId) ||
+      item.senderId === 'user' ||
+      (targetUser?.id && item.senderId !== targetUser.id)
+    );
 
     return (
       <View style={[styles.bubbleWrapper, isMe ? styles.myBubbleWrapper : styles.theirBubbleWrapper]}>
@@ -451,7 +456,7 @@ export default function ChatScreen() {
       {/* Keyboard Avoiding Container for Message List and Input Bar */}
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
         {/* Message List */}
@@ -462,6 +467,7 @@ export default function ChatScreen() {
           contentContainerStyle={styles.messagesContainer}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
         />
 
         {/* Bottom Input Bar with Safe Area Inset to prevent phone nav buttons overlay */}

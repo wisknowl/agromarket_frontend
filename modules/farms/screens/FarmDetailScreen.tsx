@@ -52,6 +52,7 @@ import YieldCard from '@/components/YieldCard';
 import PostCard from '@/components/PostCard';
 import FarmerBadge from '@/components/ui/FarmerBadge';
 import Basket from '@/components/basket';
+import CustomTabBar from '@/components/navigation/CustomTabBar';
 
 const CATEGORIES = [
   { id: 'cat-veg', name: 'Vegetables & Greens' },
@@ -282,7 +283,7 @@ export default function FarmDetailScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom + 100, 120) }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom + 160, 180) }]}
       >
         {/* Cover Hero Banner */}
         <View style={styles.coverWrapper}>
@@ -865,8 +866,8 @@ export default function FarmDetailScreen() {
         </SafeAreaView>
       </Modal>
 
-      {/* Floating Basket */}
-      <Basket />
+      {/* Floating Cultural Basket for Farm Details */}
+      <Basket isInTabs={false} />
 
       {farm && (
         <AgroPatronModal
@@ -881,6 +882,9 @@ export default function FarmDetailScreen() {
           }}
         />
       )}
+
+      {/* Persistent Bottom Tab Bar */}
+      <CustomTabBar />
     </View>
   );
 }

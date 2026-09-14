@@ -54,6 +54,17 @@ export interface User {
   wholesalerProfile?: WholesalerProfile;
   transporterProfile?: TransporterProfile;
   financialProfile?: FinancialProfile;
+  followersCount?: number;
+  followingCount?: number;
+  farmsCount?: number;
+  postsCount?: number;
+  agroVestorsCount?: number;
+  _count?: {
+    followers?: number;
+    following?: number;
+    farms?: number;
+    posts?: number;
+  };
 }
 
 export type FarmCategory =

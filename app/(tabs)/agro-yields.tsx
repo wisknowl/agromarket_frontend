@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
@@ -11,7 +11,6 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Search, Sparkles } from 'lucide-react-native';
 import YieldCard from '@/components/YieldCard';
@@ -185,7 +184,7 @@ export default function AgroYieldsScreen() {
         />
       )}
 
-      <Basket onGoToCart={handleGoToCart} />
+      <Basket onGoToCart={handleGoToCart} isInTabs={true} />
     </View>
   );
 }

@@ -32,7 +32,7 @@ import {
   Scale,
   Star,
 } from 'lucide-react-native';
-import { Video, ResizeMode } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Post, AgroYield } from '@/types';
 import { useFavoritesStore } from '@/store/favoritesStore';
@@ -76,7 +76,6 @@ export default function PostCard({
   const [showReactions, setShowReactions] = useState(false);
   const [isCaptionExpanded, setIsCaptionExpanded] = useState(false);
   const [hasReportedTelemetry, setHasReportedTelemetry] = useState(false);
-  const videoRef = useRef<Video>(null);
 
   // Realtime live reactions state derived directly from backend post metrics (no artificial mockup offsets)
   const initialFresh = (post as any).reactions?.fresh ?? Math.floor((post.likesCount || 0) * 0.45);
@@ -298,18 +297,38 @@ export default function PostCard({
       : 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4'
     : rawMedia;
 
-  useEffect(() => {
-    if (isVideoMedia && videoRef.current) {
-      if (shouldPlay) {
-        videoRef.current.playAsync().catch(() => {});
-      } else {
-        videoRef.current.pauseAsync().catch(() => {});
-      }
+  const player = useVideoPlayer(isVideoMedia ? mediaSource : '', (p) => {
+    p.loop = true;
+    p.muted = isMuted;
+    if (shouldPlay) {
+      p.play();
     }
-  }, [shouldPlay, isVideoMedia]);
+  });
+
+  useEffect(() => {
+    if (!isVideoMedia) return;
+    if (shouldPlay) {
+      player.play();
+    } else {
+      player.pause();
+    }
+  }, [shouldPlay, isVideoMedia, player]);
+
+  useEffect(() => {
+    if (!isVideoMedia) return;
+    player.muted = isMuted;
+  }, [isMuted, isVideoMedia, player]);
 
   const togglePlayPause = () => {
-    setIsUserPaused((prev) => !prev);
+    setIsUserPaused((prev) => {
+      const next = !prev;
+      if (next) {
+        player.pause();
+      } else {
+        player.play();
+      }
+      return next;
+    });
   };
 
   const avatarSource =
@@ -371,18 +390,11 @@ export default function PostCard({
     <View style={[styles.container, fullScreen && styles.fullScreen]}>
       {isVideoMedia ? (
         <Pressable style={[styles.media, fullScreen && styles.fullScreenMedia]} onPress={togglePlayPause}>
-          <Video
-            ref={videoRef}
-            source={{ uri: mediaSource }}
-            style={StyleSheet.absoluteFillObject}
-            resizeMode={ResizeMode.COVER}
-            isLooping
-            shouldPlay={shouldPlay}
-            isMuted={isMuted}
-            useNativeControls={false}
-            rate={1.0}
-            volume={1.0}
-            onError={(err) => console.warn(`[Video Error on Post ${post.id}]`, err)}
+          <VideoView
+            player={player}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+            nativeControls={false}
           />
           {isUserPaused && (
             <View style={styles.playPauseOverlay}>
@@ -951,7 +963,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   playPauseOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.25)',

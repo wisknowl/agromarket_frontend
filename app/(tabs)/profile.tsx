@@ -17,8 +17,7 @@ import {
   Platform,
   TextInput,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import {
@@ -57,7 +56,7 @@ import {
 import { fetchMyOrdersApi } from '@/components/api/orders';
 import { useAuthStore } from '@/store/authStore';
 import { useFavoritesStore } from '@/store/favoritesStore';
-import { fetchPublicProfileApi, toggleFollowUserApi, updateMyProfileApi } from '@/components/api/auth';
+import { fetchCurrentUserApi, fetchPublicProfileApi, toggleFollowUserApi, updateMyProfileApi } from '@/components/api/auth';
 import { fetchFeedPostsApi, uploadMediaApi } from '@/components/api/posts';
 import { fetchYieldsApi } from '@/components/api/yields';
 import { Post, Yield } from '@/types';
@@ -207,11 +206,23 @@ export default function ProfileScreen() {
     !params.userId || (currentUser?.id && params.userId === currentUser.id)
   );
 
-  const targetUser = isOwner ? currentUser : profileData;
+  const targetUser = isOwner ? (profileData || currentUser) : profileData;
   const userHasFarm = Boolean(targetUser?.farms && targetUser.farms.length > 0);
 
   const loadTargetProfile = async () => {
-    if (!isOwner && params.userId) {
+    if (isOwner) {
+      if (isAuthenticated) {
+        try {
+          const freshUser = await fetchCurrentUserApi();
+          if (freshUser) {
+            updateUser(freshUser);
+            setProfileData(freshUser);
+          }
+        } catch (err) {
+          console.warn('Failed to refresh current user realtime profile:', err);
+        }
+      }
+    } else if (params.userId) {
       try {
         setLoadingProfile(true);
         const data = await fetchPublicProfileApi(params.userId);
@@ -251,7 +262,7 @@ export default function ProfileScreen() {
   useEffect(() => {
     loadTargetProfile();
     loadOrders();
-  }, [params.userId, isOwner]);
+  }, [params.userId, isOwner, isAuthenticated]);
 
   useEffect(() => {
     loadUserPosts();
@@ -259,8 +270,9 @@ export default function ProfileScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      loadTargetProfile();
       loadUserPosts();
-    }, [targetUser?.id, isOwner])
+    }, [params.userId, isOwner, isAuthenticated])
   );
 
   const onRefresh = () => {
@@ -558,7 +570,7 @@ export default function ProfileScreen() {
               onPress={() => router.push('/fintech/loans')}
               activeOpacity={0.75}
             >
-              <Text style={styles.statNumber}>{(targetUser as any)?.agroVestorsCount ?? targetUser?.farmerProfile?.loanApplications?.length ?? 0}</Text>
+              <Text style={styles.statNumber}>{(targetUser as any)?.agroVestorsCount ?? 0}</Text>
               <Text style={styles.statLabel}>AgroVestors</Text>
             </TouchableOpacity>
           </View>
@@ -1738,7 +1750,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   avatarUploadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     alignItems: 'center',
     justifyContent: 'center',

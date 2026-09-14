@@ -5,8 +5,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   Platform,
+  Image,
 } from 'react-native';
-import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useRouter } from 'expo-router';
 import {
   Home,
@@ -20,24 +20,40 @@ import { Fonts } from '@/constants/typography';
 import { useAuthStore } from '@/store/authStore';
 import { useCartStore } from '@/store/cartStore';
 import { useUIStore } from '@/store/uiStore';
+import { useRegionalContainerStore } from '@/store/regionalContainerStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-export default function CustomTabBar({
-  state,
-  descriptors,
-  navigation,
-}: BottomTabBarProps) {
+export interface CustomTabBarProps {
+  state?: any;
+  descriptors?: any;
+  navigation?: any;
+  activeRoute?: string;
+}
+
+const DEFAULT_ROUTES = [
+  { key: 'index', name: 'index' },
+  { key: 'agro-yields', name: 'agro-yields' },
+  { key: 'cart', name: 'cart' },
+  { key: 'inbox', name: 'inbox' },
+  { key: 'profile', name: 'profile' },
+];
+
+export default function CustomTabBar(props?: CustomTabBarProps) {
+  const { state, descriptors, navigation, activeRoute } = props || {};
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuthStore();
   const cartItemCount = useCartStore((s) => s.getItemCount());
   const openCreatePostModal = useUIStore((s) => s.openCreatePostModal);
+  const regionalContainer = useRegionalContainerStore((s) => s.getContainer());
 
   // A profile is a farmer STRICTLY if they have at least 1 registered farm
   const userHasFarm = Boolean(user?.farms && user.farms.length > 0);
 
-  const bottomInset = insets.bottom > 0 ? insets.bottom : Platform.OS === 'android' ? 36 : 0;
+  const bottomInset = insets.bottom;
   const TAB_BAR_HEIGHT = 62;
+
+  const routes = state?.routes || DEFAULT_ROUTES;
 
   const getTabIcon = (routeName: string, isFocused: boolean) => {
     const color = isFocused ? Colors.cultivated : 'rgba(36, 26, 18, 0.45)';
@@ -51,7 +67,25 @@ export default function CustomTabBar({
       case 'cart':
         return (
           <View style={{ position: 'relative' }}>
-            <ShoppingBag size={22.5} color={color} strokeWidth={strokeWidth} />
+            <View
+              style={{
+                width: 26,
+                height: 26,
+                borderRadius: 13,
+                overflow: 'hidden',
+                borderWidth: isFocused ? 2 : 1,
+                borderColor: isFocused ? Colors.gold : 'rgba(36, 26, 18, 0.55)',
+                backgroundColor: Colors.parchment,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Image
+                source={regionalContainer.image}
+                style={{ width: '100%', height: '100%' }}
+                resizeMode="cover"
+              />
+            </View>
             {cartItemCount > 0 && (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>
@@ -77,7 +111,7 @@ export default function CustomTabBar({
       case 'agro-yields':
         return 'AgroMarket';
       case 'cart':
-        return 'Basket';
+        return regionalContainer.shortName;
       case 'inbox':
         return 'Inbox';
       case 'profile':
@@ -94,19 +128,24 @@ export default function CustomTabBar({
 
       {/* 5 Navigation Tabs */}
       <View style={styles.tabsRow}>
-        {state.routes.map((route, index) => {
-          const { options } = descriptors[route.key];
-          const isFocused = state.index === index;
+        {routes.map((route: any, index: number) => {
+          const options = descriptors ? descriptors[route.key]?.options : {};
+          const isFocused = state ? state.index === index : activeRoute === route.name;
 
           const onPress = () => {
-            const event = navigation.emit({
-              type: 'tabPress',
-              target: route.key,
-              canPreventDefault: true,
-            });
+            if (navigation && state) {
+              const event = navigation.emit({
+                type: 'tabPress',
+                target: route.key,
+                canPreventDefault: true,
+              });
 
-            if (!isFocused && !event.defaultPrevented) {
-              navigation.navigate(route.name);
+              if (!isFocused && !event.defaultPrevented) {
+                navigation.navigate(route.name);
+              }
+            } else {
+              const routePath = route.name === 'index' ? '/(tabs)/' : `/(tabs)/${route.name}`;
+              router.push(routePath as any);
             }
           };
 
@@ -115,8 +154,8 @@ export default function CustomTabBar({
               key={route.key}
               accessibilityRole="button"
               accessibilityState={isFocused ? { selected: true } : {}}
-              accessibilityLabel={options.tabBarAccessibilityLabel}
-              testID={options.tabBarButtonTestID}
+              accessibilityLabel={options?.tabBarAccessibilityLabel}
+              testID={options?.tabBarButtonTestID}
               onPress={onPress}
               style={styles.tabItem}
               activeOpacity={0.7}
@@ -128,7 +167,9 @@ export default function CustomTabBar({
                 style={[
                   styles.tabLabel,
                   {
-                    color: isFocused ? Colors.cultivated : 'rgba(36, 26, 18, 0.55)',
+                    color: isFocused
+                      ? (route.name === 'cart' ? Colors.gold : Colors.cultivated)
+                      : 'rgba(36, 26, 18, 0.55)',
                     fontFamily: isFocused ? Fonts.bodySemiBold : Fonts.bodyMedium,
                   },
                 ]}

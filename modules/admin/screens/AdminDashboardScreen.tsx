@@ -3010,11 +3010,11 @@ const styles = StyleSheet.create({
   },
   // Drawer
   drawerBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 998,
   },
   drawerBackdropFade: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: '#000',
   },
   drawerContainer: {
@@ -3216,7 +3216,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   adminAvatarOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     alignItems: 'center',
     justifyContent: 'center',

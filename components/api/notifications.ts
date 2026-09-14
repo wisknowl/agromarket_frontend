@@ -58,3 +58,14 @@ export const fetchAgroPartnersApi = async (): Promise<AgroPartner[]> => {
     return [];
   }
 };
+
+export const savePushTokenApi = async (expoPushToken: string): Promise<boolean> => {
+  try {
+    await apiClient.post('/auth/push-token', { expoPushToken });
+    return true;
+  } catch (error) {
+    console.warn('[PUSH] Could not save push token on backend:', error);
+    return false;
+  }
+};
+

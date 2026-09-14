@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -39,6 +39,7 @@ import { fetchYieldByIdApi } from '@/components/api/yields';
 import { fetchPartnerStatusApi, requestPartnerApi } from '@/modules/farms/api';
 import { useLocale } from '@/context/LocaleContext';
 import { useCartStore } from '@/store/cartStore';
+import { useCartAnimationStore } from '@/store/cartAnimationStore';
 import { useFavoritesStore } from '@/store/favoritesStore';
 import { Yield } from '@/types';
 import Colors, { Radii, Shadows } from '@/constants/colors';
@@ -53,6 +54,8 @@ export default function YieldDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { addToCart } = useCartStore();
+  const triggerFly = useCartAnimationStore((s) => s.triggerFly);
+  const addBasketBtnRef = useRef<any>(null);
   const { addYield, removeYield, isYieldFavorite } = useFavoritesStore();
   const { currentRegion } = useLocale();
 
@@ -176,6 +179,18 @@ export default function YieldDetailScreen() {
   };
 
   const handleAddToCart = () => {
+    const itemImg = yieldItem?.image || (yieldItem?.mediaUrls && yieldItem?.mediaUrls[0]) || '';
+    if (addBasketBtnRef.current) {
+      addBasketBtnRef.current.measureInWindow((x: number, y: number, w: number, h: number) => {
+        if (x && y) {
+          triggerFly(x + w / 2, y + h / 2, itemImg);
+        } else {
+          triggerFly(0, 0, itemImg);
+        }
+      });
+    } else {
+      triggerFly(0, 0, itemImg);
+    }
     addToCart(yieldItem, quantity);
     setAddedAnimation(true);
     setTimeout(() => setAddedAnimation(false), 2000);
@@ -205,7 +220,7 @@ export default function YieldDetailScreen() {
       {/* Main Scrollable Content */}
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 110, 130) }}
+        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 200, 230) }}
       >
         {/* Top Hero Banner & Media Carousel */}
         <View style={styles.heroContainer}>
@@ -428,6 +443,9 @@ export default function YieldDetailScreen() {
               <Text style={styles.visitFarmBtnText}>Visit Farm Page</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Extra Clearance Spacer so Floating Basket never overlaps Visit Farm */}
+          <View style={{ height: 60 }} />
         </View>
       </ScrollView>
 
@@ -454,8 +472,9 @@ export default function YieldDetailScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Add to Basket Action Button */}
+        {/* Add to Basket Action Button (Gold Brand Accent) */}
         <TouchableOpacity
+          ref={addBasketBtnRef}
           style={[styles.addBasketButton, addedAnimation && styles.addBasketButtonActive]}
           onPress={handleAddToCart}
           activeOpacity={0.85}
@@ -463,11 +482,11 @@ export default function YieldDetailScreen() {
           {addedAnimation ? (
             <>
               <Check size={20} color={Colors.white} strokeWidth={2.5} />
-              <Text style={styles.addBasketButtonText}>Added to Basket!</Text>
+              <Text style={[styles.addBasketButtonText, { color: Colors.white }]}>Added to Basket!</Text>
             </>
           ) : (
             <>
-              <ShoppingBag size={20} color={Colors.white} strokeWidth={2.2} />
+              <ShoppingBag size={20} color={Colors.espresso} strokeWidth={2.2} />
               <View style={styles.addBasketButtonTextCol}>
                 <Text style={styles.addBasketButtonText}>Add to Basket</Text>
                 <Text style={styles.addBasketSubText}>{totalPrice.toLocaleString()} FCFA</Text>
@@ -478,7 +497,7 @@ export default function YieldDetailScreen() {
       </View>
 
       {/* Floating Basket Sheet for instant checkout */}
-      <Basket onGoToCart={() => router.push('/cart')} />
+      <Basket onGoToCart={() => router.push('/cart')} isInTabs={false} />
     </View>
   );
 }
@@ -913,7 +932,7 @@ const styles = StyleSheet.create({
   },
   addBasketButton: {
     flex: 1,
-    backgroundColor: Colors.cultivated,
+    backgroundColor: Colors.gold,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -924,7 +943,7 @@ const styles = StyleSheet.create({
     ...Shadows.subtle,
   },
   addBasketButtonActive: {
-    backgroundColor: '#15803d',
+    backgroundColor: Colors.canopy,
   },
   addBasketButtonTextCol: {
     alignItems: 'flex-start',
@@ -932,12 +951,12 @@ const styles = StyleSheet.create({
   addBasketButtonText: {
     fontFamily: Fonts.bodyBold,
     fontSize: 14,
-    color: Colors.white,
+    color: Colors.espresso,
   },
   addBasketSubText: {
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.monoBold,
     fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.85)',
+    color: 'rgba(36, 26, 18, 0.75)',
   },
 
   // Engine 4 Wholesale Styles

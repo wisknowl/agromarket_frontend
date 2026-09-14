@@ -5,6 +5,7 @@ import { ShoppingBag, MoreVertical, Heart, HeartOff, Star } from 'lucide-react-n
 import { AgroYield } from '@/types';
 import { useCartStore } from '@/store/cartStore';
 import { useFavoritesStore } from '@/store/favoritesStore';
+import { useCartAnimationStore } from '@/store/cartAnimationStore';
 import Colors, { Radii, Shadows } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
 import Popover, { PopoverPlacement } from 'react-native-popover-view';
@@ -32,6 +33,8 @@ export default function YieldCard({
 
   const moreButtonRef = React.useRef<View>(null);
   const cardRef = React.useRef<View>(null);
+  const cartBtnRef = React.useRef<View>(null);
+  const triggerFly = useCartAnimationStore((s) => s.triggerFly);
   const [displayArea, setDisplayArea] = React.useState<
     { x: number; y: number; width: number; height: number } | undefined
   >();
@@ -49,6 +52,17 @@ export default function YieldCard({
   };
 
   const handleAddToCart = () => {
+    if (cartBtnRef.current) {
+      cartBtnRef.current.measureInWindow((x: number, y: number, w: number, h: number) => {
+        if (x && y) {
+          triggerFly(x + w / 2, y + h / 2, item.image);
+        } else {
+          triggerFly(0, 0, item.image);
+        }
+      });
+    } else {
+      triggerFly(0, 0, item.image);
+    }
     addToCart(item, 1);
   };
 
@@ -119,7 +133,7 @@ export default function YieldCard({
         </View>
 
         <View style={styles.actionButtonsRow}>
-          <Pressable style={styles.cartButton} onPress={handleAddToCart}>
+          <Pressable ref={cartBtnRef} style={styles.cartButton} onPress={handleAddToCart}>
             <ShoppingBag size={14} color={Colors.espresso} strokeWidth={2.2} />
           </Pressable>
 

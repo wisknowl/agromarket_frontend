@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { ShoppingBag, Sparkles } from 'lucide-react-native';
 import Colors, { Radii, Shadows } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
 import { AgroYield } from '@/types';
 import { useCartStore } from '@/store/cartStore';
+import { useCartAnimationStore } from '@/store/cartAnimationStore';
 
 interface ShoppableYieldCardProps {
   yieldItem: AgroYield;
@@ -13,16 +14,30 @@ interface ShoppableYieldCardProps {
 
 export default function ShoppableYieldCard({ yieldItem, onPressItem }: ShoppableYieldCardProps) {
   const addToCart = useCartStore((state) => state.addToCart);
+  const triggerFly = useCartAnimationStore((state) => state.triggerFly);
+  const addBtnRef = useRef<any>(null);
+
+  const imageUri = yieldItem.image || (yieldItem.mediaUrls && yieldItem.mediaUrls[0]) || '';
 
   const handleQuickAdd = (e: any) => {
     e.stopPropagation?.();
+    if (addBtnRef.current) {
+      addBtnRef.current.measureInWindow((x: number, y: number, w: number, h: number) => {
+        if (x && y) {
+          triggerFly(x + w / 2, y + h / 2, imageUri);
+        } else {
+          triggerFly(0, 0, imageUri);
+        }
+      });
+    } else {
+      triggerFly(0, 0, imageUri);
+    }
     addToCart(yieldItem, 1);
   };
 
   const rawPrice = yieldItem.price ?? (yieldItem as any).pricePerUnit ?? 0;
   const numericPrice = typeof rawPrice === 'number' ? rawPrice : Number(rawPrice) || 0;
   const unitLabel = yieldItem.unit || 'Unit';
-  const imageUri = yieldItem.image || (yieldItem.mediaUrls && yieldItem.mediaUrls[0]) || '';
 
   return (
     <TouchableOpacity
@@ -51,6 +66,7 @@ export default function ShoppableYieldCard({ yieldItem, onPressItem }: Shoppable
       </View>
 
       <TouchableOpacity
+        ref={addBtnRef}
         style={styles.addBtn}
         onPress={handleQuickAdd}
         accessibilityLabel="Add to basket"
