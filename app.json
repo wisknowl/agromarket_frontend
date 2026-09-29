@@ -9,9 +9,13 @@
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/agromarket.png",
+      "image": "./assets/images/splash_logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#ffffff",
+      "dark": {
+        "image": "./assets/images/splash_logo.png",
+        "backgroundColor": "#ffffff"
+      }
     },
     "ios": {
       "supportsTablet": true,
@@ -28,12 +32,17 @@
         "backgroundColor": "#ffffff"
       },
       "splash": {
-        "image": "./assets/images/agromarket.png",
+        "image": "./assets/images/splash_logo.png",
         "resizeMode": "contain",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#ffffff",
+        "dark": {
+          "image": "./assets/images/splash_logo.png",
+          "backgroundColor": "#ffffff"
+        }
       },
       "softwareKeyboardLayoutMode": "resize",
-      "package": "com.wisknowl.agromarket"
+      "package": "com.wisknowl.agromarket",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "bundler": "metro",
@@ -51,7 +60,28 @@
         }
       ],
       "expo-font",
-      "expo-splash-screen",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/agromarket.png",
+          "color": "#023c69",
+          "sounds": [
+            "./assets/sounds/agrom_chime.wav"
+          ]
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#ffffff",
+          "image": "./assets/images/splash_logo.png",
+          "dark": {
+            "backgroundColor": "#ffffff",
+            "image": "./assets/images/splash_logo.png"
+          },
+          "imageWidth": 200
+        }
+      ],
       "expo-status-bar",
       "expo-web-browser"
     ],

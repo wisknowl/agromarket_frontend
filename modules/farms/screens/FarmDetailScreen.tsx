@@ -53,6 +53,8 @@ import PostCard from '@/components/PostCard';
 import FarmerBadge from '@/components/ui/FarmerBadge';
 import Basket from '@/components/basket';
 import CustomTabBar from '@/components/navigation/CustomTabBar';
+import AgromPreloader from '@/components/AgromPreloader';
+import { waitRemainingMs } from '@/utils/minDuration';
 
 const CATEGORIES = [
   { id: 'cat-veg', name: 'Vegetables & Greens' },
@@ -103,6 +105,7 @@ export default function FarmDetailScreen() {
 
   const loadFarmData = async () => {
     if (!id) return;
+    const startTime = Date.now();
     try {
       setLoading(true);
       const data = await fetchFarmByIdApi(id);
@@ -127,6 +130,7 @@ export default function FarmDetailScreen() {
     } catch (error) {
       console.error('Failed to load farm details:', error);
     } finally {
+      await waitRemainingMs(startTime, 3500);
       setLoading(false);
     }
   };
@@ -228,8 +232,13 @@ export default function FarmDetailScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.cultivated} />
-        <Text style={styles.loadingText}>Loading Farm Page...</Text>
+        <AgromPreloader
+          size="lg"
+          theme="light"
+          showBrandText
+          label="Visiting Farm Sanctuary..."
+          subtitle="Loading harvest fields, farmer credentials, and direct deals"
+        />
       </View>
     );
   }

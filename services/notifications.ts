@@ -39,14 +39,30 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
   let token: string | null = null;
 
   try {
-    // Set up Android High-Priority Channel
+    // Set up Android High-Priority Channels with custom AgroMarket sound
     if (Platform.OS === 'android' && Notifications.setNotificationChannelAsync) {
-      await Notifications.setNotificationChannelAsync('default', {
-        name: 'AgroMarket Messages & Alerts',
+      await Notifications.setNotificationChannelAsync('agromarket_alerts', {
+        name: 'AgroMarket Alerts & Messages',
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#2D5A27',
-        sound: 'default',
+        sound: 'agrom_chime.wav',
+        audioAttributes: {
+          usage: Notifications.AndroidAudioUsage.NOTIFICATION,
+          contentType: Notifications.AndroidAudioContentType.SONIFICATION,
+        },
+      });
+
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'AgroMarket General',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#2D5A27',
+        sound: 'agrom_chime.wav',
+        audioAttributes: {
+          usage: Notifications.AndroidAudioUsage.NOTIFICATION,
+          contentType: Notifications.AndroidAudioContentType.SONIFICATION,
+        },
       });
     }
 
@@ -85,8 +101,20 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
     if (token) {
       await savePushTokenApi(token);
     }
-  } catch (error) {
-    console.warn('[PUSH WARN] Notification registration skipped or failed:', error);
+  } catch (error: any) {
+    const errorMsg = error?.message || String(error);
+    if (
+      errorMsg.includes('Firebase Messaging') ||
+      errorMsg.includes('Default FirebaseApp is not initialized') ||
+      errorMsg.includes('googleServicesFile')
+    ) {
+      console.log(
+        '[PUSH INFO] Android FCM credentials (google-services.json) not yet configured in app.json. ' +
+        'Remote Android push notifications require adding google-services.json from Firebase Console.'
+      );
+    } else {
+      console.warn('[PUSH WARN] Notification registration skipped or failed:', error);
+    }
   }
 
   return token;

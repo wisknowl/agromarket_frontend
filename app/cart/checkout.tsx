@@ -15,6 +15,8 @@ import { useCartStore } from '@/store/cartStore';
 import { checkoutOrderApi } from '@/components/api/orders';
 import Colors, { Radii, Shadows } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
+import AgromPreloader from '@/components/AgromPreloader';
+import { waitRemainingMs } from '@/utils/minDuration';
 import {
   ArrowLeft,
   MapPin,
@@ -229,6 +231,7 @@ export default function CheckoutScreen() {
       return;
     }
 
+    const startTime = Date.now();
     setLoading(true);
     try {
       const resOrder = await checkoutOrderApi({
@@ -261,6 +264,7 @@ export default function CheckoutScreen() {
         ]
       );
     } finally {
+      await waitRemainingMs(startTime, 3500);
       setLoading(false);
     }
   };
@@ -502,6 +506,17 @@ export default function CheckoutScreen() {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {loading && (
+        <AgromPreloader
+          fullScreen
+          size="xl"
+          theme="light"
+          showBrandText
+          label="Securing Escrow & Authorizing Payment..."
+          subtitle="Funds held safely until produce delivery is verified"
+        />
+      )}
     </View>
   );
 }

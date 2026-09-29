@@ -19,6 +19,8 @@ import { AgroYield, Category } from '@/types';
 import Colors, { Radii, Shadows } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
 import Basket from '@/components/basket';
+import AgromPreloader from '@/components/AgromPreloader';
+import { waitRemainingMs } from '@/utils/minDuration';
 
 const STATIC_CATEGORIES = ['All', 'Vegetables', 'Tubers & Roots', 'Poultry & Eggs', 'Fruits', 'Spices & Herbs'];
 
@@ -34,6 +36,7 @@ export default function AgroYieldsScreen() {
   const [categories, setCategories] = useState<string[]>(STATIC_CATEGORIES);
 
   const loadData = async () => {
+    const startTime = Date.now();
     try {
       const [data, cats] = await Promise.all([
         fetchYieldsApi(),
@@ -49,6 +52,7 @@ export default function AgroYieldsScreen() {
     } catch (err) {
       console.warn('Failed to fetch marketplace yields:', err);
     } finally {
+      await waitRemainingMs(startTime, 3500);
       setLoading(false);
       setRefreshing(false);
     }
@@ -155,8 +159,13 @@ export default function AgroYieldsScreen() {
 
       {loading && yieldsList.length === 0 ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.cultivated} />
-          <Text style={styles.loadingText}>Loading direct farm harvests...</Text>
+          <AgromPreloader
+            size="lg"
+            theme="light"
+            showBrandText
+            label="Gathering direct farm harvests..."
+            subtitle="Syncing verified produce prices"
+          />
         </View>
       ) : filteredYields.length === 0 ? (
         <ScrollView

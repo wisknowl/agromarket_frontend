@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "530263098684",
+    "project_id": "agrom-f7fd4",
+    "storage_bucket": "agrom-f7fd4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:530263098684:android:5952f2de3e69be70be4a39",
+        "android_client_info": {
+          "package_name": "com.wisknowl.agromarket"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAl9peUXsqvdn4BiC6259mdjEt8sNH-45Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

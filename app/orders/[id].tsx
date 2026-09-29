@@ -33,6 +33,8 @@ import Colors, { Radii } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
 import { fetchOrderByIdApi, confirmReceiptApi } from '@/components/api/orders';
 import { useLocale } from '@/context/LocaleContext';
+import AgromPreloader from '@/components/AgromPreloader';
+import { waitRemainingMs } from '@/utils/minDuration';
 
 // Escrow FSM Steps
 const ESCROW_STEPS = [
@@ -61,6 +63,7 @@ export default function EscrowOrderDetailScreen() {
 
   const loadOrder = async () => {
     if (!id) return;
+    const startTime = Date.now();
     try {
       setLoading(true);
       const data = await fetchOrderByIdApi(id);
@@ -103,6 +106,7 @@ export default function EscrowOrderDetailScreen() {
         },
       });
     } finally {
+      await waitRemainingMs(startTime, 3500);
       setLoading(false);
     }
   };
@@ -168,8 +172,14 @@ export default function EscrowOrderDetailScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.cultivated} />
-        <Text style={styles.loadingText}>Loading Escrow Order...</Text>
+        <StatusBar barStyle="dark-content" backgroundColor={Colors.white} />
+        <AgromPreloader
+          size="lg"
+          theme="light"
+          showBrandText
+          label="Connecting to Escrow Smart Contract..."
+          subtitle="Verifying payment locking and delivery milestones"
+        />
       </View>
     );
   }

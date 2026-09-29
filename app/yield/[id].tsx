@@ -46,6 +46,8 @@ import Colors, { Radii, Shadows } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
 import BrandButton from '@/components/ui/BrandButton';
 import Basket from '@/components/basket';
+import AgromPreloader from '@/components/AgromPreloader';
+import { waitRemainingMs } from '@/utils/minDuration';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -70,6 +72,7 @@ export default function YieldDetailScreen() {
 
   useEffect(() => {
     if (!id) return;
+    const startTime = Date.now();
     setLoading(true);
     fetchYieldByIdApi(id)
       .then(async (data) => {
@@ -86,7 +89,8 @@ export default function YieldDetailScreen() {
       .catch((err) => {
         console.error('Failed to load produce details:', err);
       })
-      .finally(() => {
+      .finally(async () => {
+        await waitRemainingMs(startTime, 3500);
         setLoading(false);
       });
   }, [id]);
@@ -111,8 +115,13 @@ export default function YieldDetailScreen() {
     return (
       <View style={styles.loadingContainer}>
         <StatusBar barStyle="dark-content" />
-        <ActivityIndicator size="large" color={Colors.cultivated} />
-        <Text style={styles.loadingText}>Loading harvest details...</Text>
+        <AgromPreloader
+          size="lg"
+          theme="light"
+          showBrandText
+          label="Inspecting Harvest Lot..."
+          subtitle="Fetching verified farm certificates and fresh batch inventory"
+        />
       </View>
     );
   }

@@ -20,6 +20,8 @@ import { useAuthStore } from '@/store/authStore';
 import { fetchFeedPostsApi } from '@/components/api/posts';
 import { Sprout, Plus, Star, Compass } from 'lucide-react-native';
 import Basket from '@/components/basket';
+import AgromPreloader from '@/components/AgromPreloader';
+import { waitRemainingMs } from '@/utils/minDuration';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -46,6 +48,7 @@ export default function HomeScreen() {
   const userHasFarm = Boolean(user?.farms && user.farms.length > 0);
 
   const loadFeedPosts = async () => {
+    const startTime = Date.now();
     try {
       setLoadingFeed(true);
       const posts = await fetchFeedPostsApi();
@@ -53,6 +56,7 @@ export default function HomeScreen() {
     } catch (err) {
       console.warn('Could not fetch feed data from backend:', err);
     } finally {
+      await waitRemainingMs(startTime, 3500);
       setLoadingFeed(false);
       setRefreshing(false);
     }
@@ -120,8 +124,13 @@ export default function HomeScreen() {
       <View style={{ flex: 1 }} onLayout={onFeedLayout}>
         {loadingFeed && feedPosts.length === 0 ? (
           <View style={styles.centerContainer}>
-            <ActivityIndicator size="large" color={Colors.cultivated} />
-            <Text style={styles.loadingText}>Loading Live Harvest Stories...</Text>
+            <AgromPreloader
+              size="lg"
+              theme="dark"
+              showBrandText
+              label="Harvesting live stories..."
+              subtitle="Connecting to regional farm network"
+            />
           </View>
         ) : filteredPosts.length === 0 ? (
           <View style={styles.emptyContainer}>

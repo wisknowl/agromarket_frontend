@@ -70,6 +70,8 @@ import BrandButton from '@/components/ui/BrandButton';
 import FarmerBadge from '@/components/ui/FarmerBadge';
 import ProfileHeaderMenu from '../../modules/farms/components/ProfileHeaderMenu';
 import AgroPatronModal from '@/components/AgroPatronModal';
+import AgromPreloader from '@/components/AgromPreloader';
+import { waitRemainingMs } from '@/utils/minDuration';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -79,7 +81,7 @@ export default function ProfileScreen() {
   const savedYieldIds = useFavoritesStore((s) => s.yields);
   const savedPostIds = useFavoritesStore((s) => s.posts);
 
-  const [activeTab, setActiveTab] = useState<'posts' | 'farms' | 'orders' | 'wishlist'>('posts');
+  const [activeTab, setActiveTab] = useState<'posts' | 'farms' | 'orders' | 'wishlist'>('farms');
   const [profileData, setProfileData] = useState<any>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [userPosts, setUserPosts] = useState<Post[]>([]);
@@ -223,6 +225,7 @@ export default function ProfileScreen() {
         }
       }
     } else if (params.userId) {
+      const startTime = Date.now();
       try {
         setLoadingProfile(true);
         const data = await fetchPublicProfileApi(params.userId);
@@ -236,6 +239,7 @@ export default function ProfileScreen() {
         console.warn('Failed to load profile:', err);
         setProfileData(null);
       } finally {
+        await waitRemainingMs(startTime, 3500);
         setLoadingProfile(false);
       }
     }
@@ -421,19 +425,19 @@ export default function ProfileScreen() {
   if (loadingProfile) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.cultivated} />
-        <Text style={styles.loadingText}>Loading Profile...</Text>
+        <AgromPreloader
+          size="lg"
+          theme="light"
+          showBrandText
+          label="Loading Agricultural Profile..."
+          subtitle="Fetching verified farms, yields, and orders"
+        />
       </View>
     );
   }
 
-  // 5 Tab Definitions (Orders is owner-only)
+  // Tab Definitions (Farms first, Orders, then Posts, then Wishlist)
   const allTabs = [
-    {
-      key: 'posts',
-      label: 'Posts',
-      icon: (color: string) => <Sparkles size={19} color={color} strokeWidth={2} />,
-    },
     {
       key: 'farms',
       label: 'Farms',
@@ -448,6 +452,11 @@ export default function ProfileScreen() {
         },
       ]
       : []),
+    {
+      key: 'posts',
+      label: 'Posts',
+      icon: (color: string) => <Sparkles size={19} color={color} strokeWidth={2} />,
+    },
     {
       key: 'wishlist',
       label: 'Wishlist',

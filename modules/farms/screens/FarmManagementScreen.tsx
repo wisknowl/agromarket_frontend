@@ -42,6 +42,8 @@ import PriceTag from '@/components/ui/PriceTag';
 import FarmerBadge from '@/components/ui/FarmerBadge';
 import { fetchFarmByIdApi, fetchMyFarmsApi, createProduceApi } from '../api';
 import { Farm } from '@/types';
+import AgromPreloader from '@/components/AgromPreloader';
+import { waitRemainingMs } from '@/utils/minDuration';
 
 const CATEGORIES = [
   { id: 'cat-veg', name: 'Vegetables & Greens' },
@@ -93,6 +95,7 @@ export default function FarmManagementScreen() {
   // 2. Fetch active selected farm details & yields whenever selectedFarmId changes
   const loadSelectedFarmDetails = useCallback(async (farmId: string) => {
     if (!farmId) return;
+    const startTime = Date.now();
     try {
       setLoading(true);
       const data = await fetchFarmByIdApi(farmId);
@@ -100,6 +103,7 @@ export default function FarmManagementScreen() {
     } catch (err) {
       console.warn('Failed to fetch selected farm details:', err);
     } finally {
+      await waitRemainingMs(startTime, 3500);
       setLoading(false);
     }
   }, []);
@@ -199,6 +203,19 @@ export default function FarmManagementScreen() {
       setSavingProduce(false);
     }
   };
+
+  if (loading && farmsList.length === 0) {
+    return (
+      <AgromPreloader
+        fullScreen
+        size="lg"
+        theme="light"
+        showBrandText
+        label="Opening Farm Management..."
+        subtitle="Loading your agricultural holdings and verified produce catalog"
+      />
+    );
+  }
 
   if (!activeFarm && farmsList.length === 0) {
     return (

@@ -50,8 +50,16 @@ export default function CustomTabBar(props?: CustomTabBarProps) {
   // A profile is a farmer STRICTLY if they have at least 1 registered farm
   const userHasFarm = Boolean(user?.farms && user.farms.length > 0);
 
-  const bottomInset = insets.bottom;
-  const TAB_BAR_HEIGHT = 62;
+  // Calculate platform-perfect bottom inset and tab bar height:
+  // On iOS, standard Apple HIG tab height is 49-50pt plus home indicator (~34pt).
+  // On Android, full custom height is needed to clear 3-button navigation and gesture pills.
+  const bottomInset = Platform.OS === 'ios'
+    ? (insets.bottom > 0 ? insets.bottom - 12 : 6)
+    : insets.bottom;
+
+  const tabContainerHeight = Platform.OS === 'ios'
+    ? (insets.bottom > 0 ? 50 + insets.bottom : 58)
+    : (62 + insets.bottom);
 
   const routes = state?.routes || DEFAULT_ROUTES;
 
@@ -122,7 +130,7 @@ export default function CustomTabBar(props?: CustomTabBarProps) {
   };
 
   return (
-    <View style={[styles.tabBarContainer, { paddingBottom: bottomInset, height: TAB_BAR_HEIGHT + bottomInset }]}>
+    <View style={[styles.tabBarContainer, { paddingBottom: bottomInset, height: tabContainerHeight }]}>
       {/* Flat Top border line */}
       <View style={styles.topBorderLine} />
 
@@ -211,7 +219,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 6,
+    paddingVertical: Platform.OS === 'ios' ? 4 : 6,
   },
   centerPlusTabItem: {
     flex: 1,

@@ -46,7 +46,7 @@ export default function UserPublicProfileScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
 
-  const [activeTab, setActiveTab] = useState<'posts' | 'farms' | 'produce' | 'wishlist'>('posts');
+  const [activeTab, setActiveTab] = useState<'posts' | 'farms' | 'produce' | 'wishlist'>('farms');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [profileData, setProfileData] = useState<any>(null);
@@ -347,22 +347,22 @@ export default function UserPublicProfileScreen() {
         {/* Public Visible Tabs */}
         <View style={styles.tabBar}>
           <TouchableOpacity
-            style={[styles.tabItem, activeTab === 'posts' && styles.tabItemActive]}
-            onPress={() => setActiveTab('posts')}
-          >
-            <Sparkles size={18} color={activeTab === 'posts' ? Colors.cultivated : Colors.text.muted} />
-            <Text style={[styles.tabLabel, activeTab === 'posts' && styles.tabLabelActive]}>
-              Posts ({userPosts.length})
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
             style={[styles.tabItem, activeTab === 'farms' && styles.tabItemActive]}
             onPress={() => setActiveTab('farms')}
           >
             <Warehouse size={18} color={activeTab === 'farms' ? Colors.cultivated : Colors.text.muted} />
             <Text style={[styles.tabLabel, activeTab === 'farms' && styles.tabLabelActive]}>
               Farms ({userFarms.length})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabItem, activeTab === 'posts' && styles.tabItemActive]}
+            onPress={() => setActiveTab('posts')}
+          >
+            <Sparkles size={18} color={activeTab === 'posts' ? Colors.cultivated : Colors.text.muted} />
+            <Text style={[styles.tabLabel, activeTab === 'posts' && styles.tabLabelActive]}>
+              Posts ({userPosts.length})
             </Text>
           </TouchableOpacity>
 
