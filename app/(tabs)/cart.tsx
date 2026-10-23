@@ -8,11 +8,13 @@ import { useTranslation } from '@/constants/translations';
 import Colors, { Radii, Shadows } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
 import BrandButton from '@/components/ui/BrandButton';
+import { useLocale } from '@/context/LocaleContext';
 
 export default function CartScreen() {
   const router = useRouter();
   const { items, getTotalPrice, getItemCount, clearCart } = useCartStore();
   const { t } = useTranslation();
+  const { formatCurrency } = useLocale();
 
   const itemCount = getItemCount();
   const subtotal = getTotalPrice();
@@ -79,7 +81,7 @@ export default function CartScreen() {
                   {t.basket.subtotal} ({itemCount} items)
                 </Text>
                 <Text style={styles.summaryValue}>
-                  {subtotal.toLocaleString()} FCFA
+                  {formatCurrency(subtotal)}
                 </Text>
               </View>
 
@@ -91,7 +93,7 @@ export default function CartScreen() {
                     isFreeDelivery && { color: Colors.cultivated },
                   ]}
                 >
-                  {isFreeDelivery ? 'FREE' : `${deliveryFee.toLocaleString()} FCFA`}
+                  {isFreeDelivery ? 'FREE' : formatCurrency(deliveryFee)}
                 </Text>
               </View>
 
@@ -100,7 +102,7 @@ export default function CartScreen() {
               <View style={styles.summaryRow}>
                 <Text style={styles.totalLabel}>{t.basket.totalAmount}</Text>
                 <Text style={styles.totalValue}>
-                  {totalAmount.toLocaleString()} FCFA
+                  {formatCurrency(totalAmount)}
                 </Text>
               </View>
             </View>

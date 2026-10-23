@@ -128,24 +128,46 @@ export default function Basket({
     }
   }, [activeFly, isAgroFeed, measureAndUpdateCoords]);
 
-  // When produce lands (basketBounceTimestamp fires), trigger elastic bounce & badge pop:
+  // When basketBounceTimestamp fires (item added to cart), trigger elastic bounce & badge pop:
   useEffect(() => {
     if (!basketBounceTimestamp) return;
 
-    Animated.sequence([
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+
+    if (isAgroFeed) {
+      Animated.parallel([
+        Animated.spring(basketScale, { toValue: 1, friction: 6, tension: 70, useNativeDriver: true }),
+        Animated.timing(basketOpacity, { toValue: 1, duration: 150, useNativeDriver: true }),
+        Animated.spring(basketTranslateY, { toValue: 0, friction: 7, tension: 80, useNativeDriver: true }),
+      ]).start(() => {
+        Animated.parallel([
+          Animated.sequence([
+            Animated.timing(basketScale, { toValue: 1.25, duration: 90, useNativeDriver: true }),
+            Animated.spring(basketScale, { toValue: 1, friction: 4, tension: 90, useNativeDriver: true }),
+          ]),
+          Animated.sequence([
+            Animated.timing(badgeScale, { toValue: 1.4, duration: 90, useNativeDriver: true }),
+            Animated.spring(badgeScale, { toValue: 1, friction: 5, tension: 100, useNativeDriver: true }),
+          ]),
+        ]).start();
+      });
+    } else {
       Animated.parallel([
         Animated.sequence([
-          Animated.timing(basketScale, { toValue: 1.32, duration: 110, useNativeDriver: true }),
+          Animated.timing(basketScale, { toValue: 1.25, duration: 90, useNativeDriver: true }),
           Animated.spring(basketScale, { toValue: 1, friction: 4, tension: 90, useNativeDriver: true }),
         ]),
         Animated.sequence([
-          Animated.timing(badgeScale, { toValue: 1.5, duration: 110, useNativeDriver: true }),
+          Animated.timing(badgeScale, { toValue: 1.4, duration: 90, useNativeDriver: true }),
           Animated.spring(badgeScale, { toValue: 1, friction: 5, tension: 100, useNativeDriver: true }),
         ]),
-      ]),
-    ]).start();
+      ]).start();
+    }
 
-    // If on AgroFeed, dwell for 1200ms showing the count, then smoothly slide down:
+    // If on AgroFeed, dwell for 1400ms showing the updated count, then smoothly slide down:
     if (isAgroFeed) {
       hideTimerRef.current = setTimeout(() => {
         Animated.parallel([
@@ -165,7 +187,7 @@ export default function Basket({
             useNativeDriver: true,
           }),
         ]).start();
-      }, 1200);
+      }, 1400);
     }
 
     return () => {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCartStore } from '@/store/cartStore';
 import { checkoutOrderApi } from '@/components/api/orders';
+import { useLocale, MarketRegionConfig } from '@/context/LocaleContext';
 import Colors, { Radii, Shadows } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
 import AgromPreloader from '@/components/AgromPreloader';
@@ -24,181 +25,41 @@ import {
   Truck,
   Lock,
   Globe2,
-  Check,
   Shield,
-  Smartphone,
-  Building,
 } from 'lucide-react-native';
 import { PaymentMethod } from '@/types';
-
-interface SimulatedRegion {
-  countryCode: string;
-  countryName: string;
-  flag: string;
-  currency: string;
-  currencySymbol: string;
-  rateFromXaf: number; // Multiply XAF by this to get target currency
-  resolverProvider: 'momo_orange' | 'paystack' | 'stripe' | 'flutterwave';
-  methods: Array<{
-    id: PaymentMethod;
-    name: string;
-    sub: string;
-    badge: string;
-    tagColor: string;
-    tagBg: string;
-  }>;
-}
-
-const SIMULATED_REGIONS: SimulatedRegion[] = [
-  {
-    countryCode: 'CM',
-    countryName: 'Cameroon',
-    flag: '🇨🇲',
-    currency: 'XAF',
-    currencySymbol: 'FCFA',
-    rateFromXaf: 1.0,
-    resolverProvider: 'momo_orange',
-    methods: [
-      {
-        id: 'MTN_MOMO',
-        name: 'MTN Mobile Money',
-        sub: 'Instant MoMo Escrow (*126# USSD Prompt)',
-        badge: 'Local Rail',
-        tagColor: '#B45309',
-        tagBg: '#FEF3C7',
-      },
-      {
-        id: 'ORANGE_MONEY',
-        name: 'Orange Money',
-        sub: 'Orange Money Escrow (#150# Secure PIN)',
-        badge: 'Local Rail',
-        tagColor: '#C2410C',
-        tagBg: '#FFEDD5',
-      },
-      {
-        id: 'CASH_ON_DELIVERY',
-        name: 'Cash on Harvest Delivery',
-        sub: 'Direct payment to transporter upon crate inspection',
-        badge: 'Inspection First',
-        tagColor: Colors.canopy,
-        tagBg: '#E8F5E9',
-      },
-    ],
-  },
-  {
-    countryCode: 'NG',
-    countryName: 'Nigeria',
-    flag: '🇳🇬',
-    currency: 'NGN',
-    currencySymbol: '₦',
-    rateFromXaf: 2.45,
-    resolverProvider: 'paystack',
-    methods: [
-      {
-        id: 'PAYSTACK',
-        name: 'Paystack Direct Bank Transfer',
-        sub: 'Instant NIP Transfer to dedicated Escrow Account',
-        badge: 'Paystack Rail',
-        tagColor: '#00875A',
-        tagBg: '#E3FCEF',
-      },
-      {
-        id: 'PAYSTACK',
-        name: 'Debit Card / USSD',
-        sub: 'Mastercard, Visa, Verve & USSD Banking',
-        badge: 'Instant',
-        tagColor: '#0747A6',
-        tagBg: '#DEEBFF',
-      },
-    ],
-  },
-  {
-    countryCode: 'US',
-    countryName: 'United States & Global',
-    flag: '🇺🇸',
-    currency: 'USD',
-    currencySymbol: '$',
-    rateFromXaf: 0.00163, // 1 USD ≈ 615 XAF
-    resolverProvider: 'stripe',
-    methods: [
-      {
-        id: 'STRIPE_CARD',
-        name: 'Apple Pay / Google Pay',
-        sub: 'Biometric 1-Tap Escrow Authorization',
-        badge: 'Stripe Rail',
-        tagColor: '#4F46E5',
-        tagBg: '#EEF2FF',
-      },
-      {
-        id: 'STRIPE_CARD',
-        name: 'Credit / Debit Card',
-        sub: 'Visa, Mastercard, Amex (Stripe 256-bit encrypted)',
-        badge: 'Global Rail',
-        tagColor: '#0F172A',
-        tagBg: '#F1F5F9',
-      },
-    ],
-  },
-  {
-    countryCode: 'KE',
-    countryName: 'Kenya',
-    flag: '🇰🇪',
-    currency: 'KES',
-    currencySymbol: 'KSh',
-    rateFromXaf: 0.21,
-    resolverProvider: 'paystack',
-    methods: [
-      {
-        id: 'PAYSTACK',
-        name: 'M-Pesa Mobile Money',
-        sub: 'Direct STK Push to Safaricom phone',
-        badge: 'M-Pesa Rail',
-        tagColor: '#00875A',
-        tagBg: '#E3FCEF',
-      },
-      {
-        id: 'STRIPE_CARD',
-        name: 'International Card',
-        sub: 'Visa or Mastercard Escrow Settlement',
-        badge: 'Cards',
-        tagColor: '#374151',
-        tagBg: '#F3F4F6',
-      },
-    ],
-  },
-  {
-    countryCode: 'UG',
-    countryName: 'Pan-African Multi-Rail',
-    flag: '🌍',
-    currency: 'UGX',
-    currencySymbol: 'USh',
-    rateFromXaf: 6.06,
-    resolverProvider: 'flutterwave',
-    methods: [
-      {
-        id: 'FLUTTERWAVE',
-        name: 'Flutterwave Multi-Rail',
-        sub: 'Cross-border settlement across 34 African nations',
-        badge: 'Pan-Africa',
-        tagColor: '#D97706',
-        tagBg: '#FEF3C7',
-      },
-    ],
-  },
-];
 
 export default function CheckoutScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { items, clearCart, getTotalPrice, getItemCount } = useCartStore();
+  const {
+    currentRegion,
+    supportedRegions,
+    setMarketRegion,
+    autoDetectRegionFromPhone,
+    formatCurrency,
+    activeBlocConfig,
+  } = useLocale();
 
-  const [selectedRegion, setSelectedRegion] = useState<SimulatedRegion>(SIMULATED_REGIONS[0]);
   const [deliveryAddress, setDeliveryAddress] = useState('Bonapriso, Avenue de Gaulle');
   const [deliveryCity, setDeliveryCity] = useState('Douala');
   const [deliveryPhone, setDeliveryPhone] = useState('+237 670 000 000');
   const [deliveryNotes, setDeliveryNotes] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(SIMULATED_REGIONS[0].methods[0].id);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
+    currentRegion.methods[0]?.id || 'MTN_MOMO'
+  );
   const [loading, setLoading] = useState(false);
+
+  // Sync payment method if region changes and old method is not available
+  useEffect(() => {
+    if (
+      currentRegion.methods.length > 0 &&
+      !currentRegion.methods.some((m) => m.id === paymentMethod)
+    ) {
+      setPaymentMethod(currentRegion.methods[0].id);
+    }
+  }, [currentRegion]);
 
   const itemCount = getItemCount();
   const rawSubtotalXaf = getTotalPrice();
@@ -206,18 +67,33 @@ export default function CheckoutScreen() {
   const rawDeliveryFeeXaf = itemCount >= 10 || rawSubtotalXaf > 50000 ? 0 : 1500;
   const rawTotalAmountXaf = rawSubtotalXaf + rawDeliveryFeeXaf;
 
-  // Currency Converter helper
-  const formatCurrency = (amountXaf: number) => {
-    const converted = amountXaf * selectedRegion.rateFromXaf;
-    if (selectedRegion.currency === 'USD') {
-      return `$${converted.toFixed(2)}`;
-    }
-    return `${Math.round(converted).toLocaleString()} ${selectedRegion.currencySymbol}`;
+  const REGION_DEFAULTS: Record<string, { city: string; phone: string }> = {
+    CM: { city: 'Douala', phone: '+237 670 000 000' },
+    CI: { city: 'Abidjan', phone: '+225 07 00 00 00' },
+    NG: { city: 'Lagos', phone: '+234 800 000 0000' },
+    KE: { city: 'Nairobi', phone: '+254 700 000 000' },
+    UG: { city: 'Kampala', phone: '+256 700 000 000' },
+    ZA: { city: 'Johannesburg', phone: '+27 82 000 0000' },
+    ET: { city: 'Addis Ababa', phone: '+251 91 000 0000' },
+    US: { city: 'New York', phone: '+1 212 000 0000' },
+    UK: { city: 'London', phone: '+44 20 7946 0000' },
   };
 
-  const handleRegionChange = (region: SimulatedRegion) => {
-    setSelectedRegion(region);
-    setPaymentMethod(region.methods[0].id);
+  const handleRegionChange = async (region: MarketRegionConfig) => {
+    await setMarketRegion(region.code);
+    if (region.methods.length > 0) {
+      setPaymentMethod(region.methods[0].id);
+    }
+    const def = REGION_DEFAULTS[region.code];
+    if (def) {
+      setDeliveryCity(def.city);
+      setDeliveryPhone(def.phone);
+    }
+  };
+
+  const handlePhoneChange = (text: string) => {
+    setDeliveryPhone(text);
+    autoDetectRegionFromPhone(text);
   };
 
   const handleConfirmOrder = async () => {
@@ -241,30 +117,38 @@ export default function CheckoutScreen() {
         deliveryPhone,
         deliveryNotes,
         paymentMethod,
-        currency: selectedRegion.currency,
+        currency: currentRegion.currency,
       });
+
       clearCart();
-      const orderId = (resOrder as any)?.order?.id || (resOrder as any)?.id || 'ORD-9842';
-      Alert.alert(
-        'Order Placed in Escrow! 🛡️',
-        `Your payment of ${formatCurrency(rawTotalAmountXaf)} via ${selectedRegion.countryName} (${selectedRegion.currency}) is locked in AgroMarket Escrow. Funds are released only after produce verification.`,
-        [
-          { text: 'Track Escrow Live 🛡️', onPress: () => router.push(`/orders/${orderId}` as any) },
-          { text: 'Marketplace', onPress: () => router.replace('/(tabs)') },
-        ]
-      );
-    } catch (e) {
-      clearCart();
-      Alert.alert(
-        'Order Confirmed! 🛡️',
-        `Your order has been recorded in AgroMarket Escrow protection (${selectedRegion.currency}). Transporter assignment is in progress.`,
-        [
-          { text: 'Track Escrow Live 🛡️', onPress: () => router.push('/orders/current' as any) },
-          { text: 'Done', onPress: () => router.replace('/(tabs)') },
-        ]
-      );
+      const orderId = (resOrder as any)?.order?.id || (resOrder as any)?.id;
+
+      // Go directly to order tracking screen — standard seamless ecommerce flow
+      if (orderId) {
+        router.replace(`/orders/${orderId}` as any);
+      } else {
+        router.replace('/orders' as any);
+      }
+    } catch (e: any) {
+      const errorMsg =
+        e?.response?.data?.message ||
+        e?.message ||
+        'Unable to process checkout. Please try again.';
+
+      if (e?.response?.status === 401 || errorMsg.toLowerCase().includes('auth')) {
+        Alert.alert(
+          'Sign In Required',
+          'Please sign in to authorize escrow payments and track harvest dispatch.',
+          [
+            { text: 'Sign In', onPress: () => router.push('/auth/login' as any) },
+            { text: 'Cancel', style: 'cancel' },
+          ]
+        );
+      } else {
+        Alert.alert('Checkout Failed', errorMsg);
+      }
     } finally {
-      await waitRemainingMs(startTime, 3500);
+      await waitRemainingMs(startTime, 300);
       setLoading(false);
     }
   };
@@ -300,7 +184,9 @@ export default function CheckoutScreen() {
             <Globe2 size={16} color={Colors.cultivated} strokeWidth={2.2} />
             <Text style={styles.geoSimTitle}>Geo-Location Gateway Simulator</Text>
             <View style={styles.geoActiveTag}>
-              <Text style={styles.geoActiveTagText}>{selectedRegion.resolverProvider.toUpperCase()}</Text>
+              <Text style={styles.geoActiveTagText}>
+                {activeBlocConfig.shortName} · {activeBlocConfig.primaryCurrency}
+              </Text>
             </View>
           </View>
           <Text style={styles.geoSimHelp}>
@@ -308,18 +194,18 @@ export default function CheckoutScreen() {
           </Text>
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.geoPillRow}>
-            {SIMULATED_REGIONS.map((region) => {
-              const isSelected = selectedRegion.countryCode === region.countryCode;
+            {supportedRegions.map((region) => {
+              const isSelected = currentRegion.code === region.code;
               return (
                 <TouchableOpacity
-                  key={region.countryCode}
+                  key={region.code}
                   style={[styles.geoPill, isSelected && styles.geoPillActive]}
                   onPress={() => handleRegionChange(region)}
                   activeOpacity={0.8}
                 >
                   <Text style={styles.geoFlag}>{region.flag}</Text>
                   <Text style={[styles.geoPillText, isSelected && styles.geoPillTextActive]}>
-                    {region.countryName.split(' ')[0]} ({region.currency})
+                    {region.name.split(' ')[0]} ({region.currency})
                   </Text>
                 </TouchableOpacity>
               );
@@ -363,7 +249,7 @@ export default function CheckoutScreen() {
             <TextInput
               style={styles.textInput}
               value={deliveryPhone}
-              onChangeText={setDeliveryPhone}
+              onChangeText={handlePhoneChange}
               keyboardType="phone-pad"
               placeholder="+237 6XX XXX XXX"
               placeholderTextColor={Colors.text.muted}
@@ -390,12 +276,12 @@ export default function CheckoutScreen() {
           <View style={styles.sectionHeaderRow}>
             <CreditCard size={18} color={Colors.cultivated} strokeWidth={2.2} />
             <Text style={styles.sectionHeading}>
-              Payment Rail — {selectedRegion.countryName}
+              Payment Rail — {currentRegion.name} ({activeBlocConfig.shortName})
             </Text>
           </View>
 
           <View style={styles.paymentGrid}>
-            {selectedRegion.methods.map((method, idx) => {
+            {currentRegion.methods.map((method, idx) => {
               const isActive = paymentMethod === method.id;
               return (
                 <TouchableOpacity
@@ -467,10 +353,10 @@ export default function CheckoutScreen() {
             <Text style={[styles.summaryValue, { color: Colors.cultivated }]}>FREE (AgroShield)</Text>
           </View>
 
-          {selectedRegion.currency !== 'XAF' && (
+          {currentRegion.currency !== 'XAF' && (
             <View style={styles.exchangeRateNoteRow}>
               <Text style={styles.exchangeRateNote}>
-                Pegged Base: {rawTotalAmountXaf.toLocaleString()} FCFA (Normalized Ledger Rate: {selectedRegion.rateFromXaf.toFixed(5)})
+                Pegged Base: {rawTotalAmountXaf.toLocaleString()} FCFA (Normalized Ledger Rate: {currentRegion.rateFromXaf.toFixed(5)})
               </Text>
             </View>
           )}
@@ -500,9 +386,9 @@ export default function CheckoutScreen() {
           disabled={loading}
           activeOpacity={0.85}
         >
-          <Lock size={16} color={Colors.white} />
+          <Lock size={16} color={Colors.espresso} strokeWidth={2.4} />
           <Text style={styles.payButtonText}>
-            {loading ? 'Securing...' : `Authorize ${selectedRegion.currency} Escrow`}
+            {loading ? 'Authorizing Escrow...' : 'Authorize Escrow'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -512,9 +398,6 @@ export default function CheckoutScreen() {
           fullScreen
           size="xl"
           theme="light"
-          showBrandText
-          label="Securing Escrow & Authorizing Payment..."
-          subtitle="Funds held safely until produce delivery is verified"
         />
       )}
     </View>
@@ -863,16 +746,16 @@ const styles = StyleSheet.create({
   payButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.cultivated,
+    backgroundColor: Colors.harvest,
     paddingVertical: 13,
-    paddingHorizontal: 18,
+    paddingHorizontal: 20,
     borderRadius: Radii.pill,
-    gap: 7,
+    gap: 8,
     ...Shadows.subtle,
   },
   payButtonText: {
     fontFamily: Fonts.bodyBold,
-    fontSize: 14,
-    color: Colors.white,
+    fontSize: 14.5,
+    color: Colors.espresso,
   },
 });

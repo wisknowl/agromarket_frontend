@@ -28,17 +28,18 @@ import {
   Layers,
   Sparkles,
   ChevronRight,
+  Smartphone,
 } from 'lucide-react-native';
-import Colors, { Radii } from '@/constants/colors';
+import Colors, { Radii, Shadows } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
-import { fetchOrderByIdApi, confirmReceiptApi } from '@/components/api/orders';
+import { fetchOrderByIdApi, confirmReceiptApi, checkOrderPaymentStatusApi } from '@/components/api/orders';
 import { useLocale } from '@/context/LocaleContext';
 import AgromPreloader from '@/components/AgromPreloader';
 import { waitRemainingMs } from '@/utils/minDuration';
 
 // Escrow FSM Steps
 const ESCROW_STEPS = [
-  { key: 'INITIATED', label: 'Initiated', icon: Lock },
+  { key: 'PENDING_PAYMENT', label: 'Payment Prompt', icon: Smartphone },
   { key: 'ESCROW_LOCKED', label: 'Escrow Locked', icon: ShieldCheck },
   { key: 'IN_TRANSIT', label: 'In Transit', icon: Truck },
   { key: 'DELIVERED', label: 'Delivered', icon: MapPin },
@@ -106,10 +107,46 @@ export default function EscrowOrderDetailScreen() {
         },
       });
     } finally {
-      await waitRemainingMs(startTime, 3500);
+      await waitRemainingMs(startTime, 0);
       setLoading(false);
     }
   };
+
+  const [checkingStatus, setCheckingStatus] = useState(false);
+
+  const handleCheckPaymentStatus = async () => {
+    if (!id) return;
+    setCheckingStatus(true);
+    try {
+      const res = await checkOrderPaymentStatusApi(id);
+      if (res.isLocked || res.status === 'ESCROW_LOCKED') {
+        Alert.alert('Payment Confirmed! 🛡️', 'Your mobile money payment is verified and locked in AgroMarket Escrow.');
+        await loadOrder();
+      } else {
+        Alert.alert('Still Pending 📱', 'Payment prompt has not been authorized yet. Please check your phone or dial *126# (MTN) or #150# (Orange) to enter your PIN.');
+      }
+    } catch (err) {
+      Alert.alert('Sync Status', 'Could not sync with Campay gateway. Please try again in a moment.');
+    } finally {
+      setCheckingStatus(false);
+    }
+  };
+
+  // Auto-poll Campay when order is waiting for mobile money approval
+  useEffect(() => {
+    if (order?.status === 'PENDING_PAYMENT' && id) {
+      const interval = setInterval(async () => {
+        try {
+          const res = await checkOrderPaymentStatusApi(id);
+          if (res.isLocked || res.status === 'ESCROW_LOCKED') {
+            clearInterval(interval);
+            loadOrder();
+          }
+        } catch (e) {}
+      }, 4000);
+      return () => clearInterval(interval);
+    }
+  }, [order?.status, id]);
 
   useEffect(() => {
     loadOrder();
@@ -117,15 +154,18 @@ export default function EscrowOrderDetailScreen() {
 
   const getStepIndex = (status: string) => {
     const map: Record<string, number> = {
+      PENDING_PAYMENT: 0,
       INITIATED: 0,
       ESCROW_LOCKED: 1,
+      PAID: 1,
       IN_TRANSIT: 2,
       DELIVERED: 3,
       SETTLED: 4,
+      COMPLETED: 4,
       DISPUTED: 2,
       REFUNDED: 1,
     };
-    return map[status] ?? 1;
+    return map[status] ?? 0;
   };
 
   const handleConfirmReceipt = () => {
@@ -176,9 +216,6 @@ export default function EscrowOrderDetailScreen() {
         <AgromPreloader
           size="lg"
           theme="light"
-          showBrandText
-          label="Connecting to Escrow Smart Contract..."
-          subtitle="Verifying payment locking and delivery milestones"
         />
       </View>
     );
@@ -212,6 +249,48 @@ export default function EscrowOrderDetailScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom, 20) + 40 }]}
       >
+        {/* ========================================================================= */}
+        {/* LIVE MOBILE MONEY APPROVAL CARD (When PENDING_PAYMENT)                    */}
+        {/* ========================================================================= */}
+        {order?.status === 'PENDING_PAYMENT' && (
+          <View style={styles.momoActionCard}>
+            <View style={styles.momoActionHeader}>
+              <Smartphone size={22} color="#B45309" strokeWidth={2.4} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.momoActionTitle}>Approve Mobile Money Prompt 📱</Text>
+                <Text style={styles.momoActionSub}>
+                  Payment request sent to {order?.deliveryPhone || 'your phone number'}
+                </Text>
+              </View>
+              <View style={styles.momoPulseTag}>
+                <Text style={styles.momoPulseText}>AWAITING PIN</Text>
+              </View>
+            </View>
+
+            <View style={styles.ussdBox}>
+              <Text style={styles.ussdHeader}>USSD Fast Approval Instructions:</Text>
+              <Text style={styles.ussdStep}>
+                📱 <Text style={{ fontFamily: Fonts.bodyBold }}>MTN MoMo:</Text> Dial <Text style={styles.ussdCode}>*126#</Text> → Pending Approvals → Enter PIN
+              </Text>
+              <Text style={styles.ussdStep}>
+                📱 <Text style={{ fontFamily: Fonts.bodyBold }}>Orange Money:</Text> Dial <Text style={styles.ussdCode}>#150#</Text> → Approvals → Enter PIN
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.verifyBtn, checkingStatus && { opacity: 0.7 }]}
+              onPress={handleCheckPaymentStatus}
+              activeOpacity={0.85}
+              disabled={checkingStatus}
+            >
+              <ShieldCheck size={16} color={Colors.white} />
+              <Text style={styles.verifyBtnText}>
+                {checkingStatus ? 'Syncing Gateway...' : 'I Approved Payment — Verify Escrow Now'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* ========================================================================= */}
         {/* ESCROW FSM PROGRESS TRACKER */}
         {/* ========================================================================= */}
@@ -866,5 +945,86 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.bodyMedium,
     fontSize: 13,
     color: Colors.text.tertiary,
+  },
+  momoActionCard: {
+    backgroundColor: '#FFFBEB',
+    borderRadius: Radii.card,
+    padding: 16,
+    marginBottom: 14,
+    borderWidth: 1.5,
+    borderColor: '#FCD34D',
+    ...Shadows.subtle,
+  },
+  momoActionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
+  },
+  momoActionTitle: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 14.5,
+    color: '#92400E',
+  },
+  momoActionSub: {
+    fontFamily: Fonts.body,
+    fontSize: 11.5,
+    color: '#B45309',
+    marginTop: 2,
+  },
+  momoPulseTag: {
+    backgroundColor: '#FEF3C7',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: Radii.pill,
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+  },
+  momoPulseText: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 9.5,
+    color: '#B45309',
+  },
+  ussdBox: {
+    backgroundColor: Colors.white,
+    padding: 12,
+    borderRadius: Radii.card,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    marginBottom: 12,
+  },
+  ussdHeader: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 11.5,
+    color: Colors.espresso,
+    marginBottom: 6,
+  },
+  ussdStep: {
+    fontFamily: Fonts.body,
+    fontSize: 11.5,
+    color: Colors.espresso,
+    lineHeight: 18,
+    marginBottom: 4,
+  },
+  ussdCode: {
+    fontFamily: Fonts.monoBold,
+    color: '#B45309',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 4,
+  },
+  verifyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#D97706',
+    paddingVertical: 12,
+    borderRadius: Radii.pill,
+    gap: 7,
+    ...Shadows.subtle,
+  },
+  verifyBtnText: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 13,
+    color: Colors.white,
   },
 });

@@ -6,12 +6,14 @@ import { useCartStore } from '@/store/cartStore';
 import Colors, { Radii, Shadows } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
 import PriceTag from './ui/PriceTag';
+import { useLocale } from '@/context/LocaleContext';
 
 interface CartItemProps {
   item: CartItemType;
 }
 
 export default function CartItem({ item }: CartItemProps) {
+  const { formatCurrency } = useLocale();
   const { updateQuantity, removeFromCart } = useCartStore();
 
   const handleIncrement = () => {
@@ -57,7 +59,7 @@ export default function CartItem({ item }: CartItemProps) {
           </Pressable>
 
           <Text style={styles.subtotal}>
-            {(item.yield.price * item.quantity).toLocaleString()} FCFA
+            {formatCurrency(item.yield.price * item.quantity)}
           </Text>
         </View>
       </View>

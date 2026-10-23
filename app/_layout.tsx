@@ -31,7 +31,7 @@ import { Fonts } from '@/constants/typography';
 
 import { FeatureFlagProvider } from '../core/feature-flags/useFeatureFlags';
 import { LocaleProvider } from '@/context/LocaleContext';
-import GlobalCartFlightOverlay from '@/components/cart/GlobalCartFlightOverlay';
+// import GlobalCartFlightOverlay from '@/components/cart/GlobalCartFlightOverlay';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/store/authStore';
 import {
@@ -254,7 +254,8 @@ function RootLayoutNav() {
           }}
         />
       </Stack>
-      <GlobalCartFlightOverlay />
+      {/* Visual fly-to-basket overlay commented out for UI smoothness */}
+      {/* <GlobalCartFlightOverlay /> */}
     </>
   );
 }

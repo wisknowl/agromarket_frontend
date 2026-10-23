@@ -428,9 +428,6 @@ export default function ProfileScreen() {
         <AgromPreloader
           size="lg"
           theme="light"
-          showBrandText
-          label="Loading Agricultural Profile..."
-          subtitle="Fetching verified farms, yields, and orders"
         />
       </View>
     );

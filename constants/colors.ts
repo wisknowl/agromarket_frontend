@@ -8,6 +8,8 @@ export const BrandColors = {
   cultivated: '#4E8B3F',   // New growth. Secondary actions, active tab states, grower half of mark
   gold: '#E2A63C',         // Harvest Gold. Primary CTAs, prices, gold credit tier, star accents
   goldDim: '#C68F30',      // Hover / pressed state for gold
+  harvest: '#E2A63C',      // Harvest Amber/Gold CTA color
+  harvestDim: '#C68F30',   // Harvest pressed state
   soil: '#7A4A2D',         // Tilled Soil. Earth borders, bronze tier, stem of mark
   parchment: '#F6EEDD',    // Threshed grain. Warm soft card & chip surface
   parchmentDim: '#EAE0C7', // Warm border and input strokes

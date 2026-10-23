@@ -8,6 +8,7 @@ import {
   Text,
   ScrollView,
   Pressable,
+  TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
@@ -21,7 +22,6 @@ import { Fonts } from '@/constants/typography';
 import Basket from '@/components/basket';
 import AgromPreloader from '@/components/AgromPreloader';
 import { waitRemainingMs } from '@/utils/minDuration';
-
 const STATIC_CATEGORIES = ['All', 'Vegetables', 'Tubers & Roots', 'Poultry & Eggs', 'Fruits', 'Spices & Herbs'];
 
 export default function AgroYieldsScreen() {
@@ -52,7 +52,7 @@ export default function AgroYieldsScreen() {
     } catch (err) {
       console.warn('Failed to fetch marketplace yields:', err);
     } finally {
-      await waitRemainingMs(startTime, 3500);
+      await waitRemainingMs(startTime, 0);
       setLoading(false);
       setRefreshing(false);
     }
@@ -112,7 +112,7 @@ export default function AgroYieldsScreen() {
           <Search size={18} color={Colors.text.muted} style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search crops, farms, Foumbot tomatoes..."
+            placeholder="Search crops, farms, wholesale lots..."
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholderTextColor={Colors.text.muted}
@@ -162,9 +162,6 @@ export default function AgroYieldsScreen() {
           <AgromPreloader
             size="lg"
             theme="light"
-            showBrandText
-            label="Gathering direct farm harvests..."
-            subtitle="Syncing verified produce prices"
           />
         </View>
       ) : filteredYields.length === 0 ? (

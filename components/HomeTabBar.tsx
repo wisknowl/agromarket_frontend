@@ -35,6 +35,7 @@ export default function HomeTabBar({ tabs, activeTab, onTabChange, rightAction }
             );
           })}
         </View>
+
         {rightAction && <View style={styles.rightActionWrapper}>{rightAction}</View>}
       </View>
     </View>

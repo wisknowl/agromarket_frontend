@@ -1,4 +1,19 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React from 'react';
+
+/**
+ * GlobalCartFlightOverlay
+ *
+ * NOTE: The parabolic flying produce animation has been disabled/commented out
+ * to ensure silky smooth 60 FPS UI responsiveness when adding items to the basket.
+ * The cultural basket icon now reacts instantly with a direct haptic-like badge bounce.
+ */
+export default function GlobalCartFlightOverlay() {
+  return null;
+}
+
+/*
+// --- ARCHIVED FLIGHT ANIMATION LOGIC (Preserved for Reference) ---
+import { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,7 +30,7 @@ import Colors, { Shadows } from '@/constants/colors';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-export default function GlobalCartFlightOverlay() {
+function ArchivedGlobalCartFlightOverlay() {
   const insets = useSafeAreaInsets();
   const activeFly = useCartAnimationStore((s) => s.activeFly);
   const clearFly = useCartAnimationStore((s) => s.clearFly);
@@ -25,7 +40,6 @@ export default function GlobalCartFlightOverlay() {
   const [currentFlyingItem, setCurrentFlyingItem] = useState<FlyEvent | null>(null);
   const flightProgress = useRef(new Animated.Value(0)).current;
 
-  // Unified basket center coordinates on screen
   const bottomInset = insets.bottom;
   const TAB_BAR_HEIGHT = 62;
   const unifiedOnScreenBottom = TAB_BAR_HEIGHT + bottomInset + 14;
@@ -59,17 +73,12 @@ export default function GlobalCartFlightOverlay() {
     setFlightCoords({ startX, startY, targetX, targetY });
     flightProgress.setValue(0);
 
-    // Launch cinematic 3-phase flight over 3000ms:
-    // Phase 1 (0.00-0.20): Emerges & rises 45px directly up out of the tapped button center
-    // Phase 2 (0.20-0.35): Buoyant hover at button height (user clearly registers produce)
-    // Phase 3 (0.35-1.00): Grand parabolic rainbow arc diving dead-center into the basket
     Animated.timing(flightProgress, {
       toValue: 1,
       duration: 3000,
       easing: Easing.linear,
       useNativeDriver: true,
     }).start(() => {
-      // Arrived exactly dead-center in basket
       triggerBasketBounce();
       clearFly();
       setCurrentFlyingItem(null);
@@ -80,90 +89,58 @@ export default function GlobalCartFlightOverlay() {
     return null;
   }
 
-  // Trajectory Deltas
   const deltaX = flightCoords.targetX - flightCoords.startX;
   const deltaY = flightCoords.targetY - flightCoords.startY;
-
-  // Loftier, dramatic arc apex (-250px above trajectory)
   const arcApexOffset = -250;
-  const riseDistance = -45; // Produce emerges 45px up out of button center
+  const riseDistance = -45;
 
-  // Horizontal X translation in window coordinates:
-  // 0.00 -> 0.20: Emerges vertically out of button (X holds still at button center)
-  // 0.20 -> 0.35: Buoyantly hovers at elevated height (X holds still)
-  // 0.35 -> 1.00: Arcs smoothly across screen to targetX
   const flyTranslateX = flightProgress.interpolate({
-    inputRange: [
-      0.00, 0.20, 0.35, 0.45, 0.55,
-      0.65, 0.75, 0.85, 0.92, 0.97, 1.00,
-    ],
+    inputRange: [0.00, 0.20, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85, 0.92, 0.97, 1.00],
     outputRange: [
-      flightCoords.startX - 27,
-      flightCoords.startX - 27,
-      flightCoords.startX - 27,
-      flightCoords.startX - 27 + deltaX * 0.14,
-      flightCoords.startX - 27 + deltaX * 0.33,
-      flightCoords.startX - 27 + deltaX * 0.55,
-      flightCoords.startX - 27 + deltaX * 0.74,
-      flightCoords.startX - 27 + deltaX * 0.88,
-      flightCoords.startX - 27 + deltaX * 0.95,
-      flightCoords.startX - 27 + deltaX * 0.99,
-      flightCoords.targetX - 27,
+      flightCoords.startX,
+      flightCoords.startX,
+      flightCoords.startX,
+      flightCoords.startX + deltaX * 0.15,
+      flightCoords.startX + deltaX * 0.35,
+      flightCoords.startX + deltaX * 0.55,
+      flightCoords.startX + deltaX * 0.75,
+      flightCoords.startX + deltaX * 0.90,
+      flightCoords.startX + deltaX * 0.96,
+      flightCoords.startX + deltaX * 0.99,
+      flightCoords.targetX,
     ],
   });
-
-  // Vertical Y translation in window coordinates:
-  // 0.00 -> 0.20: Rises 45px straight up from button
-  // 0.20 -> 0.35: Hovers in place
-  // 0.35 -> 0.60: Rises through lofty arc apex (arcApexOffset = -250px)
-  // 0.60 -> 1.00: Dives directly into basket center
-  const apexY = Math.min(flightCoords.startY, flightCoords.targetY) + arcApexOffset;
 
   const flyTranslateY = flightProgress.interpolate({
-    inputRange: [
-      0.00, 0.10, 0.20, 0.28, 0.35,
-      0.48, 0.60, 0.72, 0.82, 0.90, 0.96, 1.00,
-    ],
+    inputRange: [0.00, 0.20, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85, 0.92, 0.97, 1.00],
     outputRange: [
-      flightCoords.startY - 27,
-      flightCoords.startY - 27 - 25,
-      flightCoords.startY - 27 + riseDistance,
-      flightCoords.startY - 27 + riseDistance,
-      flightCoords.startY - 27 + riseDistance,
-      apexY - 27 + Math.abs(arcApexOffset) * 0.25,
-      apexY - 27,
-      apexY - 27 + (flightCoords.targetY - apexY) * 0.30,
-      flightCoords.targetY - 27 - 54,
-      flightCoords.targetY - 27 - 20,
-      flightCoords.targetY - 27 - 5,
-      flightCoords.targetY - 27,
+      flightCoords.startY,
+      flightCoords.startY + riseDistance,
+      flightCoords.startY + riseDistance,
+      flightCoords.startY + deltaY * 0.15 + arcApexOffset * 0.65,
+      flightCoords.startY + deltaY * 0.35 + arcApexOffset * 0.95,
+      flightCoords.startY + deltaY * 0.55 + arcApexOffset * 1.00,
+      flightCoords.startY + deltaY * 0.75 + arcApexOffset * 0.75,
+      flightCoords.startY + deltaY * 0.90 + arcApexOffset * 0.35,
+      flightCoords.startY + deltaY * 0.96 + arcApexOffset * 0.12,
+      flightCoords.startY + deltaY * 0.99 + arcApexOffset * 0.03,
+      flightCoords.targetY,
     ],
   });
 
-  // Dense, continuous 16-point sub-pixel scale interpolation (grows out of button, glides, then shrinks into basket center):
   const flyScale = flightProgress.interpolate({
-    inputRange: [
-      0.00, 0.05, 0.10, 0.15, 0.20,
-      0.25, 0.35, 0.45, 0.55, 0.65,
-      0.75, 0.82, 0.88, 0.93, 0.97, 1.00,
-    ],
-    outputRange: [
-      0.35, 0.65, 0.95, 1.20, 1.35,
-      1.35, 1.35, 1.28, 1.15, 0.98,
-      0.75, 0.55, 0.38, 0.22, 0.12, 0.08,
-    ],
+    inputRange: [0.00, 0.15, 0.35, 0.70, 0.92, 1.00],
+    outputRange: [0.35, 1.30, 1.25, 0.95, 0.65, 0.15],
   });
 
-  // Smooth rotation tumble:
-  const flyRotate = flightProgress.interpolate({
-    inputRange: [0, 0.2, 0.35, 1],
-    outputRange: ['0deg', '10deg', '10deg', '360deg'],
-  });
-
-  // Opacity: fades in cleanly on button, stays completely visible across arc, fades out right inside basket center:
   const flyOpacity = flightProgress.interpolate({
-    inputRange: [0, 0.08, 0.96, 1],
-    outputRange: [0.3, 1, 1, 0],
+    inputRange: [0.00, 0.08, 0.85, 0.96, 1.00],
+    outputRange: [0.0, 1.0, 1.0, 0.6, 0.0],
+  });
+
+  const flyRotate = flightProgress.interpolate({
+    inputRange: [0.00, 0.35, 0.70, 1.00],
+    outputRange: ['0deg', '45deg', '180deg', '360deg'],
   });
 
   return (
@@ -238,3 +215,4 @@ const styles = StyleSheet.create({
     fontSize: 24,
   },
 });
+*/

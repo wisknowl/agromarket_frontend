@@ -11,7 +11,7 @@ import { Fonts } from '@/constants/typography';
 import Popover, { PopoverPlacement } from 'react-native-popover-view';
 import PriceTag from './ui/PriceTag';
 import FarmerBadge from './ui/FarmerBadge';
-
+import { useLocale } from '@/context/LocaleContext';
 
 interface YieldCardProps {
   item: AgroYield;
@@ -27,6 +27,7 @@ export default function YieldCard({
   onClosePopover,
 }: YieldCardProps) {
   const router = useRouter();
+  const { formatCurrency } = useLocale();
   const { addToCart } = useCartStore();
   const { addYield, removeYield, isYieldFavorite } = useFavoritesStore();
   const isFavorite = isYieldFavorite(item.id);
@@ -52,6 +53,8 @@ export default function YieldCard({
   };
 
   const handleAddToCart = () => {
+    // Produce flying animation commented out for UI smoothness
+    /*
     if (cartBtnRef.current) {
       cartBtnRef.current.measureInWindow((x: number, y: number, w: number, h: number) => {
         if (x && y) {
@@ -63,7 +66,9 @@ export default function YieldCard({
     } else {
       triggerFly(0, 0, item.image);
     }
+    */
     addToCart(item, 1);
+    useCartAnimationStore.getState().triggerBasketBounce();
   };
 
   const toggleFavorite = () => {
@@ -115,7 +120,7 @@ export default function YieldCard({
             color={Colors.canopy}
           />
           {item.oldPrice && (
-            <Text style={styles.oldPrice}>{item.oldPrice} FCFA</Text>
+            <Text style={styles.oldPrice}>{formatCurrency(item.oldPrice)}</Text>
           )}
         </View>
 

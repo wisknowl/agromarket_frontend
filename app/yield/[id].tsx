@@ -118,9 +118,6 @@ export default function YieldDetailScreen() {
         <AgromPreloader
           size="lg"
           theme="light"
-          showBrandText
-          label="Inspecting Harvest Lot..."
-          subtitle="Fetching verified farm certificates and fresh batch inventory"
         />
       </View>
     );
@@ -188,6 +185,8 @@ export default function YieldDetailScreen() {
   };
 
   const handleAddToCart = () => {
+    // Produce flying animation commented out for UI smoothness
+    /*
     const itemImg = yieldItem?.image || (yieldItem?.mediaUrls && yieldItem?.mediaUrls[0]) || '';
     if (addBasketBtnRef.current) {
       addBasketBtnRef.current.measureInWindow((x: number, y: number, w: number, h: number) => {
@@ -200,7 +199,9 @@ export default function YieldDetailScreen() {
     } else {
       triggerFly(0, 0, itemImg);
     }
+    */
     addToCart(yieldItem, quantity);
+    useCartAnimationStore.getState().triggerBasketBounce();
     setAddedAnimation(true);
     setTimeout(() => setAddedAnimation(false), 2000);
   };

@@ -14,7 +14,7 @@ import { Fonts } from '@/constants/typography';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/store/authStore';
 import { useTranslation } from '@/constants/translations';
-import { useLocale } from '@/context/LocaleContext';
+
 import {
   LogOut,
   ArrowLeft,
@@ -50,15 +50,7 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { logout, user } = useAuthStore();
   const { t, language, setLanguage } = useTranslation();
-  const {
-    language: userLanguage,
-    setLanguage: setLocaleLanguage,
-    marketRegion,
-    setMarketRegion,
-    glossary,
-    supportedLanguages,
-    supportedRegions,
-  } = useLocale();
+
 
   const [activePrivacyItem, setActivePrivacyItem] = useState<PrivacySettingItem | null>(null);
   const [privacyModalVisible, setPrivacyModalVisible] = useState(false);
@@ -207,74 +199,7 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* Section 2: Tri-Context Global Localization (Language, Region, Cultural Slangs) */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeaderRow}>
-            <Globe size={18} color={Colors.gold} />
-            <Text style={styles.sectionHeader}>Global Localization & Market Corridor</Text>
-          </View>
-          <Text style={styles.sectionDesc}>
-            Tailor your experience: choose your preferred speaking language independently from your operating market corridor.
-          </Text>
 
-          {/* Sub-section A: User Language */}
-          <Text style={[styles.settingTitle, { marginTop: 10, marginBottom: 8 }]}>Speaking Language</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.langPillRow}>
-            {supportedLanguages.map((lang) => (
-              <TouchableOpacity
-                key={lang.code}
-                style={[styles.langPill, userLanguage === lang.code && styles.langPillActive]}
-                onPress={() => {
-                  setLocaleLanguage(lang.code as any);
-                  if (lang.code === 'en' || lang.code === 'fr') {
-                    setLanguage(lang.code);
-                  }
-                }}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.langFlag}>{lang.flag}</Text>
-                <Text style={[styles.langPillText, userLanguage === lang.code && styles.langPillTextActive]}>
-                  {lang.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-
-          {/* Sub-section B: Market Corridor & Currency */}
-          <Text style={[styles.settingTitle, { marginTop: 14, marginBottom: 8 }]}>Active Market & Currency Corridor</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.langPillRow}>
-            {supportedRegions.map((reg) => (
-              <TouchableOpacity
-                key={reg.code}
-                style={[styles.langPill, marketRegion === reg.code && styles.langPillActive]}
-                onPress={() => setMarketRegion(reg.code as any)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.langFlag}>{reg.flag}</Text>
-                <Text style={[styles.langPillText, marketRegion === reg.code && styles.langPillTextActive]}>
-                  {reg.name} ({reg.currency})
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-
-          {/* Sub-section C: Cultural Glossary Preview */}
-          <View style={styles.glossaryPreviewBox}>
-            <Text style={styles.glossaryTitle}>Cultural Glossary in this Context:</Text>
-            <View style={styles.glossaryItemRow}>
-              <Text style={styles.glossaryLabel}>Merchant / Trader:</Text>
-              <Text style={styles.glossaryValue}>{glossary.wholesalerLabel}</Text>
-            </View>
-            <View style={styles.glossaryItemRow}>
-              <Text style={styles.glossaryLabel}>Cooperative Savings:</Text>
-              <Text style={styles.glossaryValue}>{glossary.coopCreditLabel}</Text>
-            </View>
-            <View style={styles.glossaryItemRow}>
-              <Text style={styles.glossaryLabel}>Produce Unit:</Text>
-              <Text style={styles.glossaryValue}>{glossary.bulkUnitLabel}</Text>
-            </View>
-          </View>
-        </View>
 
         {/* Section 3: Account Profile Information */}
         <View style={styles.section}>

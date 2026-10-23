@@ -12,8 +12,10 @@ import {
   Modal,
   TextInput,
   Switch,
+  Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
   ArrowLeft,
@@ -31,6 +33,13 @@ import {
   ChevronRight,
   X,
   Check,
+  Flame,
+  Sun,
+  Zap,
+  RotateCw,
+  Clock,
+  Tag,
+  CheckCircle2,
 } from 'lucide-react-native';
 import Colors, { Radii, Shadows } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
@@ -43,21 +52,72 @@ import FarmerBadge from '@/components/ui/FarmerBadge';
 import { fetchFarmByIdApi, fetchMyFarmsApi, createProduceApi } from '../api';
 import { Farm } from '@/types';
 import AgromPreloader from '@/components/AgromPreloader';
-import { waitRemainingMs } from '@/utils/minDuration';
 
-const CATEGORIES = [
-  { id: 'cat-veg', name: 'Vegetables & Greens' },
-  { id: 'cat-tub', name: 'Tubers & Roots' },
-  { id: 'cat-egg', name: 'Poultry & Eggs' },
-  { id: 'cat-fru', name: 'Fruits & Citrus' },
-  { id: 'cat-spi', name: 'Spices & Herbs' },
-  { id: 'cat-cer', name: 'Grains & Cereals' },
+export interface AgroCategoryDef {
+  id: string;
+  name: string;
+  emoji: string;
+}
+
+export const CATEGORIES: AgroCategoryDef[] = [
+  { id: 'cat-veg', name: 'Vegetables & Greens', emoji: '🥬' },
+  { id: 'cat-tub', name: 'Tubers & Roots', emoji: '🥔' },
+  { id: 'cat-plt', name: 'Plantains & Bananas', emoji: '🍌' },
+  { id: 'cat-fru', name: 'Fruits & Citrus', emoji: '🍊' },
+  { id: 'cat-cer', name: 'Grains & Cereals', emoji: '🌽' },
+  { id: 'cat-leg', name: 'Legumes & Seeds', emoji: '🥜' },
+  { id: 'cat-oil', name: 'Oils & Fats', emoji: '🛢️' },
+  { id: 'cat-spi', name: 'Spices & Herbs', emoji: '🌶️' },
+  { id: 'cat-egg', name: 'Poultry & Eggs', emoji: '🥚' },
+  { id: 'cat-liv', name: 'Livestock & Meat', emoji: '🥩' },
+  { id: 'cat-aqu', name: 'Aquaculture & Fish', emoji: '🐟' },
 ];
 
-const UNITS = ['KG', 'CRATE', 'BAG_50KG', 'BAG_100KG', 'BUCKET', 'BUNCH', 'NET'];
+export interface AgroUnitDef {
+  id: string;
+  label: string;
+}
+
+export const UNITS: AgroUnitDef[] = [
+  { id: 'KG', label: 'KG' },
+  { id: 'CRATE', label: 'Crate' },
+  { id: 'BAG_50KG', label: '50kg Bag' },
+  { id: 'BAG_100KG', label: '100kg Bag' },
+  { id: 'BAG_25KG', label: '25kg Bag' },
+  { id: 'BUCKET', label: 'Bucket' },
+  { id: 'BASIN', label: 'Basin' },
+  { id: 'BUNCH', label: 'Bunch' },
+  { id: 'PIECE', label: 'Piece' },
+  { id: 'TON', label: 'Tonne' },
+  { id: 'LITER', label: 'Liter' },
+  { id: 'CARTON', label: 'Carton' },
+  { id: 'NET', label: 'Net' },
+  { id: 'CUSTOM', label: '+ Custom' },
+];
+
+export interface AgroSeasonDef {
+  id: string;
+  label: string;
+  badge: string;
+}
+
+export const SEASONS: AgroSeasonDef[] = [
+  { id: 'PEAK_HARVEST', label: 'Peak Harvest', badge: '🔥' },
+  { id: 'EARLY_HARVEST', label: 'Early Season', badge: '🌱' },
+  { id: 'OFF_SEASON', label: 'Off-Season', badge: '⚡' },
+  { id: 'YEAR_ROUND', label: 'Year-Round', badge: '🔄' },
+];
+
+export const SHELF_LIFE_OPTIONS = [
+  { days: '3', label: '3 Days (Fast Perishable)' },
+  { days: '7', label: '7 Days' },
+  { days: '14', label: '14 Days' },
+  { days: '30', label: '30+ Days (Storable)' },
+];
 
 export default function FarmManagementScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user, updateUser } = useAuthStore();
   const openCreatePostModal = useUIStore((s) => s.openCreatePostModal);
   const activeFarmId = useUIStore((s) => s.activeFarmId);
@@ -95,7 +155,6 @@ export default function FarmManagementScreen() {
   // 2. Fetch active selected farm details & yields whenever selectedFarmId changes
   const loadSelectedFarmDetails = useCallback(async (farmId: string) => {
     if (!farmId) return;
-    const startTime = Date.now();
     try {
       setLoading(true);
       const data = await fetchFarmByIdApi(farmId);
@@ -103,7 +162,6 @@ export default function FarmManagementScreen() {
     } catch (err) {
       console.warn('Failed to fetch selected farm details:', err);
     } finally {
-      await waitRemainingMs(startTime, 3500);
       setLoading(false);
     }
   }, []);
@@ -142,6 +200,10 @@ export default function FarmManagementScreen() {
     categoryName: 'Vegetables & Greens',
     pricePerUnit: '',
     unit: 'KG',
+    customUnit: '',
+    seasonality: 'PEAK_HARVEST',
+    shelfLifeDays: '7',
+    minOrderQuantity: '1',
     stockQuantity: '',
     isOrganic: true,
     isWholesaleBulkAvailable: false,
@@ -152,7 +214,12 @@ export default function FarmManagementScreen() {
 
   const handleCreateProduce = async () => {
     if (!produceForm.title.trim() || !produceForm.pricePerUnit || !produceForm.stockQuantity) {
-      Alert.alert('Missing Fields', 'Please provide a produce title, price, and stock quantity.');
+      Alert.alert('Missing Required Fields', 'Please specify a produce name, price in FCFA, and harvest stock quantity.');
+      return;
+    }
+
+    if (produceForm.unit === 'CUSTOM' && !produceForm.customUnit.trim()) {
+      Alert.alert('Custom Unit Required', 'Please specify your local unit measure (e.g. Tas, Panier, Botte, Debe).');
       return;
     }
 
@@ -164,16 +231,22 @@ export default function FarmManagementScreen() {
     try {
       setSavingProduce(true);
       const categoryObj = CATEGORIES.find((c) => c.name === produceForm.categoryName) || CATEGORIES[0];
+      const effectiveUnitLabel = produceForm.unit === 'CUSTOM' ? produceForm.customUnit.trim() : produceForm.unit;
       
       await createProduceApi({
         farmId: activeFarm.id,
         categoryId: categoryObj.id,
+        categoryName: categoryObj.name,
         title: produceForm.title.trim(),
-        description: produceForm.description.trim() || `Freshly harvested ${produceForm.title} from ${activeFarm.name}`,
-        originRegion: `${activeFarm.city}, ${activeFarm.region}`,
+        description: produceForm.description.trim() || `Freshly harvested ${produceForm.title.trim()} from ${activeFarm.name}.`,
+        originRegion: `${activeFarm.city || 'Cameroon'}, ${activeFarm.region || ''}`.trim(),
         pricePerUnit: parseFloat(produceForm.pricePerUnit),
-        unit: produceForm.unit,
+        unit: produceForm.unit === 'CUSTOM' ? 'KG' : produceForm.unit,
+        customUnit: produceForm.unit === 'CUSTOM' ? produceForm.customUnit.trim() : undefined,
+        seasonality: produceForm.seasonality,
+        shelfLifeDays: produceForm.shelfLifeDays ? parseInt(produceForm.shelfLifeDays, 10) : undefined,
         stockQuantity: parseFloat(produceForm.stockQuantity),
+        minOrderQuantity: produceForm.minOrderQuantity ? parseFloat(produceForm.minOrderQuantity) : 1,
         isOrganic: produceForm.isOrganic,
         isWholesaleBulkAvailable: produceForm.isWholesaleBulkAvailable,
         bulkMinQuantity: produceForm.bulkMinQuantity ? parseFloat(produceForm.bulkMinQuantity) : undefined,
@@ -181,7 +254,10 @@ export default function FarmManagementScreen() {
         mediaUrls: [produceForm.mediaUrl],
       });
 
-      Alert.alert('Harvest Published! 🎉', `${produceForm.title} is now listed in your farm catalog and the global marketplace.`);
+      Alert.alert(
+        'AgroProduce Listed! 🎉',
+        `"${produceForm.title}" is published under ${activeFarm.name} at ${produceForm.pricePerUnit} FCFA per ${effectiveUnitLabel}.`
+      );
       setShowAddProduceModal(false);
       setProduceForm({
         title: '',
@@ -189,6 +265,10 @@ export default function FarmManagementScreen() {
         categoryName: 'Vegetables & Greens',
         pricePerUnit: '',
         unit: 'KG',
+        customUnit: '',
+        seasonality: 'PEAK_HARVEST',
+        shelfLifeDays: '7',
+        minOrderQuantity: '1',
         stockQuantity: '',
         isOrganic: true,
         isWholesaleBulkAvailable: false,
@@ -210,9 +290,6 @@ export default function FarmManagementScreen() {
         fullScreen
         size="lg"
         theme="light"
-        showBrandText
-        label="Opening Farm Management..."
-        subtitle="Loading your agricultural holdings and verified produce catalog"
       />
     );
   }
@@ -505,178 +582,307 @@ export default function FarmManagementScreen() {
         ))}
       </ScrollView>
 
-      {/* PRODUCE CREATION MODAL */}
+      {/* AGROPRODUCE CREATION MODAL */}
       <Modal
         visible={showAddProduceModal}
         animationType="slide"
         presentationStyle="pageSheet"
         onRequestClose={() => setShowAddProduceModal(false)}
       >
-        <SafeAreaView style={styles.modalSafeArea}>
+        <SafeAreaView style={styles.modalSafeArea} edges={['top', 'left', 'right']}>
+          {/* Modal Header */}
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>List Harvest Produce</Text>
+            <View style={styles.modalHeaderTitleRow}>
+              <View style={styles.modalHeaderIconBadge}>
+                <Sprout size={18} color={Colors.cultivated} />
+              </View>
+              <View>
+                <Text style={styles.modalTitle}>AgroProduce</Text>
+                <Text style={styles.modalHeaderSub}>{activeFarm?.name || 'List Harvest'}</Text>
+              </View>
+            </View>
             <TouchableOpacity
               style={styles.modalCloseBtn}
               onPress={() => setShowAddProduceModal(false)}
+              accessibilityLabel="Close"
             >
               <X size={20} color={Colors.espresso} />
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
-            <Text style={styles.modalSubtitle}>
-              Publish fresh produce attached to <Text style={{ fontFamily: Fonts.bodyBold }}>{activeFarm?.name || 'your farm'}</Text>. It will immediately appear in the marketplace.
-            </Text>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={{ flex: 1 }}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 24 : 0}
+          >
+            <ScrollView
+              style={styles.modalBody}
+              contentContainerStyle={styles.modalBodyContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {/* 1. Produce Title */}
+              <Text style={styles.inputLabel}>Produce Name *</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="e.g. Fresh Foumbot Vine Tomatoes, Penja Pepper..."
+                placeholderTextColor={Colors.text.muted}
+                value={produceForm.title}
+                onChangeText={(t) => setProduceForm((p) => ({ ...p, title: t }))}
+              />
 
-            {/* Produce Title */}
-            <Text style={styles.inputLabel}>Produce Name *</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="e.g. Fresh Foumbot Vine Tomatoes"
-              placeholderTextColor={Colors.text.muted}
-              value={produceForm.title}
-              onChangeText={(t) => setProduceForm((p) => ({ ...p, title: t }))}
-            />
+              {/* 2. Category Selector */}
+              <Text style={styles.inputLabel}>Agricultural Category *</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
+                {CATEGORIES.map((cat) => {
+                  const isSelected = produceForm.categoryName === cat.name;
+                  return (
+                    <TouchableOpacity
+                      key={cat.id}
+                      style={[
+                        styles.choiceChip,
+                        isSelected && styles.choiceChipActive,
+                      ]}
+                      onPress={() => setProduceForm((p) => ({ ...p, categoryName: cat.name }))}
+                    >
+                      <Text style={styles.catEmoji}>{cat.emoji}</Text>
+                      <Text style={[styles.choiceChipText, isSelected && styles.choiceChipTextActive]}>
+                        {cat.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
 
-            {/* Category Selector */}
-            <Text style={styles.inputLabel}>Category *</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
-              {CATEGORIES.map((cat) => (
-                <TouchableOpacity
-                  key={cat.id}
-                  style={[
-                    styles.choiceChip,
-                    produceForm.categoryName === cat.name && styles.choiceChipActive,
-                  ]}
-                  onPress={() => setProduceForm((p) => ({ ...p, categoryName: cat.name }))}
-                >
-                  <Text
-                    style={[
-                      styles.choiceChipText,
-                      produceForm.categoryName === cat.name && styles.choiceChipTextActive,
-                    ]}
-                  >
-                    {cat.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+              {/* 3. Seasonality Selector */}
+              <Text style={styles.inputLabel}>Harvest Season *</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
+                {SEASONS.map((season) => {
+                  const isSelected = produceForm.seasonality === season.id;
+                  return (
+                    <TouchableOpacity
+                      key={season.id}
+                      style={[
+                        styles.seasonChip,
+                        isSelected && styles.seasonChipActive,
+                      ]}
+                      onPress={() => setProduceForm((p) => ({ ...p, seasonality: season.id }))}
+                    >
+                      <Text style={styles.seasonBadge}>{season.badge}</Text>
+                      <Text style={[styles.seasonChipTitle, isSelected && styles.seasonChipTitleActive]}>
+                        {season.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
 
-            {/* Price & Unit Row */}
-            <View style={styles.twoColRow}>
-              <View style={{ flex: 1.2 }}>
-                <Text style={styles.inputLabel}>Price in FCFA *</Text>
+              {/* 4. Full-Width Dedicated Price Row */}
+              <Text style={styles.inputLabel}>Harvest Price (FCFA) *</Text>
+              <View style={styles.priceInputWrapper}>
                 <TextInput
-                  style={styles.textInput}
+                  style={styles.priceInput}
                   placeholder="e.g. 1500"
                   placeholderTextColor={Colors.text.muted}
                   keyboardType="numeric"
                   value={produceForm.pricePerUnit}
                   onChangeText={(t) => setProduceForm((p) => ({ ...p, pricePerUnit: t }))}
                 />
+                <View style={styles.priceCurrencyTag}>
+                  <Text style={styles.priceCurrencyTagText}>FCFA</Text>
+                </View>
               </View>
 
-              <View style={{ flex: 1 }}>
-                <Text style={styles.inputLabel}>Unit *</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.unitScroll}>
-                  {UNITS.map((u) => (
+              {/* 5. Unit Selector (PLACED DIRECTLY UNDER THE PRICE) */}
+              <Text style={[styles.inputLabel, { marginTop: 14 }]}>
+                Produce Unit of Measure *
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.unitScrollRow}>
+                {UNITS.map((u) => {
+                  const isSelected = produceForm.unit === u.id;
+                  return (
                     <TouchableOpacity
-                      key={u}
-                      style={[styles.unitChip, produceForm.unit === u && styles.unitChipActive]}
-                      onPress={() => setProduceForm((p) => ({ ...p, unit: u }))}
+                      key={u.id}
+                      style={[styles.fullUnitCard, isSelected && styles.fullUnitCardActive]}
+                      onPress={() => setProduceForm((p) => ({ ...p, unit: u.id }))}
                     >
-                      <Text
-                        style={[
-                          styles.unitChipText,
-                          produceForm.unit === u && styles.unitChipTextActive,
-                        ]}
-                      >
-                        {u}
+                      <Text style={[styles.fullUnitTitle, isSelected && styles.fullUnitTitleActive]}>
+                        {u.label}
                       </Text>
                     </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            </View>
+                  );
+                })}
+              </ScrollView>
 
-            {/* Available Stock Quantity */}
-            <Text style={styles.inputLabel}>Available Harvest Quantity *</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder={`e.g. 100 (${produceForm.unit})`}
-              placeholderTextColor={Colors.text.muted}
-              keyboardType="numeric"
-              value={produceForm.stockQuantity}
-              onChangeText={(t) => setProduceForm((p) => ({ ...p, stockQuantity: t }))}
-            />
-
-            {/* Wholesale Toggle */}
-            <TouchableOpacity
-              style={styles.toggleRow}
-              onPress={() =>
-                setProduceForm((p) => ({
-                  ...p,
-                  isWholesaleBulkAvailable: !p.isWholesaleBulkAvailable,
-                }))
-              }
-            >
-              <View
-                style={[
-                  styles.checkbox,
-                  produceForm.isWholesaleBulkAvailable && styles.checkboxActive,
-                ]}
-              >
-                {produceForm.isWholesaleBulkAvailable && (
-                  <Check size={14} color={Colors.white} strokeWidth={3} />
-                )}
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.toggleTitle}>Enable Wholesale / Bulk Pricing</Text>
-                <Text style={styles.toggleSubtitle}>Allow Buyam-Sellam & bulk buyers to order large volumes at a discount</Text>
-              </View>
-            </TouchableOpacity>
-
-            {produceForm.isWholesaleBulkAvailable && (
-              <View style={styles.twoColRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.inputLabel}>Min Bulk Qty</Text>
+              {/* Custom Unit Input if selected */}
+              {produceForm.unit === 'CUSTOM' && (
+                <View style={styles.customUnitContainer}>
+                  <Text style={styles.customUnitLabel}>
+                    Custom Measure *
+                  </Text>
                   <TextInput
-                    style={styles.textInput}
-                    placeholder="e.g. 10"
+                    style={styles.customUnitInput}
+                    placeholder="e.g. Tas, Panier, Botte, Debe, Filet..."
                     placeholderTextColor={Colors.text.muted}
-                    keyboardType="numeric"
-                    value={produceForm.bulkMinQuantity}
-                    onChangeText={(t) => setProduceForm((p) => ({ ...p, bulkMinQuantity: t }))}
+                    value={produceForm.customUnit}
+                    onChangeText={(t) => setProduceForm((p) => ({ ...p, customUnit: t }))}
+                    autoCapitalize="words"
                   />
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.inputLabel}>Bulk Price (FCFA)</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="e.g. 1200"
-                    placeholderTextColor={Colors.text.muted}
-                    keyboardType="numeric"
-                    value={produceForm.bulkPricePerUnit}
-                    onChangeText={(t) => setProduceForm((p) => ({ ...p, bulkPricePerUnit: t }))}
-                  />
-                </View>
-              </View>
-            )}
-
-            {/* Submit Button */}
-            <TouchableOpacity
-              style={[styles.modalSubmitBtn, savingProduce && { opacity: 0.7 }]}
-              onPress={handleCreateProduce}
-              disabled={savingProduce}
-            >
-              {savingProduce ? (
-                <ActivityIndicator color={Colors.white} />
-              ) : (
-                <Text style={styles.modalSubmitBtnText}>Publish to Marketplace</Text>
               )}
-            </TouchableOpacity>
-            <View style={{ height: 40 }} />
-          </ScrollView>
+
+              {/* Live Price Preview Tag */}
+              <View style={styles.livePricePreview}>
+                <Tag size={13} color={Colors.cultivated} />
+                <Text style={styles.livePricePreviewText}>
+                  Listing: <Text style={{ fontFamily: Fonts.monoBold, color: Colors.espresso }}>
+                    {produceForm.pricePerUnit ? `${Number(produceForm.pricePerUnit).toLocaleString()} FCFA` : '--- FCFA'}
+                  </Text>
+                  {' / '}
+                  <Text style={{ fontFamily: Fonts.bodySemiBold, color: Colors.cultivated }}>
+                    {produceForm.unit === 'CUSTOM'
+                      ? (produceForm.customUnit || 'Custom Unit')
+                      : (UNITS.find((u) => u.id === produceForm.unit)?.label || produceForm.unit)}
+                  </Text>
+                </Text>
+              </View>
+
+              {/* 6. Stock Quantity & Minimum Order Quantity */}
+              <View style={styles.twoColRow}>
+                <View style={{ flex: 1.2 }}>
+                  <Text style={styles.inputLabel}>Available Stock *</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder={`e.g. 100 (${produceForm.unit === 'CUSTOM' ? produceForm.customUnit || 'units' : produceForm.unit})`}
+                    placeholderTextColor={Colors.text.muted}
+                    keyboardType="numeric"
+                    value={produceForm.stockQuantity}
+                    onChangeText={(t) => setProduceForm((p) => ({ ...p, stockQuantity: t }))}
+                  />
+                </View>
+
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.inputLabel}>Min Order (MOQ)</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="e.g. 1"
+                    placeholderTextColor={Colors.text.muted}
+                    keyboardType="numeric"
+                    value={produceForm.minOrderQuantity}
+                    onChangeText={(t) => setProduceForm((p) => ({ ...p, minOrderQuantity: t }))}
+                  />
+                </View>
+              </View>
+
+              {/* 7. Estimated Shelf-Life / Freshness */}
+              <Text style={styles.inputLabel}>Shelf-Life after Harvest</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
+                {SHELF_LIFE_OPTIONS.map((opt) => {
+                  const isSelected = produceForm.shelfLifeDays === opt.days;
+                  return (
+                    <TouchableOpacity
+                      key={opt.days}
+                      style={[
+                        styles.shelfLifeChip,
+                        isSelected && styles.shelfLifeChipActive,
+                      ]}
+                      onPress={() => setProduceForm((p) => ({ ...p, shelfLifeDays: opt.days }))}
+                    >
+                      <Clock size={13} color={isSelected ? Colors.cultivated : Colors.text.secondary} />
+                      <Text style={[styles.shelfLifeText, isSelected && styles.shelfLifeTextActive]}>
+                        {opt.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
+              {/* 8. Wholesale / Buyam-Sellam Bulk Pricing */}
+              <TouchableOpacity
+                style={styles.toggleRow}
+                onPress={() =>
+                  setProduceForm((p) => ({
+                    ...p,
+                    isWholesaleBulkAvailable: !p.isWholesaleBulkAvailable,
+                  }))
+                }
+              >
+                <View
+                  style={[
+                    styles.checkbox,
+                    produceForm.isWholesaleBulkAvailable && styles.checkboxActive,
+                  ]}
+                >
+                  {produceForm.isWholesaleBulkAvailable && (
+                    <Check size={14} color={Colors.white} strokeWidth={3} />
+                  )}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.toggleTitle}>Wholesale / Bulk Pricing</Text>
+                </View>
+              </TouchableOpacity>
+
+              {produceForm.isWholesaleBulkAvailable && (
+                <View style={styles.twoColRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.inputLabel}>Min Bulk Qty</Text>
+                    <TextInput
+                      style={styles.textInput}
+                      placeholder="e.g. 10"
+                      placeholderTextColor={Colors.text.muted}
+                      keyboardType="numeric"
+                      value={produceForm.bulkMinQuantity}
+                      onChangeText={(t) => setProduceForm((p) => ({ ...p, bulkMinQuantity: t }))}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.inputLabel}>Bulk Price (FCFA)</Text>
+                    <TextInput
+                      style={styles.textInput}
+                      placeholder="e.g. 1200"
+                      placeholderTextColor={Colors.text.muted}
+                      keyboardType="numeric"
+                      value={produceForm.bulkPricePerUnit}
+                      onChangeText={(t) => setProduceForm((p) => ({ ...p, bulkPricePerUnit: t }))}
+                    />
+                  </View>
+                </View>
+              )}
+
+              {/* 9. Certified Organic / Cameroon GAP Verification */}
+              <TouchableOpacity
+                style={[styles.toggleRow, { marginTop: 10 }]}
+                onPress={() => setProduceForm((p) => ({ ...p, isOrganic: !p.isOrganic }))}
+              >
+                <View style={[styles.checkbox, produceForm.isOrganic && styles.checkboxActive]}>
+                  {produceForm.isOrganic && (
+                    <Check size={14} color={Colors.white} strokeWidth={3} />
+                  )}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.toggleTitle}>Certified Organic / GAP</Text>
+                </View>
+              </TouchableOpacity>
+            </ScrollView>
+
+            {/* Pinned Bottom Action Bar - Protected from phone navbar & gesture bar */}
+            <View style={[styles.modalFooter, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+              <TouchableOpacity
+                style={[styles.modalSubmitBtn, savingProduce && { opacity: 0.7 }]}
+                onPress={handleCreateProduce}
+                disabled={savingProduce}
+              >
+                {savingProduce ? (
+                  <ActivityIndicator color={Colors.white} />
+                ) : (
+                  <View style={styles.modalSubmitContent}>
+                    <Sprout size={18} color={Colors.white} />
+                    <Text style={styles.modalSubmitBtnText}>Publish to Marketplace</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
         </SafeAreaView>
       </Modal>
     </SafeAreaView>
@@ -1096,41 +1302,60 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: Colors.parchmentDim,
+    backgroundColor: Colors.white,
+  },
+  modalHeaderTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  modalHeaderIconBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#eef8f1',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalTitle: {
     fontFamily: Fonts.displayItalic,
-    fontSize: 18,
+    fontSize: 19,
     color: Colors.canopy,
   },
+  modalHeaderSub: {
+    fontFamily: Fonts.body,
+    fontSize: 11,
+    color: Colors.text.secondary,
+  },
   modalCloseBtn: {
-    padding: 4,
+    padding: 6,
+    borderRadius: 20,
+    backgroundColor: Colors.parchment,
   },
   modalBody: {
-    padding: 20,
+    flex: 1,
+    backgroundColor: Colors.white,
   },
-  modalSubtitle: {
-    fontFamily: Fonts.body,
-    fontSize: 13,
-    color: Colors.text.secondary,
-    marginBottom: 16,
-    lineHeight: 18,
+  modalBodyContent: {
+    padding: 18,
+    paddingBottom: 24,
   },
   inputLabel: {
     fontFamily: Fonts.bodySemiBold,
-    fontSize: 13,
+    fontSize: 13.5,
     color: Colors.espresso,
     marginBottom: 6,
-    marginTop: 10,
+    marginTop: 14,
   },
   textInput: {
     backgroundColor: Colors.parchment,
     borderRadius: Radii.input,
     paddingHorizontal: 14,
-    paddingVertical: 11,
+    paddingVertical: 12,
     fontFamily: Fonts.body,
     fontSize: 14,
     color: Colors.espresso,
@@ -1139,12 +1364,18 @@ const styles = StyleSheet.create({
   },
   chipRow: {
     flexDirection: 'row',
-    marginBottom: 6,
+    marginBottom: 4,
+  },
+  catEmoji: {
+    fontSize: 16,
+    marginRight: 6,
   },
   choiceChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: Colors.parchment,
-    paddingVertical: 7,
-    paddingHorizontal: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     borderRadius: Radii.pill,
     marginRight: 8,
     borderWidth: 1,
@@ -1155,53 +1386,184 @@ const styles = StyleSheet.create({
     borderColor: Colors.cultivated,
   },
   choiceChipText: {
-    fontFamily: Fonts.bodyMedium,
-    fontSize: 12,
-    color: Colors.text.secondary,
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 13.5,
+    color: Colors.espresso,
   },
   choiceChipTextActive: {
-    fontFamily: Fonts.bodySemiBold,
     color: Colors.cultivated,
+  },
+  seasonChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.parchment,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: Radii.pill,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: Colors.parchmentDim,
+    gap: 6,
+  },
+  seasonChipActive: {
+    backgroundColor: '#fef3c7',
+    borderColor: Colors.gold,
+  },
+  seasonBadge: {
+    fontSize: 15,
+  },
+  seasonChipTitle: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 13.5,
+    color: Colors.espresso,
+  },
+  seasonChipTitleActive: {
+    color: '#92400e',
+  },
+  priceInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.parchment,
+    borderRadius: Radii.input,
+    borderWidth: 1,
+    borderColor: Colors.parchmentDim,
+    overflow: 'hidden',
+  },
+  priceInput: {
+    flex: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontFamily: Fonts.monoBold,
+    fontSize: 16,
+    color: Colors.espresso,
+  },
+  priceCurrencyTag: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: Colors.parchmentDim,
+    borderLeftWidth: 1,
+    borderLeftColor: Colors.parchmentDim,
+  },
+  priceCurrencyTagText: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 12,
+    color: Colors.espresso,
+  },
+  unitScrollRow: {
+    flexDirection: 'row',
+    marginVertical: 4,
+  },
+  fullUnitCard: {
+    backgroundColor: Colors.parchment,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: Radii.pill,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: Colors.parchmentDim,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fullUnitCardActive: {
+    backgroundColor: Colors.canopy,
+    borderColor: Colors.canopy,
+  },
+  fullUnitTitle: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 13.5,
+    color: Colors.espresso,
+  },
+  fullUnitTitleActive: {
+    color: Colors.white,
+  },
+  customUnitContainer: {
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: Radii.card,
+    padding: 12,
+    marginTop: 8,
+  },
+  customUnitLabel: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 12,
+    color: Colors.espresso,
+    marginBottom: 6,
+  },
+  customUnitInput: {
+    backgroundColor: Colors.white,
+    borderRadius: Radii.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontFamily: Fonts.body,
+    fontSize: 13,
+    color: Colors.espresso,
+    borderWidth: 1,
+    borderColor: '#94a3b8',
+  },
+  customUnitHelper: {
+    fontFamily: Fonts.body,
+    fontSize: 11,
+    color: Colors.text.secondary,
+    marginTop: 4,
+  },
+  livePricePreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#f0fdf4',
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+    borderRadius: Radii.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginTop: 10,
+  },
+  livePricePreviewText: {
+    fontFamily: Fonts.body,
+    fontSize: 12,
+    color: Colors.espresso,
   },
   twoColRow: {
     flexDirection: 'row',
     gap: 12,
   },
-  unitScroll: {
+  shelfLifeChip: {
     flexDirection: 'row',
-  },
-  unitChip: {
+    alignItems: 'center',
+    gap: 6,
     backgroundColor: Colors.parchment,
-    paddingVertical: 10,
+    paddingVertical: 7,
     paddingHorizontal: 12,
-    borderRadius: Radii.sm,
-    marginRight: 6,
+    borderRadius: Radii.pill,
+    marginRight: 8,
     borderWidth: 1,
     borderColor: Colors.parchmentDim,
   },
-  unitChipActive: {
-    backgroundColor: Colors.canopy,
-    borderColor: Colors.canopy,
+  shelfLifeChipActive: {
+    backgroundColor: '#eef8f1',
+    borderColor: Colors.cultivated,
   },
-  unitChipText: {
-    fontFamily: Fonts.monoBold,
-    fontSize: 11,
-    color: Colors.espresso,
+  shelfLifeText: {
+    fontFamily: Fonts.body,
+    fontSize: 11.5,
+    color: Colors.text.secondary,
   },
-  unitChipTextActive: {
-    color: Colors.white,
+  shelfLifeTextActive: {
+    fontFamily: Fonts.bodySemiBold,
+    color: Colors.cultivated,
   },
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,
     marginTop: 16,
-    paddingVertical: 8,
+    paddingVertical: 4,
   },
   checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
+    width: 22,
+    height: 22,
+    borderRadius: 6,
     borderWidth: 1.5,
     borderColor: Colors.parchmentDim,
     backgroundColor: Colors.white,
@@ -1224,17 +1586,29 @@ const styles = StyleSheet.create({
     color: Colors.text.secondary,
     marginTop: 2,
   },
+  modalFooter: {
+    backgroundColor: Colors.white,
+    borderTopWidth: 1,
+    borderTopColor: Colors.parchmentDim,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    ...Shadows.subtle,
+  },
   modalSubmitBtn: {
     backgroundColor: Colors.cultivated,
     paddingVertical: 14,
     borderRadius: Radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 24,
     ...Shadows.subtle,
   },
+  modalSubmitContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   modalSubmitBtnText: {
-    fontFamily: Fonts.bodySemiBold,
+    fontFamily: Fonts.bodyBold,
     fontSize: 15,
     color: Colors.white,
   },

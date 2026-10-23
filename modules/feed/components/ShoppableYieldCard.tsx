@@ -6,6 +6,7 @@ import { Fonts } from '@/constants/typography';
 import { AgroYield } from '@/types';
 import { useCartStore } from '@/store/cartStore';
 import { useCartAnimationStore } from '@/store/cartAnimationStore';
+import { useLocale } from '@/context/LocaleContext';
 
 interface ShoppableYieldCardProps {
   yieldItem: AgroYield;
@@ -13,6 +14,7 @@ interface ShoppableYieldCardProps {
 }
 
 export default function ShoppableYieldCard({ yieldItem, onPressItem }: ShoppableYieldCardProps) {
+  const { formatPrice } = useLocale();
   const addToCart = useCartStore((state) => state.addToCart);
   const triggerFly = useCartAnimationStore((state) => state.triggerFly);
   const addBtnRef = useRef<any>(null);
@@ -21,6 +23,8 @@ export default function ShoppableYieldCard({ yieldItem, onPressItem }: Shoppable
 
   const handleQuickAdd = (e: any) => {
     e.stopPropagation?.();
+    // Produce flying animation commented out for UI smoothness
+    /*
     if (addBtnRef.current) {
       addBtnRef.current.measureInWindow((x: number, y: number, w: number, h: number) => {
         if (x && y) {
@@ -32,7 +36,9 @@ export default function ShoppableYieldCard({ yieldItem, onPressItem }: Shoppable
     } else {
       triggerFly(0, 0, imageUri);
     }
+    */
     addToCart(yieldItem, 1);
+    useCartAnimationStore.getState().triggerBasketBounce();
   };
 
   const rawPrice = yieldItem.price ?? (yieldItem as any).pricePerUnit ?? 0;
@@ -60,7 +66,7 @@ export default function ShoppableYieldCard({ yieldItem, onPressItem }: Shoppable
           {yieldItem.title}
         </Text>
         <Text style={styles.price}>
-          {numericPrice.toLocaleString()} FCFA
+          {formatPrice(numericPrice).primary}
           <Text style={styles.unit}> / {unitLabel}</Text>
         </Text>
       </View>

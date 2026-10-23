@@ -56,7 +56,7 @@ export default function HomeScreen() {
     } catch (err) {
       console.warn('Could not fetch feed data from backend:', err);
     } finally {
-      await waitRemainingMs(startTime, 3500);
+      await waitRemainingMs(startTime, 0);
       setLoadingFeed(false);
       setRefreshing(false);
     }
@@ -106,18 +106,16 @@ export default function HomeScreen() {
         activeTab={activeTab}
         onTabChange={(t) => setActiveTab(t as any)}
         rightAction={
-          userHasFarm ? (
-            <TouchableOpacity
-              style={styles.headerStoryBtn}
-              onPress={() => router.push('/feed/create')}
-              activeOpacity={0.85}
-              accessibilityRole="button"
-              accessibilityLabel="Create Harvest Story"
-            >
-              <Plus size={13} color={Colors.white} strokeWidth={3} />
-              <Text style={styles.headerStoryBtnText}>Story</Text>
-            </TouchableOpacity>
-          ) : null
+          <TouchableOpacity
+            style={styles.headerStoryBtn}
+            onPress={() => router.push(userHasFarm ? '/feed/create' : '/farmer/new')}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Create Harvest Story"
+          >
+            <Plus size={13} color={Colors.white} strokeWidth={3} />
+            <Text style={styles.headerStoryBtnText}>Story</Text>
+          </TouchableOpacity>
         }
       />
 
@@ -127,9 +125,6 @@ export default function HomeScreen() {
             <AgromPreloader
               size="lg"
               theme="dark"
-              showBrandText
-              label="Harvesting live stories..."
-              subtitle="Connecting to regional farm network"
             />
           </View>
         ) : filteredPosts.length === 0 ? (
