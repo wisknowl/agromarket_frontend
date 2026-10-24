@@ -44,6 +44,7 @@ import { fetchYieldByIdApi } from '@/components/api/yields';
 import { deletePostApi } from '@/components/api/posts';
 import ShoppableYieldCard from '../modules/feed/components/ShoppableYieldCard';
 import telemetryClient from '@/components/api/telemetry';
+import { resolveMediaUrl, isVideoMedia as checkIsVideoMedia, FALLBACK_POST_IMAGE } from '@/utils/media';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -76,6 +77,7 @@ export default function PostCard({
   const [showReactions, setShowReactions] = useState(false);
   const [isCaptionExpanded, setIsCaptionExpanded] = useState(false);
   const [hasReportedTelemetry, setHasReportedTelemetry] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   // Realtime live reactions state derived directly from backend post metrics (no artificial mockup offsets)
   const initialFresh = (post as any).reactions?.fresh ?? Math.floor((post.likesCount || 0) * 0.45);
@@ -274,28 +276,9 @@ export default function PostCard({
     );
   };
 
-  const rawMedia =
-    post.mediaUrl ||
-    post.media ||
-    'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800';
-
-  const isVideoUrl = Boolean(
-    typeof rawMedia === 'string' &&
-      (rawMedia.endsWith('.mp4') ||
-        rawMedia.endsWith('.mov') ||
-        rawMedia.endsWith('.mkv') ||
-        rawMedia.includes('video') ||
-        rawMedia.startsWith('file:') ||
-        rawMedia.startsWith('content:'))
-  );
-
-  const isVideoMedia = Boolean(post.isVideo || isVideoUrl);
-
-  const mediaSource = isVideoMedia
-    ? isVideoUrl
-      ? rawMedia
-      : 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4'
-    : rawMedia;
+  const rawMedia = resolveMediaUrl(post.mediaUrl || post.media) || FALLBACK_POST_IMAGE;
+  const isVideoMedia = checkIsVideoMedia(rawMedia, post.isVideo);
+  const mediaSource = imageError ? FALLBACK_POST_IMAGE : rawMedia;
 
   const player = useVideoPlayer(isVideoMedia ? mediaSource : '', (p) => {
     p.loop = true;
@@ -332,9 +315,7 @@ export default function PostCard({
   };
 
   const avatarSource =
-    post.farmerAvatar ||
-    post.farm?.coverPhoto ||
-    post.user?.avatarUrl ||
+    resolveMediaUrl(post.farmerAvatar || post.farm?.coverPhoto || post.user?.avatarUrl) ||
     'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500';
 
   const farmName = post.farm?.name;
@@ -408,6 +389,11 @@ export default function PostCard({
         <Image
           source={{ uri: mediaSource }}
           style={[styles.media, fullScreen && styles.fullScreenMedia]}
+          resizeMode="cover"
+          onError={() => {
+            console.warn(`[PostCard] Failed to load image from "${mediaSource}". Falling back.`);
+            setImageError(true);
+          }}
         />
       )}
 

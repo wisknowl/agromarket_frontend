@@ -72,6 +72,7 @@ import ProfileHeaderMenu from '../../modules/farms/components/ProfileHeaderMenu'
 import AgroPatronModal from '@/components/AgroPatronModal';
 import AgromPreloader from '@/components/AgromPreloader';
 import { waitRemainingMs } from '@/utils/minDuration';
+import { resolveMediaUrl, isVideoMedia } from '@/utils/media';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -678,21 +679,10 @@ export default function ProfileScreen() {
             ) : (
               <View style={styles.postsGrid}>
                 {userPosts.map((post: any, idx: number) => {
-                  const isVideo = Boolean(
-                    post.isVideo ||
-                    (typeof post.mediaUrl === 'string' && (
-                      post.mediaUrl.endsWith('.mp4') ||
-                      post.mediaUrl.endsWith('.mov') ||
-                      post.mediaUrl.endsWith('.mkv') ||
-                      post.mediaUrl.includes('video') ||
-                      post.mediaUrl.startsWith('file:') ||
-                      post.mediaUrl.startsWith('content:')
-                    ))
-                  );
                   const mediaUri =
-                    post.mediaUrl ||
-                    post.media ||
+                    resolveMediaUrl(post.mediaUrl || post.media) ||
                     'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=500';
+                  const isVideo = isVideoMedia(mediaUri, post.isVideo);
                   const likes = post.likesCount ?? post.likes ?? 0;
 
                   return (
@@ -1010,15 +1000,10 @@ export default function ProfileScreen() {
                     {savedPostsList.length > 0 ? (
                       <View style={styles.postsGrid}>
                         {savedPostsList.map((post, idx) => {
-                          const isVideo = Boolean(
-                            post.isVideo ||
-                            (typeof post.mediaUrl === 'string' &&
-                              (post.mediaUrl.endsWith('.mp4') || post.mediaUrl.includes('video')))
-                          );
                           const mediaUri =
-                            post.mediaUrl ||
-                            post.media ||
+                            resolveMediaUrl(post.mediaUrl || post.media) ||
                             'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=500';
+                          const isVideo = isVideoMedia(mediaUri, post.isVideo);
                           const likes = post.likesCount ?? post.likes ?? 0;
 
                           return (

@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
 // Base API URL configuration - automatically resolves Metro host IP
-const getBaseUrl = () => {
+export const getBaseUrl = () => {
   // 1. Explicit environment variable override (e.g., production deployment)
   if (process.env.EXPO_PUBLIC_API_URL) {
     return process.env.EXPO_PUBLIC_API_URL;
@@ -30,6 +30,14 @@ const getBaseUrl = () => {
 
   // 4. Fallback for Android emulator / local simulator
   return Platform.OS === 'android' ? 'http://10.0.2.2:5000/api' : 'http://localhost:5000/api';
+};
+
+/**
+ * Returns the backend root origin without the trailing /api
+ * e.g., http://192.168.1.173:5000 or http://localhost:5000
+ */
+export const getBackendOrigin = (): string => {
+  return getBaseUrl().replace(/\/api\/?$/, '');
 };
 
 export const apiClient = axios.create({

@@ -1,5 +1,6 @@
 import { apiClient } from './client';
 import { Post } from '../../types';
+import { resolveMediaUrl } from '@/utils/media';
 
 export const fetchFeedPostsApi = async (params?: { farmId?: string; userId?: string }): Promise<Post[]> => {
   try {
@@ -13,10 +14,10 @@ export const fetchFeedPostsApi = async (params?: { farmId?: string; userId?: str
         userId: item.userId,
         user: item.user,
         farmerName: item.farm?.name || item.user?.name || item.farmer?.farmName || 'Cameroon Agro Farm',
-        farmerAvatar: item.farm?.coverPhoto || item.user?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500',
+        farmerAvatar: resolveMediaUrl(item.farm?.coverPhoto || item.user?.avatarUrl) || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500',
         content: item.content,
-        mediaUrl: item.mediaUrl,
-        media: item.mediaUrl,
+        mediaUrl: resolveMediaUrl(item.mediaUrl),
+        media: resolveMediaUrl(item.mediaUrl),
         isVideo: item.isVideo || false,
         linkedYieldId: item.linkedYieldId,
         likesCount: item.likesCount ?? item.likes?.length ?? 0,
@@ -50,10 +51,10 @@ export const createPostApi = async (data: {
     userId: item.userId,
     user: item.user,
     farmerName: item.farm?.name || item.user?.name || 'My Farm',
-    farmerAvatar: item.farm?.coverPhoto || item.user?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500',
+    farmerAvatar: resolveMediaUrl(item.farm?.coverPhoto || item.user?.avatarUrl) || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500',
     content: item.content,
-    mediaUrl: item.mediaUrl,
-    media: item.mediaUrl,
+    mediaUrl: resolveMediaUrl(item.mediaUrl),
+    media: resolveMediaUrl(item.mediaUrl),
     isVideo: item.isVideo || false,
     linkedYieldId: item.linkedYieldId,
     likesCount: item.likesCount ?? 0,
