@@ -50,40 +50,42 @@ export default function CustomTabBar(props?: CustomTabBarProps) {
   // A profile is a farmer STRICTLY if they have at least 1 registered farm
   const userHasFarm = Boolean(user?.farms && user.farms.length > 0);
 
-  // Calculate platform-perfect bottom inset and tab bar height:
-  // On iOS, standard Apple HIG tab height is 49-50pt plus home indicator (~34pt).
-  // On Android, full custom height is needed to clear 3-button navigation and gesture pills.
+  // Calculate platform-perfect bottom inset and tab bar height based on standard mobile ergonomics:
+  // Sleek Apple HIG / Material 3 standard profile (56-64pt content height + safe area).
   const bottomInset = Platform.OS === 'ios'
-    ? (insets.bottom > 0 ? insets.bottom - 12 : 6)
+    ? (insets.bottom > 0 ? insets.bottom - 4 : 4)
     : insets.bottom;
 
   const tabContainerHeight = Platform.OS === 'ios'
-    ? (insets.bottom > 0 ? 50 + insets.bottom : 58)
-    : (62 + insets.bottom);
+    ? (insets.bottom > 0 ? 56 + insets.bottom : 60)
+    : (64 + insets.bottom);
 
   const routes = state?.routes || DEFAULT_ROUTES;
 
   const getTabIcon = (routeName: string, isFocused: boolean) => {
-    const color = isFocused ? Colors.cultivated : 'rgba(36, 26, 18, 0.45)';
-    const strokeWidth = isFocused ? 2.5 : 2.0;
+    const color = isFocused
+      ? (routeName === 'cart' ? Colors.gold : Colors.cultivated)
+      : 'rgba(36, 26, 18, 0.45)';
+    const strokeWidth = isFocused ? 2.4 : 1.9;
+    const iconSize = 24;
 
     switch (routeName) {
       case 'index':
-        return <Home size={22.5} color={color} strokeWidth={strokeWidth} />;
+        return <Home size={iconSize} color={color} strokeWidth={strokeWidth} />;
       case 'agro-yields':
-        return <Sprout size={22.5} color={color} strokeWidth={strokeWidth} />;
+        return <Sprout size={iconSize} color={color} strokeWidth={strokeWidth} />;
       case 'cart':
         return (
           <View style={{ position: 'relative' }}>
             <View
               style={{
-                width: 26,
-                height: 26,
-                borderRadius: 13,
+                width: 28,
+                height: 28,
+                borderRadius: 14,
                 overflow: 'hidden',
                 borderWidth: isFocused ? 2 : 1,
-                borderColor: isFocused ? Colors.gold : 'rgba(36, 26, 18, 0.55)',
-                backgroundColor: Colors.parchment,
+                borderColor: isFocused ? Colors.gold : 'rgba(36, 26, 18, 0.45)',
+                backgroundColor: isFocused ? '#FEF6E8' : Colors.parchment,
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
@@ -104,11 +106,11 @@ export default function CustomTabBar(props?: CustomTabBarProps) {
           </View>
         );
       case 'inbox':
-        return <MessageSquare size={22.5} color={color} strokeWidth={strokeWidth} />;
+        return <MessageSquare size={iconSize} color={color} strokeWidth={strokeWidth} />;
       case 'profile':
-        return <User size={22.5} color={color} strokeWidth={strokeWidth} />;
+        return <User size={iconSize} color={color} strokeWidth={strokeWidth} />;
       default:
-        return <Home size={22.5} color={color} strokeWidth={strokeWidth} />;
+        return <Home size={iconSize} color={color} strokeWidth={strokeWidth} />;
     }
   };
 
@@ -168,7 +170,12 @@ export default function CustomTabBar(props?: CustomTabBarProps) {
               style={styles.tabItem}
               activeOpacity={0.7}
             >
-              <View style={styles.iconWrapper}>
+              <View
+                style={[
+                  styles.iconWrapper,
+                  isFocused && (route.name === 'cart' ? styles.iconWrapperActiveCart : styles.iconWrapperActiveGround),
+                ]}
+              >
                 {getTabIcon(route.name, isFocused)}
               </View>
               <Text
@@ -176,12 +183,14 @@ export default function CustomTabBar(props?: CustomTabBarProps) {
                   styles.tabLabel,
                   {
                     color: isFocused
-                      ? (route.name === 'cart' ? Colors.gold : Colors.cultivated)
-                      : 'rgba(36, 26, 18, 0.55)',
-                    fontFamily: isFocused ? Fonts.bodySemiBold : Fonts.bodyMedium,
+                      ? (route.name === 'cart' ? '#C68F30' : Colors.cultivated)
+                      : 'rgba(36, 26, 18, 0.58)',
+                    fontFamily: isFocused ? Fonts.bodyBold : Fonts.bodyMedium,
                   },
                 ]}
                 numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.85}
               >
                 {getTabLabel(route.name)}
               </Text>
@@ -213,56 +222,52 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 6,
+    paddingHorizontal: 8,
   },
   tabItem: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: Platform.OS === 'ios' ? 4 : 6,
-  },
-  centerPlusTabItem: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 4,
-  },
-  centerPlusCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Colors.cultivated,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: Colors.cultivated,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35,
-    shadowRadius: 5,
-    elevation: 4,
+    paddingVertical: Platform.OS === 'ios' ? 2 : 3,
   },
   iconWrapper: {
-    height: 27,
+    width: 48,
+    height: 30,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 2,
+    marginBottom: 3,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    backgroundColor: 'transparent',
+  },
+  iconWrapperActiveGround: {
+    backgroundColor: '#EEF6ED', // Light ground cultivated green tint
+    borderColor: 'rgba(78, 139, 63, 0.22)',
+  },
+  iconWrapperActiveCart: {
+    backgroundColor: '#FEF6E8', // Light harvest gold tint
+    borderColor: 'rgba(226, 166, 60, 0.32)',
   },
   tabLabel: {
-    fontSize: 11,
-    letterSpacing: 0.1,
+    fontSize: 13,
+    letterSpacing: -0.1,
     includeFontPadding: false,
     textAlign: 'center',
   },
   badge: {
     position: 'absolute',
-    right: -8,
+    right: -7,
     top: -4,
     backgroundColor: Colors.gold,
-    borderRadius: 9,
-    minWidth: 18,
-    height: 18,
+    borderRadius: 8.5,
+    minWidth: 17,
+    height: 17,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 4,
+    paddingHorizontal: 3,
+    borderWidth: 1.5,
+    borderColor: Colors.white,
   },
   badgeText: {
     color: Colors.espresso,

@@ -17,7 +17,6 @@ import {
   ArrowLeft,
   Sprout,
   Egg,
-  Beef,
   Fish,
   Home,
   Layers,
@@ -31,6 +30,7 @@ import {
   Trash2,
   Building2,
 } from 'lucide-react-native';
+import CattleIcon from '@/components/ui/CattleIcon';
 import Colors, { Radii, Shadows } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
 import BrandButton from '@/components/ui/BrandButton';
@@ -40,12 +40,12 @@ import { Farm, FarmCategory } from '@/types';
 import { createFarmApi } from '../api';
 
 const CATEGORIES: Array<{ key: FarmCategory; label: string; icon: any; sub: string }> = [
-  { key: 'CROPS', label: 'Crops & Vegetables', icon: Sprout, sub: 'Tomatoes, Maize, Potatoes, Plantains' },
-  { key: 'POULTRY', label: 'Poultry & Birds', icon: Egg, sub: 'Broilers, Layers, Organic Eggs' },
-  { key: 'LIVESTOCK', label: 'Livestock & Cattle', icon: Beef, sub: 'Cattle, Goats, Sheep, Pigs' },
+  { key: 'CROPS', label: 'Crops & Vegetables', icon: Sprout, sub: 'Tomatoes, Maize, Potatoes, Greens' },
+  { key: 'POULTRY', label: 'Poultry & Birds', icon: Egg, sub: 'Broilers, Layers, Free-Range Eggs' },
+  { key: 'LIVESTOCK', label: 'Livestock & Cattle', icon: CattleIcon, sub: 'Cattle, Goats, Sheep, Pigs' },
   { key: 'AQUACULTURE', label: 'Fish & Aquaculture', icon: Fish, sub: 'Tilapia, Catfish, Fingerlings' },
-  { key: 'GREENHOUSE', label: 'Greenhouse & Tech', icon: Home, sub: 'Hydroponics, Controlled climate' },
-  { key: 'MIXED', label: 'Mixed Farming', icon: Layers, sub: 'Multi-crop & animal integration' },
+  { key: 'GREENHOUSE', label: 'Greenhouse & Tech', icon: Home, sub: 'Hydroponics, Climate Controlled' },
+  { key: 'MIXED', label: 'Mixed Farming', icon: Layers, sub: 'Integrated crops and animals' },
 ];
 
 const CAMEROON_REGIONS = [
@@ -74,6 +74,7 @@ export default function RegisterFarmScreen() {
   const setActiveFarmId = useUIStore((s) => s.setActiveFarmId);
 
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   // Form State
   const [name, setName] = useState('');
@@ -119,7 +120,7 @@ export default function RegisterFarmScreen() {
 
   const handleRemoveParcel = (idToRemove: string) => {
     if (parcels.length <= 1) {
-      Alert.alert('Cannot Remove', 'Your farm enterprise must have at least one operating site.');
+      setErrors((e) => ({ ...e, parcel: 'Your farm enterprise must have at least one operating site.' }));
       return;
     }
     setParcels((prev) => prev.filter((p) => p.id !== idToRemove));
@@ -129,6 +130,9 @@ export default function RegisterFarmScreen() {
     setParcels((prev) =>
       prev.map((p) => (p.id === id ? { ...p, [field]: value } : p))
     );
+    if (errors[`city-${id}`] && field === 'city') {
+      setErrors((e) => ({ ...e, [`city-${id}`]: '' }));
+    }
   };
 
   const totalParcelsHectares = parcels.reduce(
@@ -161,21 +165,26 @@ export default function RegisterFarmScreen() {
   const handleNextStep = () => {
     if (step === 1) {
       if (!name.trim()) {
-        Alert.alert('Required Field', 'Please enter your farm name.');
+        setErrors({ name: 'Farm name is required' });
         return;
       }
+      setErrors({});
       setStep(2);
     } else if (step === 2) {
-      const emptySite = parcels.find((p) => !p.city.trim());
-      if (emptySite) {
-        Alert.alert(
-          'City Required',
-          `Please enter the city / town for "${emptySite.name || 'operating site'}".`
-        );
+      const newErrors: { [key: string]: string } = {};
+      parcels.forEach((p) => {
+        if (!p.city.trim()) {
+          newErrors[`city-${p.id}`] = 'City or town is required for this site';
+        }
+      });
+      if (Object.keys(newErrors).length > 0) {
+        setErrors(newErrors);
         return;
       }
+      setErrors({});
       setStep(3);
     } else if (step === 3) {
+      setErrors({});
       setStep(4);
     }
   };
@@ -253,7 +262,7 @@ export default function RegisterFarmScreen() {
     setIsSubmitting(false);
 
     Alert.alert(
-      '🌾 Farm Registered Successfully!',
+      '🌾 AgroFarm Registered Successfully!',
       `"${newFarm.name}" is now live in your farmer workspace. You can now add produce yields and post harvest videos.`,
       [
         {
@@ -268,6 +277,7 @@ export default function RegisterFarmScreen() {
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
         style={{ flex: 1 }}
       >
         {/* Top Header */}
@@ -275,11 +285,12 @@ export default function RegisterFarmScreen() {
           <TouchableOpacity
             onPress={() => (step > 1 ? setStep((step - 1) as any) : router.back())}
             style={styles.backButton}
+            accessibilityLabel="Go back"
           >
             <ArrowLeft size={22} color={Colors.espresso} strokeWidth={2.2} />
           </TouchableOpacity>
           <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle}>Register New Farm</Text>
+            <Text style={styles.headerTitle}>Register AgroFarm</Text>
             <Text style={styles.headerSubtitle}>Step {step} of 4</Text>
           </View>
           <View style={{ width: 40 }} />
@@ -293,28 +304,30 @@ export default function RegisterFarmScreen() {
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets={true}
         >
           {/* STEP 1: Farm Identity & Category */}
           {step === 1 && (
             <View style={styles.stepContainer}>
               <View style={styles.stepTitleRow}>
-                <Sparkles size={20} color={Colors.gold} strokeWidth={2.2} />
                 <Text style={styles.stepHeading}>Farm Identity & Category</Text>
               </View>
-              <Text style={styles.stepDesc}>
-                Define your farm name and choose what you produce.
-              </Text>
 
-              <Text style={styles.inputLabel}>Farm / Production Name *</Text>
+              <Text style={styles.inputLabel}>Farm Name</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, errors.name && styles.inputError]}
                 placeholder="e.g., Mount Cameroon Organic Highlands"
                 placeholderTextColor={Colors.text.muted}
                 value={name}
-                onChangeText={setName}
+                onChangeText={(val) => {
+                  setName(val);
+                  if (errors.name) setErrors((e) => ({ ...e, name: '' }));
+                }}
               />
+              {errors.name && <Text style={styles.inlineError}>{errors.name}</Text>}
 
-              <Text style={styles.inputLabel}>Select Farming Category *</Text>
+              <Text style={styles.inputLabel}>Farming Category</Text>
               <View style={styles.categoriesGrid}>
                 {CATEGORIES.map((cat) => {
                   const Icon = cat.icon;
@@ -336,7 +349,7 @@ export default function RegisterFarmScreen() {
                         ]}
                       >
                         <Icon
-                          size={20}
+                          size={24}
                           color={isSelected ? Colors.white : Colors.cultivated}
                           strokeWidth={2.2}
                         />
@@ -357,7 +370,7 @@ export default function RegisterFarmScreen() {
                 })}
               </View>
 
-              <Text style={styles.inputLabel}>Farm Story / Description</Text>
+              <Text style={styles.inputLabel}>Farm Description</Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
                 placeholder="Tell buyers about your soil, farming ethics, and harvest methods..."
@@ -374,22 +387,19 @@ export default function RegisterFarmScreen() {
           {step === 2 && (
             <View style={styles.stepContainer}>
               <View style={styles.stepTitleRow}>
-                <MapPin size={20} color={Colors.cultivated} strokeWidth={2.2} />
                 <Text style={styles.stepHeading}>Operating Sites & Locations</Text>
               </View>
-              <Text style={styles.stepDesc}>
-                Add all physical land parcels, production sites, or livestock depots operated by this farm enterprise.
-              </Text>
 
               {parcels.map((parcel, idx) => {
                 const isHQ = idx === 0;
+                const cityError = errors[`city-${parcel.id}`];
                 return (
                   <View key={parcel.id} style={styles.parcelCard}>
                     <View style={styles.parcelCardHeader}>
                       <View style={styles.parcelBadgeRow}>
                         <View style={[styles.parcelNumBadge, isHQ && styles.parcelNumBadgeHQ]}>
                           <Text style={[styles.parcelNumText, isHQ && styles.parcelNumTextHQ]}>
-                            {isHQ ? '⭐ Primary Base (HQ)' : `📍 Site ${idx + 1}`}
+                            {isHQ ? 'Primary Base (HQ)' : `Site ${idx + 1}`}
                           </Text>
                         </View>
                       </View>
@@ -404,7 +414,7 @@ export default function RegisterFarmScreen() {
                       )}
                     </View>
 
-                    <Text style={styles.inputLabel}>Site / Facility Nickname *</Text>
+                    <Text style={styles.inputLabel}>Site / Facility Name</Text>
                     <TextInput
                       style={styles.input}
                       placeholder={
@@ -415,7 +425,7 @@ export default function RegisterFarmScreen() {
                       onChangeText={(val) => handleUpdateParcel(parcel.id, 'name', val)}
                     />
 
-                    <Text style={styles.inputLabel}>Agricultural Region *</Text>
+                    <Text style={styles.inputLabel}>Agricultural Region</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.regionsScroll}>
                       {CAMEROON_REGIONS.map((r) => {
                         const isSel = parcel.region === r;
@@ -435,14 +445,15 @@ export default function RegisterFarmScreen() {
 
                     <View style={styles.twoColRow}>
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.inputLabel}>City / Town *</Text>
+                        <Text style={styles.inputLabel}>City / Town</Text>
                         <TextInput
-                          style={styles.input}
+                          style={[styles.input, cityError && styles.inputError]}
                           placeholder="e.g., Buea"
                           placeholderTextColor={Colors.text.muted}
                           value={parcel.city}
                           onChangeText={(val) => handleUpdateParcel(parcel.id, 'city', val)}
                         />
+                        {cityError && <Text style={styles.inlineError}>{cityError}</Text>}
                       </View>
                       <View style={{ flex: 1 }}>
                         <Text style={styles.inputLabel}>Division / Sector</Text>
@@ -490,7 +501,7 @@ export default function RegisterFarmScreen() {
                 activeOpacity={0.85}
               >
                 <Plus size={18} color={Colors.cultivated} strokeWidth={2.5} />
-                <Text style={styles.addParcelBtnText}>+ Add Another Operating Site / Plot</Text>
+                <Text style={styles.addParcelBtnText}>Add Another Operating Site / Plot</Text>
               </TouchableOpacity>
 
               {/* Live Enterprise Footprint Summary Banner */}
@@ -503,29 +514,26 @@ export default function RegisterFarmScreen() {
             </View>
           )}
 
-          {/* STEP 3: Land Size & Primary Produce */}
+          {/* STEP 3: Capacity & Primary Produce */}
           {step === 3 && (
             <View style={styles.stepContainer}>
               <View style={styles.stepTitleRow}>
-                <Layers size={20} color={Colors.soil} strokeWidth={2.2} />
                 <Text style={styles.stepHeading}>Operations & Capacity</Text>
               </View>
-              <Text style={styles.stepDesc}>
-                Specify your production land area and what you grow or raise.
-              </Text>
 
-              <Text style={styles.inputLabel}>Total Farm Enterprise Size (in Hectares)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder={totalParcelsHectares > 0 ? String(totalParcelsHectares) : 'e.g., 3.5'}
-                placeholderTextColor={Colors.text.muted}
-                keyboardType="numeric"
-                value={sizeHectares || (totalParcelsHectares > 0 ? String(totalParcelsHectares) : '')}
-                onChangeText={setSizeHectares}
-              />
-              <Text style={styles.hectaresHelper}>
-                💡 Automatically calculated from your {parcels.length} operating site(s) ({totalParcelsHectares.toFixed(1)} ha total).
-              </Text>
+              {/* Total Enterprise Land Card */}
+              <View style={styles.totalLandCard}>
+                <View style={styles.totalLandLeft}>
+                  <View style={styles.totalLandIconBox}>
+                    <Layers size={22} color={Colors.cultivated} strokeWidth={2.4} />
+                  </View>
+                  <View>
+                    <Text style={styles.totalLandTitle}>Total Operating Land</Text>
+                    <Text style={styles.totalLandSub}>{parcels.length} {parcels.length === 1 ? 'Site' : 'Sites'} across Cameroon</Text>
+                  </View>
+                </View>
+                <Text style={styles.totalLandValue}>{totalParcelsHectares > 0 ? totalParcelsHectares.toFixed(1) : '1.0'} ha</Text>
+              </View>
 
               <Text style={styles.inputLabel}>Primary Produce Items</Text>
               <View style={styles.tagInputRow}>
@@ -569,12 +577,8 @@ export default function RegisterFarmScreen() {
           {step === 4 && (
             <View style={styles.stepContainer}>
               <View style={styles.stepTitleRow}>
-                <ShieldCheck size={20} color={Colors.cultivated} strokeWidth={2.2} />
                 <Text style={styles.stepHeading}>Quality & Cover Photo</Text>
               </View>
-              <Text style={styles.stepDesc}>
-                Select badges and choose a high-resolution farm photo for your storefront.
-              </Text>
 
               <Text style={styles.inputLabel}>Select Cover Photo</Text>
               <View style={styles.coversGrid}>
@@ -627,20 +631,32 @@ export default function RegisterFarmScreen() {
           )}
         </ScrollView>
 
-        {/* Bottom Action Button */}
+        {/* Bottom Action Footer with Back Button on every step */}
         <View style={styles.footer}>
-          {step < 4 ? (
+          {step === 1 ? (
             <BrandButton
-              title="Continue to Next Step"
+              title="Continue to Step 2"
               onPress={handleNextStep}
               variant="primary"
             />
           ) : (
-            <BrandButton
-              title={isSubmitting ? 'Registering Farm...' : 'Complete & Register Farm'}
-              onPress={handleSubmit}
-              variant="primary"
-            />
+            <View style={styles.footerRow}>
+              <TouchableOpacity
+                style={styles.footerBackBtn}
+                onPress={() => setStep((step - 1) as any)}
+                activeOpacity={0.8}
+              >
+                <ArrowLeft size={18} color={Colors.espresso} strokeWidth={2.2} />
+                <Text style={styles.footerBackBtnText}>Back</Text>
+              </TouchableOpacity>
+              <View style={{ flex: 1 }}>
+                <BrandButton
+                  title={step < 4 ? 'Continue to Next Step' : (isSubmitting ? 'Registering...' : 'Complete & Register AgroFarm')}
+                  onPress={step < 4 ? handleNextStep : handleSubmit}
+                  variant="primary"
+                />
+              </View>
+            </View>
           )}
         </View>
       </KeyboardAvoidingView>
@@ -742,32 +758,34 @@ const styles = StyleSheet.create({
   },
   categoryCard: {
     width: '48%',
-    backgroundColor: Colors.parchment,
+    backgroundColor: Colors.white,
     borderWidth: 1.5,
     borderColor: Colors.parchmentDim,
     borderRadius: Radii.card,
-    padding: 12,
+    padding: 14,
     alignItems: 'flex-start',
+    ...Shadows.subtle,
   },
   categoryCardActive: {
-    backgroundColor: '#eef8f1',
+    backgroundColor: '#EEF8F1',
     borderColor: Colors.cultivated,
+    borderWidth: 2,
   },
   catIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.white,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#F0F7EF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   catIconCircleActive: {
     backgroundColor: Colors.cultivated,
   },
   catLabel: {
-    fontFamily: Fonts.bodySemiBold,
-    fontSize: 13,
+    fontFamily: Fonts.bodyBold,
+    fontSize: 13.5,
     color: Colors.espresso,
     marginBottom: 2,
   },
@@ -776,8 +794,19 @@ const styles = StyleSheet.create({
   },
   catSub: {
     fontFamily: Fonts.body,
-    fontSize: 10.5,
+    fontSize: 11,
     color: Colors.text.secondary,
+    lineHeight: 15,
+  },
+  inlineError: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 11.5,
+    color: '#dc2626',
+    marginTop: 4,
+  },
+  inputError: {
+    borderColor: '#dc2626',
+    borderWidth: 1.5,
   },
   regionsScroll: {
     marginBottom: 6,
@@ -913,6 +942,28 @@ const styles = StyleSheet.create({
     borderTopColor: Colors.parchmentDim,
     backgroundColor: Colors.white,
   },
+  footerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  footerBackBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    borderRadius: Radii.pill,
+    backgroundColor: Colors.parchment,
+    borderWidth: 1,
+    borderColor: Colors.parchmentDim,
+  },
+  footerBackBtnText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 14,
+    color: Colors.espresso,
+  },
 
   // Multi-Site Parcel Styles
   parcelCard: {
@@ -1007,11 +1058,46 @@ const styles = StyleSheet.create({
     color: Colors.espresso,
     flex: 1,
   },
-  hectaresHelper: {
+  totalLandCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.white,
+    borderRadius: Radii.card,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: Colors.parchmentDim,
+    marginBottom: 8,
+    ...Shadows.subtle,
+  },
+  totalLandLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  totalLandIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#EEF8F1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  totalLandTitle: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 14,
+    color: Colors.espresso,
+  },
+  totalLandSub: {
     fontFamily: Fonts.body,
     fontSize: 11.5,
     color: Colors.text.secondary,
-    marginTop: 4,
-    marginBottom: 10,
+    marginTop: 2,
+  },
+  totalLandValue: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 18,
+    color: Colors.cultivated,
   },
 });

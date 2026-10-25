@@ -94,7 +94,7 @@ export const CATEGORIES: AgroCategoryDef[] = [
   { id: 'cat-oil', name: 'Oils & Fats', emoji: '🛢️' },
   { id: 'cat-spi', name: 'Spices & Herbs', emoji: '🌶️' },
   { id: 'cat-egg', name: 'Poultry & Eggs', emoji: '🥚' },
-  { id: 'cat-liv', name: 'Livestock & Meat', emoji: '🥩' },
+  { id: 'cat-liv', name: 'Livestock & Cattle', emoji: '🐂' },
   { id: 'cat-aqu', name: 'Aquaculture & Fish', emoji: '🐟' },
 ];
 
@@ -511,7 +511,7 @@ export default function FarmManagementScreen() {
             onPress={() => router.push('/farmer/new')}
           >
             <Plus size={18} color={Colors.white} />
-            <Text style={styles.primaryActionBtnText}>Register New Farm</Text>
+            <Text style={styles.primaryActionBtnText}>Register AgroFarm</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -595,30 +595,34 @@ export default function FarmManagementScreen() {
           </View>
         </View>
 
-        {/* Analytics Highlights */}
+        {/* Analytics Highlights - High Visibility Numbers & Icons, No Redundant Text */}
         <View style={styles.statsGrid}>
-          <View style={styles.statCard}>
-            <Package size={18} color={Colors.cultivated} />
+          <View style={styles.statCard} accessibilityLabel={`${farmYields.length} Active Yields`}>
+            <View style={[styles.statIconBadge, { backgroundColor: '#EEF8F1' }]}>
+              <Package size={22} color={Colors.cultivated} strokeWidth={2.4} />
+            </View>
             <Text style={styles.statValue}>{farmYields.length}</Text>
-            <Text style={styles.statLabel}>Active Yields</Text>
           </View>
 
-          <View style={styles.statCard}>
-            <Layers size={18} color={Colors.soil} />
-            <Text style={styles.statValue}>{activeFarm?.sizeHectares || 3.5} ha</Text>
-            <Text style={styles.statLabel}>Cultivated Land</Text>
+          <View style={styles.statCard} accessibilityLabel={`${activeFarm?.sizeHectares || 3.5} Hectares Cultivated Land`}>
+            <View style={[styles.statIconBadge, { backgroundColor: '#FDF2E9' }]}>
+              <Layers size={22} color={Colors.soil} strokeWidth={2.4} />
+            </View>
+            <Text style={styles.statValue}>{activeFarm?.sizeHectares || 3.5}ha</Text>
           </View>
 
-          <View style={styles.statCard}>
-            <Star size={18} color={Colors.gold} fill={Colors.gold} />
+          <View style={styles.statCard} accessibilityLabel={`${activeFarm?.rating?.toFixed(1) || '4.9'} Star Buyer Rating`}>
+            <View style={[styles.statIconBadge, { backgroundColor: '#FEF7EE' }]}>
+              <Star size={22} color={Colors.gold} fill={Colors.gold} strokeWidth={1.5} />
+            </View>
             <Text style={styles.statValue}>{activeFarm?.rating?.toFixed(1) || '4.9'}</Text>
-            <Text style={styles.statLabel}>Buyer Rating</Text>
           </View>
 
-          <View style={styles.statCard}>
-            <TrendingUp size={18} color="#7c3aed" />
+          <View style={styles.statCard} accessibilityLabel="Credit Score 780">
+            <View style={[styles.statIconBadge, { backgroundColor: '#FAF5FF' }]}>
+              <TrendingUp size={22} color="#7C3AED" strokeWidth={2.4} />
+            </View>
             <Text style={styles.statValue}>780</Text>
-            <Text style={styles.statLabel}>Credit Score</Text>
           </View>
         </View>
 
@@ -633,22 +637,21 @@ export default function FarmManagementScreen() {
         <View style={styles.hubActionsContainer}>
           {/* Action Row 1: Dual Creation Cards */}
           <View style={styles.hubDualRow}>
-            {/* 📦 1. List Harvest Batch */}
+            {/* 📦 1. List Harvest Batch (Cultivated Green commercial action) */}
             <TouchableOpacity
               style={styles.hubActionCardPrimary}
               onPress={() => setShowAddProduceModal(true)}
               activeOpacity={0.88}
               accessibilityRole="button"
-              accessibilityLabel="List New Harvest Batch"
+              accessibilityLabel="List Harvest Batch"
             >
               <View style={styles.hubActionIconCirclePrimary}>
                 <Package size={22} color={Colors.white} strokeWidth={2.3} />
               </View>
-              <Text style={styles.hubActionTitlePrimary}>+ List Harvest Batch</Text>
-              <Text style={styles.hubActionSubPrimary}>Add stock, price & units</Text>
+              <Text style={styles.hubActionTitlePrimary}>List Harvest</Text>
             </TouchableOpacity>
 
-            {/* 🎬 2. Record Field Story */}
+            {/* 🎬 2. Record Field Story (Harvest Gold storytelling action) */}
             <TouchableOpacity
               style={styles.hubActionCardStory}
               onPress={openCreatePostModal}
@@ -660,11 +663,10 @@ export default function FarmManagementScreen() {
                 <Video size={22} color={Colors.white} strokeWidth={2.2} />
               </View>
               <Text style={styles.hubActionTitleStory}>Record Field Story</Text>
-              <Text style={styles.hubActionSubStory}>Publish video reel to AgroFeed</Text>
             </TouchableOpacity>
           </View>
 
-          {/* 📊 3. Credit Score & Escrow Ledger */}
+          {/* 📊 3. Credit Score & Loans */}
           <TouchableOpacity
             style={styles.hubActionCardLedger}
             onPress={() => router.push('/fintech/loans')}
@@ -676,19 +678,12 @@ export default function FarmManagementScreen() {
               <View style={styles.hubActionIconCircleLedger}>
                 <TrendingUp size={20} color={Colors.white} strokeWidth={2.4} />
               </View>
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={styles.ledgerCardTitle}>Credit Score & Loans 📊</Text>
-                  <View style={styles.ledgerBadge}>
-                    <Text style={styles.ledgerBadgeText}>{user?.farmerProfile?.creditTier || 'GOLD'}</Text>
-                  </View>
-                </View>
-                <Text style={styles.ledgerCardSub}>
-                  View Engine 1 Radar & 10–20% auto-escrow loan limits
-                </Text>
+              <Text style={styles.ledgerCardTitle}>Credit Score & Loans</Text>
+              <View style={styles.ledgerBadge}>
+                <Text style={styles.ledgerBadgeText}>{user?.farmerProfile?.creditTier || 'GOLD'}</Text>
               </View>
             </View>
-            <ChevronRight size={18} color="#7c3aed" strokeWidth={2.5} />
+            <ChevronRight size={18} color="#7C3AED" strokeWidth={2.5} />
           </TouchableOpacity>
 
           {/* 🏪 4. Buyer Storefront Link */}
@@ -702,7 +697,7 @@ export default function FarmManagementScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Live Farm Produce Catalog Header with + Add Produce Button */}
+        {/* Live Farm Produce Catalog Header with Add Produce Button */}
         <View style={styles.sectionHeaderRow}>
           <View>
             <Text style={styles.sectionHeader}>Produce Produced on this Farm</Text>
@@ -714,7 +709,7 @@ export default function FarmManagementScreen() {
             activeOpacity={0.85}
           >
             <Plus size={14} color={Colors.white} strokeWidth={2.5} />
-            <Text style={styles.addProduceHeaderBtnText}>+ Add Produce</Text>
+            <Text style={styles.addProduceHeaderBtnText}>Add Produce</Text>
           </TouchableOpacity>
         </View>
 
@@ -828,7 +823,7 @@ export default function FarmManagementScreen() {
             activeOpacity={0.8}
           >
             <Plus size={14} color={Colors.cultivated} strokeWidth={2.5} />
-            <Text style={styles.addSiteSmallBtnText}>+ Add Site</Text>
+            <Text style={styles.addSiteSmallBtnText}>Add Site</Text>
           </TouchableOpacity>
         </View>
 
@@ -962,7 +957,7 @@ export default function FarmManagementScreen() {
                     onPress={() => setShowAddSiteModal(true)}
                   >
                     <Plus size={14} color={Colors.cultivated} />
-                    <Text style={styles.addSiteChipBtnText}>+ Add Plot</Text>
+                    <Text style={styles.addSiteChipBtnText}>Add Plot</Text>
                   </TouchableOpacity>
                 </ScrollView>
               </View>
@@ -1745,25 +1740,33 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: Colors.parchment,
+    backgroundColor: Colors.white,
     borderWidth: 1,
     borderColor: Colors.parchmentDim,
     borderRadius: Radii.card,
-    padding: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 6,
     alignItems: 'center',
+    justifyContent: 'center',
+    ...Shadows.subtle,
+  },
+  statIconBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   statValue: {
     fontFamily: Fonts.monoBold,
-    fontSize: 14,
+    fontSize: 17,
     color: Colors.espresso,
-    marginTop: 4,
-    marginBottom: 2,
+    marginTop: 6,
+    includeFontPadding: false,
+    textAlign: 'center',
   },
   statLabel: {
-    fontFamily: Fonts.body,
-    fontSize: 10,
-    color: Colors.text.secondary,
-    textAlign: 'center',
+    display: 'none',
   },
   sectionHeader: {
     fontFamily: Fonts.bodySemiBold,
@@ -1896,123 +1899,123 @@ const styles = StyleSheet.create({
   },
   hubActionCardPrimary: {
     flex: 1,
-    backgroundColor: '#eef8f1',
-    borderWidth: 1.5,
-    borderColor: Colors.cultivated,
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.parchmentDim,
     borderRadius: Radii.card,
-    padding: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
     ...Shadows.subtle,
   },
   hubActionIconCirclePrimary: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: Colors.cultivated,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
     shadowColor: Colors.cultivated,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.25,
     shadowRadius: 3,
-    elevation: 3,
+    elevation: 2,
   },
   hubActionTitlePrimary: {
     fontFamily: Fonts.bodyBold,
     fontSize: 13.5,
     color: Colors.canopy,
+    textAlign: 'center',
   },
   hubActionSubPrimary: {
-    fontFamily: Fonts.body,
-    fontSize: 11,
-    color: Colors.text.secondary,
-    marginTop: 2,
+    display: 'none',
   },
   hubActionCardStory: {
     flex: 1,
-    backgroundColor: '#fef7ee',
-    borderWidth: 1.5,
-    borderColor: Colors.gold,
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.parchmentDim,
     borderRadius: Radii.card,
-    padding: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
     ...Shadows.subtle,
   },
   hubActionIconCircleStory: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: Colors.gold,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
     shadowColor: Colors.gold,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.25,
     shadowRadius: 3,
-    elevation: 3,
+    elevation: 2,
   },
   hubActionTitleStory: {
     fontFamily: Fonts.bodyBold,
     fontSize: 13.5,
     color: Colors.espresso,
+    textAlign: 'center',
   },
   hubActionSubStory: {
-    fontFamily: Fonts.body,
-    fontSize: 11,
-    color: Colors.text.secondary,
-    marginTop: 2,
+    display: 'none',
   },
   hubActionCardLedger: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FAF5FF',
-    borderWidth: 1.5,
-    borderColor: '#C084FC',
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.parchmentDim,
     borderRadius: Radii.card,
-    padding: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     ...Shadows.subtle,
   },
   ledgerCardLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    gap: 10,
   },
   hubActionIconCircleLedger: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#7c3aed',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#7C3AED',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#7c3aed',
+    shadowColor: '#7C3AED',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3,
-    elevation: 3,
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
   },
   ledgerCardTitle: {
     fontFamily: Fonts.bodyBold,
     fontSize: 13.5,
-    color: '#4C1D95',
+    color: Colors.espresso,
   },
   ledgerBadge: {
     backgroundColor: '#EDE9FE',
-    paddingHorizontal: 6,
-    paddingVertical: 1,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
     borderRadius: 4,
-    marginLeft: 6,
   },
   ledgerBadgeText: {
     fontFamily: Fonts.monoBold,
-    fontSize: 9,
+    fontSize: 9.5,
     color: '#7C3AED',
   },
   ledgerCardSub: {
-    fontFamily: Fonts.body,
-    fontSize: 11,
-    color: Colors.text.secondary,
-    marginTop: 2,
+    display: 'none',
   },
   hubStorefrontLink: {
     flexDirection: 'row',

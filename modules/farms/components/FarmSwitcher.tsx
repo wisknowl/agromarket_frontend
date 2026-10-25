@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { Plus, Check, Sprout, Egg, Beef, Fish, Landmark } from 'lucide-react-native';
+import { Plus, Check, Sprout, Egg, Fish, Landmark } from 'lucide-react-native';
+import CattleIcon from '@/components/ui/CattleIcon';
 import Colors, { Radii } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
 import { Farm } from '@/types';
@@ -31,7 +32,7 @@ export default function FarmSwitcher({
       case 'POULTRY':
         return <Egg size={14} color={Colors.espresso} />;
       case 'LIVESTOCK':
-        return <Beef size={14} color={Colors.espresso} />;
+        return <CattleIcon size={14} color={Colors.espresso} />;
       case 'AQUACULTURE':
         return <Fish size={14} color={Colors.espresso} />;
       default:
