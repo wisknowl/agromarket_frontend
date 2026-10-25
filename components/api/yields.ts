@@ -64,3 +64,17 @@ export const fetchFarmYieldsApi = async (farmId: string): Promise<Yield[]> => {
   }
 };
 
+export const updateYieldApi = async (id: string, updates: any): Promise<Yield> => {
+  const res = await apiClient.put(`/yields/${id}`, updates);
+  return normalizeYield(res.data.yield || res.data);
+};
+
+export const patchYieldStockApi = async (
+  id: string,
+  params: { delta?: number; stockQuantity?: number; isAvailable?: boolean }
+): Promise<Yield> => {
+  const res = await apiClient.patch(`/yields/${id}/stock`, params);
+  return normalizeYield(res.data.yield || res.data);
+};
+
+

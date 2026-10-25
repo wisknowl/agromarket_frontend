@@ -58,6 +58,7 @@ import Basket from '@/components/basket';
 import CustomTabBar from '@/components/navigation/CustomTabBar';
 import AgromPreloader from '@/components/AgromPreloader';
 import { CATEGORIES, UNITS, SEASONS, SHELF_LIFE_OPTIONS } from './FarmManagementScreen';
+import { FarmParcel } from '@/types';
 
 export default function FarmDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -78,6 +79,20 @@ export default function FarmDetailScreen() {
   const [isPatron, setIsPatron] = useState(false);
   const [patronModalVisible, setPatronModalVisible] = useState(false);
 
+  // Active Farm Operational Sites (Parcels)
+  const activeParcels: FarmParcel[] = (farm?.parcels && Array.isArray(farm.parcels) && farm.parcels.length > 0)
+    ? farm.parcels
+    : (farm ? [{
+        id: `${farm.id}-hq`,
+        name: `${farm.name} (Main Base / HQ)`,
+        region: farm.region || 'West Region',
+        city: farm.city || 'Foumbot',
+        division: farm.division || '',
+        location: farm.location || '',
+        sizeHectares: farm.sizeHectares || 1.0,
+        isHeadquarters: true,
+      }] : []);
+
   // Produce Creation Modal State
   const [showAddProduceModal, setShowAddProduceModal] = useState(false);
   const [savingProduce, setSavingProduce] = useState(false);
@@ -85,6 +100,7 @@ export default function FarmDetailScreen() {
     title: '',
     description: '',
     categoryName: 'Vegetables & Greens',
+    selectedParcelId: '',
     pricePerUnit: '',
     unit: 'KG',
     customUnit: '',
@@ -195,13 +211,18 @@ export default function FarmDetailScreen() {
       const categoryObj = CATEGORIES.find((c) => c.name === produceForm.categoryName) || CATEGORIES[0];
       const effectiveUnitLabel = produceForm.unit === 'CUSTOM' ? produceForm.customUnit.trim() : produceForm.unit;
       
+      const chosenParcel = activeParcels.find((p: any) => p.id === produceForm.selectedParcelId) || activeParcels[0];
+      const originDisplay = chosenParcel
+        ? `${chosenParcel.name} (${chosenParcel.city}, ${chosenParcel.region})`
+        : `${farm.city || 'Cameroon'}, ${farm.region || ''}`.trim();
+
       await createProduceApi({
         farmId: farm.id,
         categoryId: categoryObj.id,
         categoryName: categoryObj.name,
         title: produceForm.title.trim(),
-        description: produceForm.description.trim() || `Freshly harvested ${produceForm.title.trim()} from ${farm.name}.`,
-        originRegion: `${farm.city || 'Cameroon'}, ${farm.region || ''}`.trim(),
+        description: produceForm.description.trim() || `Freshly harvested ${produceForm.title.trim()} from ${chosenParcel?.name || farm.name}.`,
+        originRegion: originDisplay,
         pricePerUnit: parseFloat(produceForm.pricePerUnit),
         unit: produceForm.unit === 'CUSTOM' ? 'KG' : produceForm.unit,
         customUnit: produceForm.unit === 'CUSTOM' ? produceForm.customUnit.trim() : undefined,
@@ -225,6 +246,7 @@ export default function FarmDetailScreen() {
         title: '',
         description: '',
         categoryName: 'Vegetables & Greens',
+        selectedParcelId: '',
         pricePerUnit: '',
         unit: 'KG',
         customUnit: '',
@@ -352,7 +374,9 @@ export default function FarmDetailScreen() {
             </View>
             <View style={styles.metaItem}>
               <Layers size={14} color={Colors.soil} />
-              <Text style={styles.metaText}>{farm.sizeHectares || 1.0} Hectares</Text>
+              <Text style={styles.metaText}>
+                {farm.sizeHectares || 1.0} Ha ({activeParcels.length} {activeParcels.length === 1 ? 'Site' : 'Sites'})
+              </Text>
             </View>
             <View style={styles.metaItem}>
               <Store size={14} color={Colors.gold} />
@@ -710,6 +734,40 @@ export default function FarmDetailScreen() {
                 <Text style={styles.certText}>{cert}</Text>
               </View>
             ))}
+
+            {/* Operational Sites & Production Facilities */}
+            <Text style={[styles.aboutHeading, { marginTop: 20 }]}>
+              Operational Sites & Facilities ({activeParcels.length})
+            </Text>
+            <View style={styles.parcelsAboutContainer}>
+              {activeParcels.map((parcel: any, idx: number) => (
+                <View key={parcel.id || idx} style={styles.parcelAboutCard}>
+                  <View style={styles.parcelAboutHeader}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                      <MapPin size={15} color={parcel.isHeadquarters ? Colors.cultivated : Colors.soil} />
+                      <Text style={styles.parcelAboutName} numberOfLines={1}>{parcel.name}</Text>
+                    </View>
+                    <View style={parcel.isHeadquarters ? styles.hqBadge : styles.branchBadge}>
+                      <Text style={parcel.isHeadquarters ? styles.hqBadgeText : styles.branchBadgeText}>
+                        {parcel.isHeadquarters ? 'HQ Base' : 'Branch Plot'}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.parcelAboutLocation}>
+                    📍 {parcel.city}, {parcel.region} {parcel.division ? `• ${parcel.division}` : ''}
+                  </Text>
+                  {parcel.location ? (
+                    <Text style={styles.parcelAboutLandmark} numberOfLines={1}>
+                      Landmark: {parcel.location}
+                    </Text>
+                  ) : null}
+                  <View style={styles.parcelAboutFooter}>
+                    <Text style={styles.parcelAboutFootprintText}>Cultivated Footprint:</Text>
+                    <Text style={styles.parcelAboutFootprintVal}>{parcel.sizeHectares || 1.0} Hectares</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
           </View>
         )}
       </ScrollView>
@@ -753,6 +811,40 @@ export default function FarmDetailScreen() {
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
+              {/* 0. Harvest / Dispatch Operating Site Selector */}
+              <View style={styles.siteSelectorWrapper}>
+                <View style={styles.siteSelectorTitleRow}>
+                  <MapPin size={15} color={Colors.cultivated} />
+                  <Text style={[styles.inputLabel, { marginBottom: 0 }]}>Harvest / Dispatch Operating Site *</Text>
+                </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.siteChipsScroll}>
+                  {activeParcels.map((parcel: any) => {
+                    const isSelected = (produceForm.selectedParcelId || activeParcels[0]?.id) === parcel.id;
+                    return (
+                      <TouchableOpacity
+                        key={parcel.id}
+                        style={[styles.siteSelectCard, isSelected && styles.siteSelectCardActive]}
+                        onPress={() => setProduceForm((p) => ({ ...p, selectedParcelId: parcel.id }))}
+                      >
+                        <View style={styles.siteSelectCardTop}>
+                          <Text style={[styles.siteSelectCardName, isSelected && styles.siteSelectCardNameActive]} numberOfLines={1}>
+                            {parcel.name || parcel.city}
+                          </Text>
+                          {parcel.isHeadquarters && (
+                            <View style={styles.hqPillMini}>
+                              <Text style={styles.hqPillMiniText}>HQ</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={[styles.siteSelectCardSub, isSelected && styles.siteSelectCardSubActive]}>
+                          {parcel.city} • {parcel.sizeHectares || 1.0} Ha
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+
               {/* 1. Produce Title */}
               <Text style={styles.inputLabel}>Produce Name *</Text>
               <TextInput
@@ -1954,5 +2046,146 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     color: Colors.espresso,
     lineHeight: 18,
+  },
+  // Operational Sites Styles
+  parcelsAboutContainer: {
+    gap: 12,
+    marginTop: 10,
+  },
+  parcelAboutCard: {
+    backgroundColor: Colors.white,
+    borderRadius: Radii.card,
+    borderWidth: 1,
+    borderColor: Colors.parchmentDim,
+    padding: 14,
+    ...Shadows.subtle,
+  },
+  parcelAboutHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  parcelAboutName: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 14,
+    color: Colors.espresso,
+  },
+  hqBadge: {
+    backgroundColor: '#eef8f1',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: Radii.pill,
+  },
+  hqBadgeText: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 10,
+    color: Colors.cultivated,
+  },
+  branchBadge: {
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: Radii.pill,
+  },
+  branchBadgeText: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 10,
+    color: Colors.text.secondary,
+  },
+  parcelAboutLocation: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 12,
+    color: Colors.text.secondary,
+  },
+  parcelAboutLandmark: {
+    fontFamily: Fonts.body,
+    fontSize: 11,
+    color: Colors.text.muted,
+    marginTop: 3,
+  },
+  parcelAboutFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: Colors.parchment,
+  },
+  parcelAboutFootprintText: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 11.5,
+    color: Colors.text.secondary,
+  },
+  parcelAboutFootprintVal: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 12.5,
+    color: Colors.cultivated,
+  },
+  // Site selector in modal
+  siteSelectorWrapper: {
+    backgroundColor: Colors.parchment,
+    borderRadius: Radii.card,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: Colors.parchmentDim,
+  },
+  siteSelectorTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 10,
+  },
+  siteChipsScroll: {
+    flexDirection: 'row',
+  },
+  siteSelectCard: {
+    backgroundColor: Colors.white,
+    borderRadius: Radii.card,
+    borderWidth: 1.5,
+    borderColor: Colors.parchmentDim,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginRight: 8,
+    minWidth: 120,
+  },
+  siteSelectCardActive: {
+    borderColor: Colors.cultivated,
+    backgroundColor: '#eef8f1',
+  },
+  siteSelectCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  siteSelectCardName: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 12,
+    color: Colors.espresso,
+  },
+  siteSelectCardNameActive: {
+    color: Colors.cultivated,
+  },
+  hqPillMini: {
+    backgroundColor: Colors.cultivated,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: Radii.pill,
+  },
+  hqPillMiniText: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 8.5,
+    color: Colors.white,
+  },
+  siteSelectCardSub: {
+    fontFamily: Fonts.body,
+    fontSize: 10.5,
+    color: Colors.text.secondary,
+    marginTop: 2,
+  },
+  siteSelectCardSubActive: {
+    color: Colors.cultivated,
   },
 });

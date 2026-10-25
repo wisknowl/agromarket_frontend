@@ -85,6 +85,7 @@ export default function YieldCard({
   const farmerUser = farmer?.user || (farm as any)?.user;
   const farmerTargetId = farmerUser?.id || (farm as any)?.userId || item.farmerId;
   const farmLocation = farm?.city || farm?.region || item.originRegion || farmer?.region || 'Cameroon';
+  const provenanceLocation = item.originRegion || (farm?.name ? `${farm.name} • ${farm.city}` : farmLocation);
   const creditTier = farmer?.creditTier || 'BRONZE';
   const isGoldTier = creditTier === 'GOLD' || creditTier === 'PLATINUM' || (farmer?.creditScore && farmer.creditScore >= 700);
   const farmerAvatar = farmerUser?.avatarUrl || farmer?.profilePhoto || farm?.avatarPhoto;
@@ -103,6 +104,11 @@ export default function YieldCard({
         {isGoldTier ? (
           <View style={styles.floatingBadge}>
             <FarmerBadge tier={creditTier as any} label={creditTier === 'PLATINUM' ? 'Platinum' : 'Gold'} size="sm" />
+          </View>
+        ) : null}
+        {item.isWholesaleBulkAvailable ? (
+          <View style={styles.wholesaleFloatingBadge}>
+            <Text style={styles.wholesaleFloatingBadgeText}>Wholesale</Text>
           </View>
         ) : null}
       </Pressable>
@@ -125,7 +131,7 @@ export default function YieldCard({
         </View>
 
         <Text style={styles.locationText} numberOfLines={1}>
-          📍 {farmLocation}
+          📍 {provenanceLocation}
         </Text>
       </View>
 
@@ -217,6 +223,21 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     left: 8,
+  },
+  wholesaleFloatingBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: Colors.cultivated,
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: Radii.pill,
+  },
+  wholesaleFloatingBadgeText: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 9.5,
+    color: Colors.white,
+    letterSpacing: 0.2,
   },
   content: {
     padding: 10,

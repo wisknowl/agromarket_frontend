@@ -90,7 +90,7 @@ export default function YieldDetailScreen() {
         console.error('Failed to load produce details:', err);
       })
       .finally(async () => {
-        await waitRemainingMs(startTime, 3500);
+        await waitRemainingMs(startTime, 0);
         setLoading(false);
       });
   }, [id]);
@@ -432,6 +432,11 @@ export default function YieldDetailScreen() {
               <Text style={styles.farmLocationText}>
                 {farm?.city || farmer?.city || 'Foumbot'}, {farm?.region || farmer?.region || 'West Region'}
               </Text>
+              {farm?.parcels && farm.parcels.length > 0 && (
+                <Text style={styles.farmParcelsFootprintText}>
+                  📍 {farm.parcels.length} {farm.parcels.length === 1 ? 'Site' : 'Operating Sites'} • {farm.sizeHectares || 1.0} Ha
+                </Text>
+              )}
               <View style={styles.farmRatingRow}>
                 <Star size={13} color={Colors.gold} fill={Colors.gold} />
                 <Text style={styles.farmRatingNumber}>{(farm?.rating || 4.9).toFixed(1)}</Text>
@@ -440,6 +445,23 @@ export default function YieldDetailScreen() {
             </View>
             <ChevronRight size={20} color={Colors.text.muted} />
           </TouchableOpacity>
+
+          {/* Provenance & Harvest Site Certification Pill */}
+          <View style={styles.provenancePillBox}>
+            <View style={styles.provenancePillLeft}>
+              <MapPin size={16} color={Colors.cultivated} />
+              <View style={{ flex: 1, marginLeft: 8 }}>
+                <Text style={styles.provenancePillTitle}>Exact Harvest Provenance & Dispatch Base</Text>
+                <Text style={styles.provenancePillValue}>
+                  {yieldItem.originRegion || `${farm?.city || 'Foumbot'}, ${farm?.region || 'West Region'}`}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.provenanceVerifiedBadge}>
+              <ShieldCheck size={12} color={Colors.cultivated} />
+              <Text style={styles.provenanceVerifiedText}>Verified</Text>
+            </View>
+          </View>
 
           {/* Quick Action Contact Button */}
           <View style={styles.farmActionsRow}>
@@ -1032,5 +1054,59 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.bodyBold,
     fontSize: 11,
     color: Colors.gold,
+  },
+  // Multi-Site & Provenance Styles
+  farmParcelsFootprintText: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 11,
+    color: Colors.cultivated,
+    marginTop: 2,
+  },
+  provenancePillBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#eef8f1',
+    borderRadius: Radii.card,
+    borderWidth: 1,
+    borderColor: '#ccebd5',
+    padding: 12,
+    marginTop: 10,
+    marginBottom: 12,
+  },
+  provenancePillLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  provenancePillTitle: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 10.5,
+    color: Colors.text.secondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  provenancePillValue: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 12.5,
+    color: Colors.espresso,
+    marginTop: 1,
+  },
+  provenanceVerifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Colors.white,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: Radii.pill,
+    borderWidth: 1,
+    borderColor: Colors.cultivated,
+    marginLeft: 8,
+  },
+  provenanceVerifiedText: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 9.5,
+    color: Colors.cultivated,
   },
 });

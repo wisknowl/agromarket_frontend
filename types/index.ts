@@ -76,6 +76,19 @@ export type FarmCategory =
   | 'MIXED'
   | 'HORTICULTURE';
 
+export interface FarmParcel {
+  id: string;
+  name: string;
+  region: string;
+  city: string;
+  division?: string;
+  location?: string;
+  gpsLatitude?: number;
+  gpsLongitude?: number;
+  sizeHectares?: number;
+  isHeadquarters?: boolean;
+}
+
 export interface Farm {
   id: string;
   userId: string;
@@ -97,6 +110,7 @@ export interface Farm {
   rating?: number;
   totalRatings?: number;
   yieldsCount?: number;
+  parcels?: FarmParcel[];
   createdAt?: string;
 }
 

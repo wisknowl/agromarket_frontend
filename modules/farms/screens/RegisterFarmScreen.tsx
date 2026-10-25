@@ -27,6 +27,9 @@ import {
   Sparkles,
   ChevronRight,
   Upload,
+  Plus,
+  Trash2,
+  Building2,
 } from 'lucide-react-native';
 import Colors, { Radii, Shadows } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
@@ -77,10 +80,61 @@ export default function RegisterFarmScreen() {
   const [category, setCategory] = useState<FarmCategory>('CROPS');
   const [description, setDescription] = useState('');
 
-  const [region, setRegion] = useState(CAMEROON_REGIONS[0]);
-  const [city, setCity] = useState('');
-  const [division, setDivision] = useState('');
-  const [location, setLocation] = useState('');
+  // Operational Parcels & Multi-Site State
+  const [parcels, setParcels] = useState<Array<{
+    id: string;
+    name: string;
+    region: string;
+    city: string;
+    division: string;
+    location: string;
+    sizeHectares: string;
+  }>>([
+    {
+      id: 'site-1',
+      name: 'Main Base / Headquarters',
+      region: CAMEROON_REGIONS[0],
+      city: '',
+      division: '',
+      location: '',
+      sizeHectares: '2.5',
+    },
+  ]);
+
+  const handleAddParcel = () => {
+    const nextIdx = parcels.length + 1;
+    setParcels((prev) => [
+      ...prev,
+      {
+        id: `site-${Date.now()}`,
+        name: `Operating Site ${nextIdx}`,
+        region: prev[0]?.region || CAMEROON_REGIONS[0],
+        city: '',
+        division: '',
+        location: '',
+        sizeHectares: '1.0',
+      },
+    ]);
+  };
+
+  const handleRemoveParcel = (idToRemove: string) => {
+    if (parcels.length <= 1) {
+      Alert.alert('Cannot Remove', 'Your farm enterprise must have at least one operating site.');
+      return;
+    }
+    setParcels((prev) => prev.filter((p) => p.id !== idToRemove));
+  };
+
+  const handleUpdateParcel = (id: string, field: string, value: string) => {
+    setParcels((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, [field]: value } : p))
+    );
+  };
+
+  const totalParcelsHectares = parcels.reduce(
+    (sum, p) => sum + (parseFloat(p.sizeHectares) || 0),
+    0
+  );
 
   const [sizeHectares, setSizeHectares] = useState('');
   const [produceInput, setProduceInput] = useState('');
@@ -112,8 +166,12 @@ export default function RegisterFarmScreen() {
       }
       setStep(2);
     } else if (step === 2) {
-      if (!city.trim()) {
-        Alert.alert('Required Field', 'Please enter your city/town.');
+      const emptySite = parcels.find((p) => !p.city.trim());
+      if (emptySite) {
+        Alert.alert(
+          'City Required',
+          `Please enter the city / town for "${emptySite.name || 'operating site'}".`
+        );
         return;
       }
       setStep(3);
@@ -125,6 +183,8 @@ export default function RegisterFarmScreen() {
   const handleSubmit = async () => {
     setIsSubmitting(true);
 
+    const primaryParcel = parcels[0];
+    const totalHectares = totalParcelsHectares || parseFloat(sizeHectares) || 2.5;
     const newFarmId = `farm-${Date.now()}`;
     const newFarm: Farm = {
       id: newFarmId,
@@ -132,11 +192,21 @@ export default function RegisterFarmScreen() {
       name: name.trim(),
       category,
       description: description.trim() || 'Verified farm profile on AgroMarket platform.',
-      region: region.split(' (')[0],
-      division: division.trim() || 'Noun',
-      city: city.trim(),
-      location: location.trim() || `${city.trim()}, ${region.split(' (')[0]}`,
-      sizeHectares: parseFloat(sizeHectares) || 2.5,
+      region: primaryParcel.region.split(' (')[0],
+      division: primaryParcel.division.trim() || 'Noun',
+      city: primaryParcel.city.trim(),
+      location: primaryParcel.location.trim() || `${primaryParcel.city.trim()}, ${primaryParcel.region.split(' (')[0]}`,
+      sizeHectares: totalHectares,
+      parcels: parcels.map((p, idx) => ({
+        id: p.id,
+        name: p.name.trim() || (idx === 0 ? 'Main Base / HQ' : `Site ${idx + 1}`),
+        region: p.region.split(' (')[0],
+        division: p.division.trim(),
+        city: p.city.trim(),
+        location: p.location.trim(),
+        sizeHectares: parseFloat(p.sizeHectares) || 1.0,
+        isHeadquarters: idx === 0,
+      })),
       coverPhoto,
       primaryProduce: produceTags,
       certifications: [
@@ -300,61 +370,136 @@ export default function RegisterFarmScreen() {
             </View>
           )}
 
-          {/* STEP 2: Geographical Location & GPS */}
+          {/* STEP 2: Multi-Site Operational Plots & Geographic Footprint */}
           {step === 2 && (
             <View style={styles.stepContainer}>
               <View style={styles.stepTitleRow}>
                 <MapPin size={20} color={Colors.cultivated} strokeWidth={2.2} />
-                <Text style={styles.stepHeading}>Location & GPS Coordinates</Text>
+                <Text style={styles.stepHeading}>Operating Sites & Locations</Text>
               </View>
               <Text style={styles.stepDesc}>
-                Help buyers and transporters calculate direct logistics routes to your farm.
+                Add all physical land parcels, production sites, or livestock depots operated by this farm enterprise.
               </Text>
 
-              <Text style={styles.inputLabel}>Agricultural Region *</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.regionsScroll}>
-                {CAMEROON_REGIONS.map((r) => {
-                  const isSel = region === r;
-                  return (
-                    <TouchableOpacity
-                      key={r}
-                      style={[styles.regionChip, isSel && styles.regionChipActive]}
-                      onPress={() => setRegion(r)}
-                    >
-                      <Text style={[styles.regionChipText, isSel && styles.regionChipTextActive]}>
-                        {r}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
+              {parcels.map((parcel, idx) => {
+                const isHQ = idx === 0;
+                return (
+                  <View key={parcel.id} style={styles.parcelCard}>
+                    <View style={styles.parcelCardHeader}>
+                      <View style={styles.parcelBadgeRow}>
+                        <View style={[styles.parcelNumBadge, isHQ && styles.parcelNumBadgeHQ]}>
+                          <Text style={[styles.parcelNumText, isHQ && styles.parcelNumTextHQ]}>
+                            {isHQ ? '⭐ Primary Base (HQ)' : `📍 Site ${idx + 1}`}
+                          </Text>
+                        </View>
+                      </View>
+                      {!isHQ && (
+                        <TouchableOpacity
+                          onPress={() => handleRemoveParcel(parcel.id)}
+                          style={styles.removeParcelBtn}
+                        >
+                          <Trash2 size={14} color="#dc2626" />
+                          <Text style={styles.removeParcelText}>Remove</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
 
-              <Text style={styles.inputLabel}>City / Town / Village *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g., Foumbot, Buea, Bamenda, Obala"
-                placeholderTextColor={Colors.text.muted}
-                value={city}
-                onChangeText={setCity}
-              />
+                    <Text style={styles.inputLabel}>Site / Facility Nickname *</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder={
+                        isHQ ? 'e.g., Main Hatchery & Headquarters' : 'e.g., Mutengene Broiler Pen'
+                      }
+                      placeholderTextColor={Colors.text.muted}
+                      value={parcel.name}
+                      onChangeText={(val) => handleUpdateParcel(parcel.id, 'name', val)}
+                    />
 
-              <Text style={styles.inputLabel}>Division / Sector</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g., Noun Division, Fako Division, Mezam"
-                placeholderTextColor={Colors.text.muted}
-                value={division}
-                onChangeText={setDivision}
-              />
+                    <Text style={styles.inputLabel}>Agricultural Region *</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.regionsScroll}>
+                      {CAMEROON_REGIONS.map((r) => {
+                        const isSel = parcel.region === r;
+                        return (
+                          <TouchableOpacity
+                            key={r}
+                            style={[styles.regionChip, isSel && styles.regionChipActive]}
+                            onPress={() => handleUpdateParcel(parcel.id, 'region', r)}
+                          >
+                            <Text style={[styles.regionChipText, isSel && styles.regionChipTextActive]}>
+                              {r}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
 
-              <Text style={styles.inputLabel}>Farm Access Address / Road Landmark</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g., Mile 4 Valley Road, 2km after the cooperative junction"
-                placeholderTextColor={Colors.text.muted}
-                value={location}
-                onChangeText={setLocation}
-              />
+                    <View style={styles.twoColRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.inputLabel}>City / Town *</Text>
+                        <TextInput
+                          style={styles.input}
+                          placeholder="e.g., Buea"
+                          placeholderTextColor={Colors.text.muted}
+                          value={parcel.city}
+                          onChangeText={(val) => handleUpdateParcel(parcel.id, 'city', val)}
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.inputLabel}>Division / Sector</Text>
+                        <TextInput
+                          style={styles.input}
+                          placeholder="e.g., Fako"
+                          placeholderTextColor={Colors.text.muted}
+                          value={parcel.division}
+                          onChangeText={(val) => handleUpdateParcel(parcel.id, 'division', val)}
+                        />
+                      </View>
+                    </View>
+
+                    <View style={styles.twoColRow}>
+                      <View style={{ flex: 1.5 }}>
+                        <Text style={styles.inputLabel}>Access Road / Landmark</Text>
+                        <TextInput
+                          style={styles.input}
+                          placeholder="e.g., Mile 4 Junction Road"
+                          placeholderTextColor={Colors.text.muted}
+                          value={parcel.location}
+                          onChangeText={(val) => handleUpdateParcel(parcel.id, 'location', val)}
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.inputLabel}>Plot Area (ha)</Text>
+                        <TextInput
+                          style={styles.input}
+                          placeholder="1.5"
+                          placeholderTextColor={Colors.text.muted}
+                          keyboardType="numeric"
+                          value={parcel.sizeHectares}
+                          onChangeText={(val) => handleUpdateParcel(parcel.id, 'sizeHectares', val)}
+                        />
+                      </View>
+                    </View>
+                  </View>
+                );
+              })}
+
+              {/* Add Site Button */}
+              <TouchableOpacity
+                style={styles.addParcelBtn}
+                onPress={handleAddParcel}
+                activeOpacity={0.85}
+              >
+                <Plus size={18} color={Colors.cultivated} strokeWidth={2.5} />
+                <Text style={styles.addParcelBtnText}>+ Add Another Operating Site / Plot</Text>
+              </TouchableOpacity>
+
+              {/* Live Enterprise Footprint Summary Banner */}
+              <View style={styles.footprintSummaryBanner}>
+                <Building2 size={18} color={Colors.canopy} />
+                <Text style={styles.footprintSummaryText}>
+                  Enterprise Footprint: <Text style={{ fontFamily: Fonts.bodyBold }}>{parcels.length} Site(s)</Text> • Total Land Area: <Text style={{ fontFamily: Fonts.bodyBold }}>{totalParcelsHectares.toFixed(1)} ha</Text>
+                </Text>
+              </View>
             </View>
           )}
 
@@ -369,15 +514,18 @@ export default function RegisterFarmScreen() {
                 Specify your production land area and what you grow or raise.
               </Text>
 
-              <Text style={styles.inputLabel}>Farm Size (in Hectares / Acres)</Text>
+              <Text style={styles.inputLabel}>Total Farm Enterprise Size (in Hectares)</Text>
               <TextInput
                 style={styles.input}
-                placeholder="e.g., 3.5"
+                placeholder={totalParcelsHectares > 0 ? String(totalParcelsHectares) : 'e.g., 3.5'}
                 placeholderTextColor={Colors.text.muted}
                 keyboardType="numeric"
-                value={sizeHectares}
+                value={sizeHectares || (totalParcelsHectares > 0 ? String(totalParcelsHectares) : '')}
                 onChangeText={setSizeHectares}
               />
+              <Text style={styles.hectaresHelper}>
+                💡 Automatically calculated from your {parcels.length} operating site(s) ({totalParcelsHectares.toFixed(1)} ha total).
+              </Text>
 
               <Text style={styles.inputLabel}>Primary Produce Items</Text>
               <View style={styles.tagInputRow}>
@@ -764,5 +912,106 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: Colors.parchmentDim,
     backgroundColor: Colors.white,
+  },
+
+  // Multi-Site Parcel Styles
+  parcelCard: {
+    backgroundColor: Colors.white,
+    borderRadius: Radii.card,
+    padding: 14,
+    marginBottom: 14,
+    borderWidth: 1.5,
+    borderColor: Colors.parchmentDim,
+    ...Shadows.subtle,
+  },
+  parcelCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.parchment,
+  },
+  parcelBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  parcelNumBadge: {
+    backgroundColor: Colors.parchment,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: Radii.pill,
+  },
+  parcelNumBadgeHQ: {
+    backgroundColor: '#fef3c7',
+  },
+  parcelNumText: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 11,
+    color: Colors.espresso,
+  },
+  parcelNumTextHQ: {
+    color: '#b45309',
+  },
+  removeParcelBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: Radii.sm,
+    backgroundColor: '#fee2e2',
+  },
+  removeParcelText: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 11,
+    color: '#dc2626',
+  },
+  twoColRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  addParcelBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: Radii.card,
+    backgroundColor: '#eef8f1',
+    borderWidth: 1.5,
+    borderColor: '#c6e7ce',
+    borderStyle: 'dashed',
+    marginBottom: 14,
+  },
+  addParcelBtnText: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 13.5,
+    color: Colors.cultivated,
+  },
+  footprintSummaryBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Colors.parchment,
+    borderRadius: Radii.card,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: Colors.parchmentDim,
+    marginTop: 4,
+  },
+  footprintSummaryText: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 12,
+    color: Colors.espresso,
+    flex: 1,
+  },
+  hectaresHelper: {
+    fontFamily: Fonts.body,
+    fontSize: 11.5,
+    color: Colors.text.secondary,
+    marginTop: 4,
+    marginBottom: 10,
   },
 });

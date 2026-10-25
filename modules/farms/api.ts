@@ -36,6 +36,19 @@ export const createProduceApi = async (produceData: any): Promise<any> => {
   return res.data;
 };
 
+export const updateProduceApi = async (yieldId: string, updates: any): Promise<any> => {
+  const res = await apiClient.put(`/yields/${yieldId}`, updates);
+  return res.data;
+};
+
+export const patchProduceStockApi = async (
+  yieldId: string,
+  data: { delta?: number; stockQuantity?: number; isAvailable?: boolean }
+): Promise<any> => {
+  const res = await apiClient.patch(`/yields/${yieldId}/stock`, data);
+  return res.data;
+};
+
 export const fetchPartnerStatusApi = async (targetUserId: string): Promise<{ isPartner: boolean; isMutual: boolean; wholesaleDiscountPercent: number }> => {
   try {
     const res = await apiClient.get(`/farms/partner-status/${targetUserId}`);
