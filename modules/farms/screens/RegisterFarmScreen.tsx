@@ -27,9 +27,11 @@ import {
   ChevronRight,
   Upload,
   Plus,
-  Trash2,
   Building2,
+  Camera,
+  Trash2,
 } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
 import CattleIcon from '@/components/ui/CattleIcon';
 import Colors, { Radii, Shadows } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
@@ -151,6 +153,23 @@ export default function RegisterFarmScreen() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const handlePickCustomCover = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [16, 9], // Standard 16:9 Landscape Banner
+        quality: 0.85,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setCoverPhoto(result.assets[0].uri);
+      }
+    } catch (e) {
+      console.warn('Image picker error', e);
+      Alert.alert('Upload Error', 'Could not open image picker. Please check device permissions.');
+    }
+  };
+
   const handleAddTag = () => {
     if (produceInput.trim() && !produceTags.includes(produceInput.trim())) {
       setProduceTags([...produceTags, produceInput.trim()]);
@@ -219,10 +238,10 @@ export default function RegisterFarmScreen() {
       coverPhoto,
       primaryProduce: produceTags,
       certifications: [
-        ...(isOrganic ? ['100% Organic Certified'] : []),
-        ...(isGapCertified ? ['Cameroon GAP Approved'] : []),
+        ...(isOrganic ? ['Natural & Chemical-Free Practice'] : []),
+        ...(isGapCertified ? ['Good Agricultural Practice (Self-Reported)'] : []),
       ],
-      isVerified: true,
+      isVerified: false,
       rating: 5.0,
       totalRatings: 1,
       yieldsCount: 0,
@@ -535,7 +554,10 @@ export default function RegisterFarmScreen() {
                 <Text style={styles.totalLandValue}>{totalParcelsHectares > 0 ? totalParcelsHectares.toFixed(1) : '1.0'} ha</Text>
               </View>
 
-              <Text style={styles.inputLabel}>Primary Produce Items</Text>
+              <Text style={styles.inputLabel}>Primary Produce Specialties (Optional Glance Tags)</Text>
+              <Text style={styles.uploadHelperText}>
+                Give buyers a quick impression of what you grow. Specific stock quantities, prices, and units are managed in Farm Management.
+              </Text>
               <View style={styles.tagInputRow}>
                 <TextInput
                   style={[styles.input, { flex: 1, marginBottom: 0 }]}
@@ -573,45 +595,70 @@ export default function RegisterFarmScreen() {
             </View>
           )}
 
-          {/* STEP 4: Quality, Certifications & Photos */}
+          {/* STEP 4: Storefront Banner & Farming Practices */}
           {step === 4 && (
             <View style={styles.stepContainer}>
               <View style={styles.stepTitleRow}>
-                <Text style={styles.stepHeading}>Quality & Cover Photo</Text>
+                <Text style={styles.stepHeading}>Storefront Banner & Practices</Text>
               </View>
 
-              <Text style={styles.inputLabel}>Select Cover Photo</Text>
-              <View style={styles.coversGrid}>
+              <Text style={styles.inputLabel}>Storefront Cover Banner (16:9 Standard)</Text>
+              <Text style={styles.uploadHelperText}>
+                Standard landscape banner • Recommended: 1200 × 675 px
+              </Text>
+
+              {/* 16:9 Banner Preview Box with Upload Action */}
+              <View style={styles.bannerPreviewWrapper}>
+                <Image source={{ uri: coverPhoto }} style={styles.bannerPreviewImage} />
+                <TouchableOpacity
+                  style={styles.uploadOverlayBtn}
+                  onPress={handlePickCustomCover}
+                  activeOpacity={0.85}
+                  accessibilityLabel="Upload custom cover photo"
+                >
+                  <Camera size={16} color={Colors.white} />
+                  <Text style={styles.uploadOverlayBtnText}>Upload & Crop (16:9)</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Curated Presets as alternative */}
+              <Text style={[styles.inputLabel, { marginTop: 12 }]}>Or pick a curated farm landscape:</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.presetCoversScroll}>
                 {SAMPLE_COVERS.map((url, idx) => {
                   const isSelected = coverPhoto === url;
                   return (
                     <TouchableOpacity
                       key={idx}
-                      style={[styles.coverCard, isSelected && styles.coverCardActive]}
+                      style={[styles.presetCoverThumbCard, isSelected && styles.presetCoverThumbCardActive]}
                       onPress={() => setCoverPhoto(url)}
                     >
-                      <Image source={{ uri: url }} style={styles.coverThumbnail} />
+                      <Image source={{ uri: url }} style={styles.presetCoverThumbImage} />
                       {isSelected && (
-                        <View style={styles.selectedBadge}>
-                          <Check size={14} color={Colors.white} strokeWidth={3} />
+                        <View style={styles.presetSelectedBadge}>
+                          <Check size={12} color={Colors.white} strokeWidth={3} />
                         </View>
                       )}
                     </TouchableOpacity>
                   );
                 })}
-              </View>
+              </ScrollView>
 
-              <Text style={styles.inputLabel}>Verified Standards</Text>
+              {/* Farming Practice Declarations (Self-Reported) */}
+              <Text style={styles.inputLabel}>Farming Practice Declarations (Self-Reported)</Text>
+              <Text style={styles.uploadHelperText}>
+                Declare your day-to-day farming methods. Official certified badges require documentation.
+              </Text>
+
               <TouchableOpacity
                 style={[styles.certRow, isOrganic && styles.certRowActive]}
                 onPress={() => setIsOrganic(!isOrganic)}
               >
-                <View style={styles.certCheck}>
+                <View style={[styles.certCheck, !isOrganic && styles.certCheckInactive]}>
                   {isOrganic && <Check size={12} color={Colors.white} strokeWidth={3} />}
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.certTitle}>100% Organic & Chemical-Free</Text>
-                  <Text style={styles.certSub}>Grown with natural manure and bio-fertilizers</Text>
+                  <Text style={styles.certTitle}>Natural & Chemical-Free Practice</Text>
+                  <Text style={styles.certSub}>Farmed with organic compost, bio-fertilizers, and zero synthetic pesticides</Text>
                 </View>
               </TouchableOpacity>
 
@@ -619,14 +666,22 @@ export default function RegisterFarmScreen() {
                 style={[styles.certRow, isGapCertified && styles.certRowActive]}
                 onPress={() => setIsGapCertified(!isGapCertified)}
               >
-                <View style={styles.certCheck}>
+                <View style={[styles.certCheck, !isGapCertified && styles.certCheckInactive]}>
                   {isGapCertified && <Check size={12} color={Colors.white} strokeWidth={3} />}
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.certTitle}>Cameroon GAP (Good Agricultural Practices)</Text>
-                  <Text style={styles.certSub}>Quality hygiene and verified harvest standards</Text>
+                  <Text style={styles.certTitle}>Good Agricultural Practices (GAP Hygiene)</Text>
+                  <Text style={styles.certSub}>Adherence to harvest hygiene, clean water irrigation, and grading</Text>
                 </View>
               </TouchableOpacity>
+
+              {/* Official Verification Explainer Box */}
+              <View style={styles.certExplainerBox}>
+                <ShieldCheck size={18} color={Colors.cultivated} />
+                <Text style={styles.certExplainerText}>
+                  <Text style={{ fontFamily: Fonts.bodyBold }}>Official Verification Badges:</Text> Cameroon GAP & Organic certification seals are issued after certificate audit by platform compliance inspectors. You can submit audit files in your Farm Workspace.
+                </Text>
+              </View>
             </View>
           )}
         </ScrollView>
@@ -637,7 +692,7 @@ export default function RegisterFarmScreen() {
             <BrandButton
               title="Continue to Step 2"
               onPress={handleNextStep}
-              variant="primary"
+              variant="cultivated"
             />
           ) : (
             <View style={styles.footerRow}>
@@ -651,9 +706,9 @@ export default function RegisterFarmScreen() {
               </TouchableOpacity>
               <View style={{ flex: 1 }}>
                 <BrandButton
-                  title={step < 4 ? 'Continue to Next Step' : (isSubmitting ? 'Registering...' : 'Complete & Register AgroFarm')}
+                  title={step < 4 ? 'Continue to Next Step' : (isSubmitting ? 'Registering...' : 'Register AgroFarm')}
                   onPress={step < 4 ? handleNextStep : handleSubmit}
-                  variant="primary"
+                  variant="cultivated"
                 />
               </View>
             </View>
@@ -732,9 +787,10 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontFamily: Fonts.bodySemiBold,
-    fontSize: 13,
+    fontSize: 13.5,
     color: Colors.espresso,
-    marginTop: 6,
+    marginTop: 14,
+    marginBottom: 6,
   },
   input: {
     backgroundColor: Colors.parchment,
@@ -809,14 +865,15 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   regionsScroll: {
-    marginBottom: 6,
+    marginTop: 2,
+    marginBottom: 10,
   },
   regionChip: {
     backgroundColor: Colors.parchment,
     borderWidth: 1,
     borderColor: Colors.parchmentDim,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    paddingVertical: 9,
+    paddingHorizontal: 15,
     borderRadius: Radii.pill,
     marginRight: 8,
   },
@@ -826,7 +883,7 @@ const styles = StyleSheet.create({
   },
   regionChipText: {
     fontFamily: Fonts.bodyMedium,
-    fontSize: 12,
+    fontSize: 13,
     color: Colors.espresso,
   },
   regionChipTextActive: {
@@ -867,39 +924,104 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.cultivated,
   },
-  coversGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginVertical: 6,
-  },
-  coverCard: {
-    width: '48%',
-    height: 90,
+  bannerPreviewWrapper: {
+    width: '100%',
+    height: 160,
     borderRadius: Radii.card,
     overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: 'transparent',
+    backgroundColor: Colors.parchmentDim,
     position: 'relative',
+    marginTop: 4,
+    borderWidth: 1.5,
+    borderColor: Colors.parchmentDim,
   },
-  coverCardActive: {
-    borderColor: Colors.cultivated,
-  },
-  coverThumbnail: {
+  bannerPreviewImage: {
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
   },
-  selectedBadge: {
+  uploadOverlayBtn: {
     position: 'absolute',
-    top: 6,
-    right: 6,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    bottom: 12,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(23, 58, 32, 0.88)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: Radii.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(246, 238, 221, 0.3)',
+    ...Shadows.subtle,
+  },
+  uploadOverlayBtnText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 12.5,
+    color: Colors.white,
+  },
+  uploadHelperText: {
+    fontFamily: Fonts.body,
+    fontSize: 12,
+    color: Colors.text.secondary,
+    marginTop: -2,
+    marginBottom: 6,
+    lineHeight: 16,
+  },
+  presetCoversScroll: {
+    marginTop: 6,
+    marginBottom: 10,
+  },
+  presetCoverThumbCard: {
+    width: 100,
+    height: 60,
+    borderRadius: Radii.chip,
+    overflow: 'hidden',
+    marginRight: 10,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    position: 'relative',
+  },
+  presetCoverThumbCardActive: {
+    borderColor: Colors.cultivated,
+  },
+  presetCoverThumbImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  presetSelectedBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     backgroundColor: Colors.cultivated,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  certExplainerBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: '#EEF8F1',
+    borderRadius: Radii.card,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#C6E7CE',
+    marginTop: 8,
+  },
+  certExplainerText: {
+    fontFamily: Fonts.body,
+    fontSize: 11.5,
+    color: Colors.espresso,
+    flex: 1,
+    lineHeight: 16,
+  },
+  certCheckInactive: {
+    backgroundColor: Colors.white,
+    borderColor: Colors.parchmentDim,
   },
   certRow: {
     flexDirection: 'row',
@@ -969,8 +1091,8 @@ const styles = StyleSheet.create({
   parcelCard: {
     backgroundColor: Colors.white,
     borderRadius: Radii.card,
-    padding: 14,
-    marginBottom: 14,
+    padding: 18,
+    marginBottom: 16,
     borderWidth: 1.5,
     borderColor: Colors.parchmentDim,
     ...Shadows.subtle,
@@ -979,10 +1101,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
-    paddingBottom: 6,
+    marginBottom: 10,
+    paddingBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.parchment,
+    borderBottomColor: Colors.parchmentDim,
   },
   parcelBadgeRow: {
     flexDirection: 'row',
@@ -1021,7 +1143,8 @@ const styles = StyleSheet.create({
   },
   twoColRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
+    marginTop: 2,
   },
   addParcelBtn: {
     flexDirection: 'row',
@@ -1034,6 +1157,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#c6e7ce',
     borderStyle: 'dashed',
+    marginTop: 6,
     marginBottom: 14,
   },
   addParcelBtnText: {

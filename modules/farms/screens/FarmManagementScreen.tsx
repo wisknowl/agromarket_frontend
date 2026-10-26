@@ -45,7 +45,10 @@ import {
   Eye,
   EyeOff,
   AlertCircle,
+  Edit3,
+  Camera,
 } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
 import Colors, { Radii, Shadows } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
 import { useAuthStore } from '@/store/authStore';
@@ -329,6 +332,105 @@ export default function FarmManagementScreen() {
     }
   };
 
+  // Edit Farm Profile State & Handlers
+  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    description: '',
+    coverPhoto: '',
+    primaryProduce: [] as string[],
+  });
+  const [editTagInput, setEditTagInput] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  const handleOpenEditProfile = () => {
+    if (!activeFarm) return;
+    setEditForm({
+      name: activeFarm.name || '',
+      description: activeFarm.description || '',
+      coverPhoto: activeFarm.coverPhoto || '',
+      primaryProduce: activeFarm.primaryProduce ? [...activeFarm.primaryProduce] : [],
+    });
+    setEditTagInput('');
+    setShowEditProfileModal(true);
+  };
+
+  const handlePickEditCover = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.85,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setEditForm((prev) => ({ ...prev, coverPhoto: result.assets[0].uri }));
+      }
+    } catch (e) {
+      console.warn('Image picker error', e);
+    }
+  };
+
+  const handleAddEditTag = () => {
+    if (editTagInput.trim() && !editForm.primaryProduce.includes(editTagInput.trim())) {
+      setEditForm((prev) => ({
+        ...prev,
+        primaryProduce: [...prev.primaryProduce, editTagInput.trim()],
+      }));
+      setEditTagInput('');
+    }
+  };
+
+  const handleRemoveEditTag = (tagToRemove: string) => {
+    setEditForm((prev) => ({
+      ...prev,
+      primaryProduce: prev.primaryProduce.filter((t) => t !== tagToRemove),
+    }));
+  };
+
+  const handleSaveFarmProfile = async () => {
+    if (!activeFarm || !editForm.name.trim()) {
+      Alert.alert('Required', 'Farm name cannot be empty.');
+      return;
+    }
+    setSavingProfile(true);
+    try {
+      const updated = await updateFarmApi(activeFarm.id, {
+        name: editForm.name.trim(),
+        description: editForm.description.trim(),
+        coverPhoto: editForm.coverPhoto,
+        primaryProduce: editForm.primaryProduce,
+      });
+
+      const updatedFarmObj = {
+        ...activeFarm,
+        ...updated,
+        name: editForm.name.trim(),
+        description: editForm.description.trim(),
+        coverPhoto: editForm.coverPhoto,
+        primaryProduce: editForm.primaryProduce,
+      };
+
+      setFarmData(updatedFarmObj);
+      setFarmsList((prev) =>
+        prev.map((f) => (f.id === activeFarm.id ? { ...f, ...updatedFarmObj } : f))
+      );
+
+      const updatedUserFarms = (user?.farms || []).map((f) =>
+        f.id === activeFarm.id ? { ...f, ...updatedFarmObj } : f
+      );
+      updateUser({ farms: updatedUserFarms });
+
+      setShowEditProfileModal(false);
+      Alert.alert('Farm Updated! 🌾', 'Your farm storefront details, banner, and specialties have been updated.');
+    } catch (err) {
+      console.error('Failed to update farm profile', err);
+      Alert.alert('Update Failed', 'Could not save farm profile. Please try again.');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
   // Quick-Stock & Inventory Management State
   const [selectedStockYield, setSelectedStockYield] = useState<any>(null);
   const [stockModalVisible, setStockModalVisible] = useState(false);
@@ -566,6 +668,15 @@ export default function FarmManagementScreen() {
             }}
             style={styles.coverImage}
           />
+          <TouchableOpacity
+            style={styles.editProfileBtn}
+            onPress={handleOpenEditProfile}
+            activeOpacity={0.85}
+            accessibilityLabel="Edit Farm Profile"
+          >
+            <Edit3 size={13} color={Colors.white} />
+            <Text style={styles.editProfileBtnText}>Edit Profile</Text>
+          </TouchableOpacity>
           <View style={styles.farmDetailsOverlay}>
             <View style={styles.tierRow}>
               <FarmerBadge
@@ -1625,6 +1736,144 @@ export default function FarmManagementScreen() {
                   <View style={styles.modalSubmitContent}>
                     <Plus size={18} color={Colors.white} />
                     <Text style={styles.modalSubmitBtnText}>Register Operating Site</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </Modal>
+
+      {/* EDIT FARM STOREFRONT PROFILE MODAL */}
+      <Modal
+        visible={showEditProfileModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowEditProfileModal(false)}
+      >
+        <SafeAreaView style={styles.modalSafeArea} edges={['top', 'left', 'right']}>
+          <View style={styles.modalHeader}>
+            <View style={styles.modalHeaderTitleRow}>
+              <View style={styles.modalHeaderIconBadge}>
+                <Edit3 size={18} color={Colors.cultivated} />
+              </View>
+              <View>
+                <Text style={styles.modalTitle}>Edit Farm Storefront</Text>
+                <Text style={styles.modalHeaderSub}>{activeFarm?.name || 'Update Profile'}</Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.modalCloseBtn}
+              onPress={() => setShowEditProfileModal(false)}
+              accessibilityLabel="Close"
+            >
+              <X size={20} color={Colors.espresso} />
+            </TouchableOpacity>
+          </View>
+
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={{ flex: 1 }}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 24 : 0}
+          >
+            <ScrollView
+              style={styles.modalBody}
+              contentContainerStyle={styles.modalBodyContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {/* Cover Banner with 16:9 Aspect Crop */}
+              <Text style={styles.inputLabel}>Storefront Cover Banner (16:9 Standard)</Text>
+              <View style={styles.editBannerContainer}>
+                <Image
+                  source={{
+                    uri:
+                      editForm.coverPhoto ||
+                      'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=800',
+                  }}
+                  style={styles.editBannerImage}
+                />
+                <TouchableOpacity
+                  style={styles.editBannerChangeBtn}
+                  onPress={handlePickEditCover}
+                  activeOpacity={0.85}
+                  accessibilityLabel="Change Cover Photo"
+                >
+                  <Camera size={15} color={Colors.white} />
+                  <Text style={styles.editBannerChangeBtnText}>Change Photo (16:9)</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Farm Name */}
+              <Text style={styles.inputLabel}>Farm Enterprise Name *</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="e.g. Mount Cameroon Highlands Farm"
+                placeholderTextColor={Colors.text.muted}
+                value={editForm.name}
+                onChangeText={(t) => setEditForm((prev) => ({ ...prev, name: t }))}
+              />
+
+              {/* Farm Description */}
+              <Text style={styles.inputLabel}>Farm Story & Ethics</Text>
+              <TextInput
+                style={[styles.textInput, { height: 90, textAlignVertical: 'top' }]}
+                placeholder="Tell buyers about your soil, organic standards, and farming journey..."
+                placeholderTextColor={Colors.text.muted}
+                multiline
+                numberOfLines={3}
+                value={editForm.description}
+                onChangeText={(t) => setEditForm((prev) => ({ ...prev, description: t }))}
+              />
+
+              {/* Specialties / Glance Tags Management */}
+              <Text style={styles.inputLabel}>Produce Specialties (Glance Tags)</Text>
+              <View style={styles.editTagInputRow}>
+                <TextInput
+                  style={[styles.textInput, { flex: 1 }]}
+                  placeholder="e.g. Foumbot Tomatoes, Penja Pepper"
+                  placeholderTextColor={Colors.text.muted}
+                  value={editTagInput}
+                  onChangeText={setEditTagInput}
+                  onSubmitEditing={handleAddEditTag}
+                />
+                <TouchableOpacity style={styles.editAddTagBtn} onPress={handleAddEditTag}>
+                  <Plus size={16} color={Colors.white} />
+                  <Text style={styles.editAddTagBtnText}>Add</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Tags List */}
+              <View style={styles.editTagsContainer}>
+                {editForm.primaryProduce.map((tag) => (
+                  <TouchableOpacity
+                    key={tag}
+                    style={styles.editTagChip}
+                    onPress={() => handleRemoveEditTag(tag)}
+                  >
+                    <Text style={styles.editTagChipText}>{tag} ✕</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {editForm.primaryProduce.length === 0 && (
+                <Text style={styles.editNoTagsText}>
+                  No manual tags added. Your public card will automatically display tags based on your active listed produce.
+                </Text>
+              )}
+            </ScrollView>
+
+            <View style={[styles.modalFooter, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+              <TouchableOpacity
+                style={[styles.modalSubmitBtn, savingProfile && { opacity: 0.7 }]}
+                onPress={handleSaveFarmProfile}
+                disabled={savingProfile}
+              >
+                {savingProfile ? (
+                  <ActivityIndicator color={Colors.white} />
+                ) : (
+                  <View style={styles.modalSubmitContent}>
+                    <CheckCircle2 size={18} color={Colors.white} />
+                    <Text style={styles.modalSubmitBtnText}>Save Profile Changes</Text>
                   </View>
                 )}
               </TouchableOpacity>
@@ -2920,6 +3169,109 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.body,
     fontSize: 11.5,
     color: Colors.canopy,
+    lineHeight: 16,
+  },
+  editProfileBtn: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(23, 58, 32, 0.85)',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: Radii.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(246, 238, 221, 0.3)',
+    ...Shadows.subtle,
+  },
+  editProfileBtnText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 12,
+    color: Colors.white,
+  },
+  editBannerContainer: {
+    width: '100%',
+    height: 160,
+    borderRadius: Radii.card,
+    overflow: 'hidden',
+    backgroundColor: Colors.parchmentDim,
+    position: 'relative',
+    marginTop: 4,
+    borderWidth: 1.5,
+    borderColor: Colors.parchmentDim,
+  },
+  editBannerImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  editBannerChangeBtn: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(23, 58, 32, 0.88)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: Radii.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(246, 238, 221, 0.3)',
+    ...Shadows.subtle,
+  },
+  editBannerChangeBtnText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 12.5,
+    color: Colors.white,
+  },
+  editTagInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  editAddTagBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Colors.cultivated,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: Radii.input,
+  },
+  editAddTagBtnText: {
+    fontFamily: Fonts.bodySemiBold,
+    color: Colors.white,
+    fontSize: 13,
+  },
+  editTagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
+  },
+  editTagChip: {
+    backgroundColor: '#EEF8F1',
+    borderWidth: 1,
+    borderColor: 'rgba(78, 139, 63, 0.3)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: Radii.chip,
+  },
+  editTagChipText: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 12.5,
+    color: Colors.cultivated,
+  },
+  editNoTagsText: {
+    fontFamily: Fonts.body,
+    fontSize: 12,
+    color: Colors.text.secondary,
+    fontStyle: 'italic',
+    marginTop: 8,
     lineHeight: 16,
   },
 });

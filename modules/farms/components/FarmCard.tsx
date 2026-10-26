@@ -95,20 +95,43 @@ export default function FarmCard({
           </Text>
         </View>
 
-        {farm.primaryProduce && farm.primaryProduce.length > 0 && (
-          <View style={styles.tagsRow}>
-            {farm.primaryProduce.slice(0, 3).map((item, idx) => (
-              <View key={idx} style={styles.produceTag}>
-                <Text style={styles.produceTagText}>{item}</Text>
-              </View>
-            ))}
-            {farm.primaryProduce.length > 3 && (
-              <View style={[styles.produceTag, styles.moreTag]}>
-                <Text style={styles.moreTagText}>+{farm.primaryProduce.length - 3}</Text>
-              </View>
-            )}
-          </View>
-        )}
+        {(() => {
+          const farmYieldsList = (farm as any).yields;
+          const activeStockTags =
+            Array.isArray(farmYieldsList) && farmYieldsList.length > 0
+              ? Array.from(
+                  new Set(
+                    farmYieldsList
+                      .map((y: any) => y.title?.split(' ')[0] || y.categoryName)
+                      .filter(Boolean)
+                  )
+                ) as string[]
+              : [];
+
+          const glanceTags =
+            activeStockTags.length > 0
+              ? activeStockTags
+              : farm.primaryProduce && farm.primaryProduce.length > 0
+              ? farm.primaryProduce
+              : [];
+
+          if (glanceTags.length === 0) return null;
+
+          return (
+            <View style={styles.tagsRow}>
+              {glanceTags.slice(0, 3).map((item, idx) => (
+                <View key={idx} style={styles.produceTag}>
+                  <Text style={styles.produceTagText}>{item}</Text>
+                </View>
+              ))}
+              {glanceTags.length > 3 && (
+                <View style={[styles.produceTag, styles.moreTag]}>
+                  <Text style={styles.moreTagText}>+{glanceTags.length - 3}</Text>
+                </View>
+              )}
+            </View>
+          );
+        })()}
 
         <View style={styles.footerRow}>
           <View style={styles.sizeInfo}>
