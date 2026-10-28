@@ -48,8 +48,10 @@ import BrandButton from '@/components/ui/BrandButton';
 import Basket from '@/components/basket';
 import AgromPreloader from '@/components/AgromPreloader';
 import { waitRemainingMs } from '@/utils/minDuration';
+import { resolveMediaUrl } from '@/utils/media';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
 
 export default function YieldDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -415,13 +417,12 @@ export default function YieldDetailScreen() {
             <Image
               source={{
                 uri:
-                  farm?.coverPhoto ||
-                  farm?.avatarPhoto ||
-                  farmer?.coverPhoto ||
+                  resolveMediaUrl(farm?.coverPhoto || farm?.avatarPhoto || farmer?.coverPhoto) ||
                   'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=500',
               }}
               style={styles.farmAvatar}
             />
+
             <View style={styles.farmInfoCol}>
               <View style={styles.farmNameRow}>
                 <Text style={styles.farmNameText} numberOfLines={1}>

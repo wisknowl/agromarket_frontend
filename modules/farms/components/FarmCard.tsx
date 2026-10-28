@@ -1,10 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { MapPin, ShieldCheck, Star, Sprout, ChevronRight, Layers } from 'lucide-react-native';
 import Colors, { Radii, Shadows } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
 import { Farm } from '@/types';
 import { useRouter } from 'expo-router';
+import { resolveMediaUrl } from '@/utils/media';
+
+const FALLBACK_FARM_COVER =
+  'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=800&auto=format&fit=crop&q=80';
 
 interface FarmCardProps {
   farm: Farm;
@@ -18,6 +22,7 @@ export default function FarmCard({
   showManageButton = false,
 }: FarmCardProps) {
   const router = useRouter();
+  const [imageError, setImageError] = useState(false);
 
   const handlePress = () => {
     if (onPress) {
@@ -45,6 +50,10 @@ export default function FarmCard({
   };
 
   const catStyle = getCategoryColor(farm.category);
+  const coverUri =
+    !imageError && farm.coverPhoto
+      ? resolveMediaUrl(farm.coverPhoto)
+      : FALLBACK_FARM_COVER;
 
   return (
     <TouchableOpacity
@@ -56,13 +65,11 @@ export default function FarmCard({
     >
       <View style={styles.imageWrapper}>
         <Image
-          source={{
-            uri:
-              farm.coverPhoto ||
-              'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=800&auto=format&fit=crop&q=80',
-          }}
+          source={{ uri: coverUri }}
           style={styles.coverImage}
+          onError={() => setImageError(true)}
         />
+
         <View style={[styles.categoryBadge, { backgroundColor: catStyle.bg }]}>
           <Text style={[styles.categoryBadgeText, { color: catStyle.text }]}>
             {catStyle.label}
@@ -166,7 +173,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     borderRadius: Radii.card,
     borderWidth: 1,
-    borderColor: Colors.parchmentDim,
+    borderColor: '#CCEBD5',
     overflow: 'hidden',
     marginBottom: 14,
     ...Shadows.subtle,
@@ -174,7 +181,7 @@ const styles = StyleSheet.create({
   imageWrapper: {
     height: 130,
     position: 'relative',
-    backgroundColor: Colors.parchment,
+    backgroundColor: '#EEF8F1',
   },
   coverImage: {
     width: '100%',
@@ -254,7 +261,9 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   produceTag: {
-    backgroundColor: Colors.parchment,
+    backgroundColor: '#EEF8F1',
+    borderWidth: 1,
+    borderColor: '#CCEBD5',
     paddingVertical: 2,
     paddingHorizontal: 7,
     borderRadius: Radii.chip,
@@ -265,7 +274,7 @@ const styles = StyleSheet.create({
     color: Colors.espresso,
   },
   moreTag: {
-    backgroundColor: Colors.parchmentDim,
+    backgroundColor: '#CCEBD5',
   },
   moreTagText: {
     fontFamily: Fonts.bodyMedium,
@@ -278,7 +287,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: Colors.parchmentDim,
+    borderTopColor: '#CCEBD5',
   },
   sizeInfo: {
     flexDirection: 'row',

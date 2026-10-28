@@ -63,6 +63,7 @@ import { Post, Yield } from '@/types';
 import PostCard from '@/components/PostCard';
 import YieldCard from '@/components/YieldCard';
 import FarmsList from '@/components/FarmsList';
+import { fetchMyFarmsApi } from '@/modules/farms/api';
 import Colors, { Radii, Shadows } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
 import MeetingLeafLogo from '@/components/MeetingLeafLogo';
@@ -88,6 +89,7 @@ export default function ProfileScreen() {
   const [userPosts, setUserPosts] = useState<Post[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
   const [viewerVisible, setViewerVisible] = useState(false);
   const [activeViewerIndex, setActiveViewerIndex] = useState(0);
   const [viewerHeight, setViewerHeight] = useState(Dimensions.get('window').height);
@@ -209,17 +211,42 @@ export default function ProfileScreen() {
     !params.userId || (currentUser?.id && params.userId === currentUser.id)
   );
 
-  const targetUser = isOwner ? (profileData || currentUser) : profileData;
+  const targetUser = isOwner
+    ? {
+        ...profileData,
+        ...currentUser,
+        farms:
+          currentUser?.farms && currentUser.farms.length > 0
+            ? currentUser.farms
+            : profileData?.farms,
+      }
+    : profileData;
   const userHasFarm = Boolean(targetUser?.farms && targetUser.farms.length > 0);
+
+  useEffect(() => {
+    setAvatarError(false);
+  }, [targetUser?.avatarUrl, targetUser?.avatar]);
 
   const loadTargetProfile = async () => {
     if (isOwner) {
       if (isAuthenticated) {
         try {
-          const freshUser = await fetchCurrentUserApi();
+          const [freshUser, freshFarms] = await Promise.all([
+            fetchCurrentUserApi().catch(() => null),
+            fetchMyFarmsApi().catch(() => null),
+          ]);
           if (freshUser) {
-            updateUser(freshUser);
-            setProfileData(freshUser);
+            const combinedUser =
+              freshFarms && Array.isArray(freshFarms)
+                ? { ...freshUser, farms: freshFarms }
+                : freshUser;
+            updateUser(combinedUser);
+            setProfileData(combinedUser);
+          } else if (freshFarms && Array.isArray(freshFarms)) {
+            updateUser({ farms: freshFarms });
+            setProfileData((prev: any) =>
+              prev ? { ...prev, farms: freshFarms } : null
+            );
           }
         } catch (err) {
           console.warn('Failed to refresh current user realtime profile:', err);
@@ -376,7 +403,9 @@ export default function ProfileScreen() {
       Alert.alert('Profile Updated', 'Your profile details have been successfully saved.');
       loadTargetProfile();
     } catch (err: any) {
-      Alert.alert('Save Error', err.message || 'Could not update profile');
+      const errorMsg =
+        err?.response?.data?.message || err?.message || 'Could not update profile';
+      Alert.alert('Save Error', errorMsg);
     } finally {
       setSavingProfile(false);
     }
@@ -455,11 +484,15 @@ export default function ProfileScreen() {
       label: 'Posts',
       icon: (color: string) => <Sparkles size={19} color={color} strokeWidth={2} />,
     },
-    {
-      key: 'wishlist',
-      label: 'Wishlist',
-      icon: (color: string) => <BookmarkCheck size={19} color={color} strokeWidth={2} />,
-    },
+    ...(isOwner
+      ? [
+        {
+          key: 'wishlist',
+          label: 'Wishlist',
+          icon: (color: string) => <BookmarkCheck size={19} color={color} strokeWidth={2} />,
+        },
+      ]
+      : []),
   ];
 
   return (
@@ -509,11 +542,12 @@ export default function ProfileScreen() {
               <Image
                 source={{
                   uri:
-                    targetUser?.avatarUrl ||
-                    targetUser?.avatar ||
-                    'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=500&auto=format&fit=crop&q=60',
+                    !avatarError && (targetUser?.avatarUrl || targetUser?.avatar)
+                      ? resolveMediaUrl(targetUser?.avatarUrl || targetUser?.avatar)
+                      : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80',
                 }}
                 style={styles.avatar}
+                onError={() => setAvatarError(true)}
               />
               {targetUser?.isVerified && <View style={styles.verifiedDot} />}
             </View>
@@ -539,7 +573,7 @@ export default function ProfileScreen() {
                 <Pressable style={styles.badgeContainer} onPress={isOwner ? handleFintech : undefined}>
                   <FarmerBadge
                     tier={targetUser?.farmerProfile?.creditTier || 'GOLD'}
-                    label={`Verified Farmer • ${targetUser.farms.length} Farm${targetUser.farms.length > 1 ? 's' : ''}`}
+                    label={`Credit Score: ${targetUser?.farmerProfile?.creditScore || 650} • ${(targetUser?.farmerProfile?.creditTier || 'GOLD').replace('_', ' ')}`}
                     size="sm"
                   />
                 </Pressable>
@@ -746,22 +780,14 @@ export default function ProfileScreen() {
                     onPress={() => router.push('/farmer/manage')}
                     activeOpacity={0.88}
                     accessibilityRole="button"
-                    accessibilityLabel="Open Farm Management Hub"
+                    accessibilityLabel="Manage AgroFarms"
                   >
                     <View style={styles.farmHubBannerLeft}>
                       <View style={styles.farmHubIconBox}>
                         <Warehouse size={22} color={Colors.white} strokeWidth={2.2} />
                       </View>
                       <View style={{ flex: 1, marginLeft: 12 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <Text style={styles.farmHubTitle}>Farm Management Hub</Text>
-                          <View style={styles.farmHubLiveTag}>
-                            <Text style={styles.farmHubLiveTagText}>WORKSPACE</Text>
-                          </View>
-                        </View>
-                        <Text style={styles.farmHubSub}>
-                          List produce batches, record stories & manage credit
-                        </Text>
+                        <Text style={styles.farmHubTitle}>Manage AgroFarms</Text>
                       </View>
                     </View>
                     <View style={styles.farmHubArrowCircle}>
@@ -1141,8 +1167,9 @@ export default function ProfileScreen() {
                   <Image
                     source={{
                       uri:
-                        editAvatarUrl ||
-                        'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=500&auto=format&fit=crop&q=60',
+                        editAvatarUrl
+                          ? resolveMediaUrl(editAvatarUrl)
+                          : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80',
                     }}
                     style={styles.avatarEditPreview}
                   />
@@ -1296,7 +1323,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     backgroundColor: Colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.parchmentDim,
+    borderBottomColor: '#CCEBD5',
   },
   topNavBar: {
     flexDirection: 'row',
@@ -1310,9 +1337,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: Colors.parchment,
-    borderWidth: 1.5,
-    borderColor: Colors.cultivated,
+    backgroundColor: '#EEF8F1',
+    borderWidth: 1,
+    borderColor: '#CCEBD5',
     paddingVertical: 7,
     paddingHorizontal: 14,
     borderRadius: Radii.pill,
@@ -1344,7 +1371,7 @@ const styles = StyleSheet.create({
     height: 86,
     borderRadius: 43,
     borderWidth: 2.5,
-    borderColor: Colors.gold,
+    borderColor: Colors.cultivated,
   },
   verifiedDot: {
     position: 'absolute',
@@ -1403,10 +1430,10 @@ const styles = StyleSheet.create({
     width: '100%',
     paddingVertical: 14,
     paddingHorizontal: 4,
-    backgroundColor: Colors.parchment,
+    backgroundColor: '#EEF8F1',
     borderRadius: Radii.card,
     borderWidth: 1,
-    borderColor: Colors.parchmentDim,
+    borderColor: '#CCEBD5',
     marginBottom: 14,
   },
   statCol: {
@@ -1432,7 +1459,7 @@ const styles = StyleSheet.create({
   statDivider: {
     width: 1,
     height: 20,
-    backgroundColor: Colors.parchmentDim,
+    backgroundColor: '#CCEBD5',
   },
   visitorActionsRow: {
     flexDirection: 'row',
@@ -1471,9 +1498,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: Colors.parchment,
+    backgroundColor: '#EEF8F1',
     borderWidth: 1,
-    borderColor: Colors.parchmentDim,
+    borderColor: '#CCEBD5',
     paddingVertical: 10,
     borderRadius: Radii.pill,
   },
@@ -1525,7 +1552,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 36,
-    backgroundColor: Colors.parchment,
+    backgroundColor: '#EEF8F1',
+    borderWidth: 1,
+    borderColor: '#CCEBD5',
     borderRadius: Radii.card,
     marginHorizontal: 16,
     marginVertical: 12,
@@ -1541,7 +1570,7 @@ const styles = StyleSheet.create({
     aspectRatio: 3 / 4,
     borderRadius: 0,
     overflow: 'hidden',
-    backgroundColor: Colors.parchmentDim,
+    backgroundColor: '#EEF8F1',
     position: 'relative',
   },
   gridTileImage: {
@@ -1597,7 +1626,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 32,
     marginTop: 20,
-    backgroundColor: Colors.parchment,
+    backgroundColor: '#EEF8F1',
+    borderWidth: 1,
+    borderColor: '#CCEBD5',
     borderRadius: Radii.card,
   },
   emptyIconCircle: {
@@ -1628,7 +1659,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 36,
-    backgroundColor: Colors.parchment,
+    backgroundColor: '#EEF8F1',
+    borderWidth: 1,
+    borderColor: '#CCEBD5',
     borderRadius: Radii.card,
     marginVertical: 12,
   },
@@ -1678,9 +1711,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: Colors.parchment,
-    borderWidth: 1.5,
-    borderColor: Colors.cultivated,
+    backgroundColor: '#EEF8F1',
+    borderWidth: 1,
+    borderColor: '#CCEBD5',
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: Radii.pill,
@@ -1710,7 +1743,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.parchmentDim,
+    borderBottomColor: '#CCEBD5',
   },
   editModalTitle: {
     fontFamily: Fonts.bodyBold,
@@ -1720,7 +1753,7 @@ const styles = StyleSheet.create({
   editModalCloseBtn: {
     padding: 6,
     borderRadius: 20,
-    backgroundColor: Colors.parchment,
+    backgroundColor: '#EEF8F1',
   },
   avatarEditSection: {
     alignItems: 'center',
@@ -1754,12 +1787,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: Colors.parchment,
+    backgroundColor: '#EEF8F1',
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: Radii.pill,
     borderWidth: 1,
-    borderColor: Colors.parchmentDim,
+    borderColor: '#CCEBD5',
   },
   avatarPickerBtnText: {
     fontFamily: Fonts.bodyMedium,
@@ -1779,9 +1812,9 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.body,
     fontSize: 14,
     color: Colors.espresso,
-    backgroundColor: Colors.parchment,
+    backgroundColor: '#EEF8F1',
     borderWidth: 1,
-    borderColor: Colors.parchmentDim,
+    borderColor: '#CCEBD5',
     borderRadius: Radii.sm,
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -1797,7 +1830,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingTop: 14,
     borderTopWidth: 1,
-    borderTopColor: Colors.parchmentDim,
+    borderTopColor: '#CCEBD5',
   },
 
   // Escrow Orders Shortcut & Tab Styles
@@ -1882,7 +1915,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 8,
-    backgroundColor: Colors.parchment,
+    backgroundColor: '#EEF8F1',
   },
   profileOrderTitle: {
     fontFamily: Fonts.bodyBold,
@@ -1932,14 +1965,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Colors.white,
-    marginHorizontal: 16,
+    backgroundColor: '#EEF8F1',
+    marginHorizontal: 0,
+    width: '100%',
     marginTop: 12,
     marginBottom: 4,
     padding: 14,
     borderRadius: Radii.card,
-    borderWidth: 1.5,
-    borderColor: Colors.cultivated,
+    borderWidth: 1,
+    borderColor: '#CCEBD5',
     ...Shadows.subtle,
   },
   farmHubBannerLeft: {
@@ -2004,9 +2038,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: Radii.pill,
-    backgroundColor: Colors.parchment,
+    backgroundColor: '#EEF8F1',
     borderWidth: 1,
-    borderColor: Colors.parchmentDim,
+    borderColor: '#CCEBD5',
   },
   wishlistSubFilterPillActive: {
     backgroundColor: Colors.canopy,

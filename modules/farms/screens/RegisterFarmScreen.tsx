@@ -10,6 +10,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -40,6 +41,9 @@ import { useAuthStore } from '@/store/authStore';
 import { useUIStore } from '@/store/uiStore';
 import { Farm, FarmCategory } from '@/types';
 import { createFarmApi } from '../api';
+import { uploadMediaApi } from '@/components/api/posts';
+import { resolveMediaUrl } from '@/utils/media';
+
 
 const CATEGORIES: Array<{ key: FarmCategory; label: string; icon: any; sub: string }> = [
   { key: 'CROPS', label: 'Crops & Vegetables', icon: Sprout, sub: 'Tomatoes, Maize, Potatoes, Greens' },
@@ -148,6 +152,7 @@ export default function RegisterFarmScreen() {
   const [cooperative, setCooperative] = useState('');
 
   const [coverPhoto, setCoverPhoto] = useState(SAMPLE_COVERS[0]);
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
   const [isOrganic, setIsOrganic] = useState(true);
   const [isGapCertified, setIsGapCertified] = useState(true);
 
@@ -155,14 +160,32 @@ export default function RegisterFarmScreen() {
 
   const handlePickCustomCover = async () => {
     try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please grant photo gallery access to upload a custom farm banner.');
+        return;
+      }
+
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        allowsEditing: true,
+        allowsEditing: Platform.OS === 'ios',
         aspect: [16, 9], // Standard 16:9 Landscape Banner
         quality: 0.85,
       });
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        setCoverPhoto(result.assets[0].uri);
+        const localUri = result.assets[0].uri;
+        setCoverPhoto(localUri);
+        setIsUploadingCover(true);
+        try {
+          const uploadRes = await uploadMediaApi(localUri, false);
+          if (uploadRes?.url) {
+            setCoverPhoto(uploadRes.url);
+          }
+        } catch (uploadErr) {
+          console.warn('Cover upload failed, using local URI fallback', uploadErr);
+        } finally {
+          setIsUploadingCover(false);
+        }
       }
     } catch (e) {
       console.warn('Image picker error', e);
@@ -211,6 +234,24 @@ export default function RegisterFarmScreen() {
   const handleSubmit = async () => {
     setIsSubmitting(true);
 
+    let finalCover = coverPhoto;
+    if (
+      finalCover &&
+      (finalCover.startsWith('file:') ||
+        finalCover.startsWith('content:') ||
+        finalCover.startsWith('ph:') ||
+        finalCover.startsWith('blob:'))
+    ) {
+      try {
+        const uploadRes = await uploadMediaApi(finalCover, false);
+        if (uploadRes?.url) {
+          finalCover = uploadRes.url;
+        }
+      } catch (err) {
+        console.warn('Fallback upload before submit failed', err);
+      }
+    }
+
     const primaryParcel = parcels[0];
     const totalHectares = totalParcelsHectares || parseFloat(sizeHectares) || 2.5;
     const newFarmId = `farm-${Date.now()}`;
@@ -235,7 +276,7 @@ export default function RegisterFarmScreen() {
         sizeHectares: parseFloat(p.sizeHectares) || 1.0,
         isHeadquarters: idx === 0,
       })),
-      coverPhoto,
+      coverPhoto: finalCover,
       primaryProduce: produceTags,
       certifications: [
         ...(isOrganic ? ['Natural & Chemical-Free Practice'] : []),
@@ -254,6 +295,7 @@ export default function RegisterFarmScreen() {
     } catch (err) {
       console.log('Backend sync offline/fallback, saved to local state');
     }
+
 
     // Update current user state with new farm
     const existingFarms = user?.farms || [];
@@ -609,17 +651,25 @@ export default function RegisterFarmScreen() {
 
               {/* 16:9 Banner Preview Box with Upload Action */}
               <View style={styles.bannerPreviewWrapper}>
-                <Image source={{ uri: coverPhoto }} style={styles.bannerPreviewImage} />
+                <Image source={{ uri: resolveMediaUrl(coverPhoto) }} style={styles.bannerPreviewImage} />
                 <TouchableOpacity
                   style={styles.uploadOverlayBtn}
                   onPress={handlePickCustomCover}
+                  disabled={isUploadingCover}
                   activeOpacity={0.85}
                   accessibilityLabel="Upload custom cover photo"
                 >
-                  <Camera size={16} color={Colors.white} />
-                  <Text style={styles.uploadOverlayBtnText}>Upload & Crop (16:9)</Text>
+                  {isUploadingCover ? (
+                    <ActivityIndicator size="small" color={Colors.white} />
+                  ) : (
+                    <>
+                      <Camera size={16} color={Colors.white} />
+                      <Text style={styles.uploadOverlayBtnText}>Upload & Crop (16:9)</Text>
+                    </>
+                  )}
                 </TouchableOpacity>
               </View>
+
 
               {/* Curated Presets as alternative */}
               <Text style={[styles.inputLabel, { marginTop: 12 }]}>Or pick a curated farm landscape:</Text>

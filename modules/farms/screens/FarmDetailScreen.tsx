@@ -59,6 +59,7 @@ import CustomTabBar from '@/components/navigation/CustomTabBar';
 import AgromPreloader from '@/components/AgromPreloader';
 import { CATEGORIES, UNITS, SEASONS, SHELF_LIFE_OPTIONS } from './FarmManagementScreen';
 import { FarmParcel } from '@/types';
+import { resolveMediaUrl } from '@/utils/media';
 
 export default function FarmDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -70,9 +71,12 @@ export default function FarmDetailScreen() {
 
   const [farm, setFarm] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [coverError, setCoverError] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
   const [activeTab, setActiveTab] = useState<'produce' | 'stories' | 'reviews' | 'about'>('produce');
   const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
+
   const [followLoading, setFollowLoading] = useState(false);
   const [isAgroPartner, setIsAgroPartner] = useState(false);
   const [partnerLoading, setPartnerLoading] = useState(false);
@@ -335,25 +339,41 @@ export default function FarmDetailScreen() {
           <Image
             source={{
               uri:
-                farm.coverPhoto ||
-                'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=800',
+                !coverError && farm.coverPhoto
+                  ? resolveMediaUrl(farm.coverPhoto)
+                  : 'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=800',
             }}
             style={styles.coverImage}
+            onError={() => setCoverError(true)}
           />
         </View>
 
         {/* Farm Profile Header Card */}
         <View style={styles.profileCard}>
           <View style={styles.avatarRow}>
-            <Image
-              source={{
-                uri:
-                  farm.avatarPhoto ||
-                  farmOwner.avatarUrl ||
-                  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500',
+            <TouchableOpacity
+              onPress={() => {
+                const uid = farm?.userId || farmOwner?.id;
+                if (uid) {
+                  router.push(`/profile/${uid}` as any);
+                }
               }}
-              style={styles.avatar}
-            />
+              activeOpacity={0.8}
+              accessibilityLabel="View farmer profile"
+              accessibilityRole="button"
+            >
+              <Image
+                source={{
+                  uri:
+                    !avatarError && (farm.avatarPhoto || farmOwner.avatarUrl)
+                      ? resolveMediaUrl(farm.avatarPhoto || farmOwner.avatarUrl)
+                      : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500',
+                }}
+                style={styles.avatar}
+                onError={() => setAvatarError(true)}
+              />
+            </TouchableOpacity>
+
             <View style={styles.avatarBadgeCol}>
               <FarmerBadge tier="GOLD" size="md" />
               {farm.isVerified && (

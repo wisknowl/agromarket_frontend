@@ -45,8 +45,10 @@ import {
   Eye,
   EyeOff,
   AlertCircle,
+  AlertTriangle,
   Edit3,
   Camera,
+  Trash2,
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import Colors, { Radii, Shadows } from '@/constants/colors';
@@ -63,10 +65,15 @@ import {
   createProduceApi,
   patchProduceStockApi,
   updateProduceApi,
+  deleteProduceApi,
   updateFarmApi,
+  deleteFarmApi,
 } from '../api';
+import { uploadMediaApi } from '@/components/api/posts';
+import { resolveMediaUrl } from '@/utils/media';
 import { Farm, FarmParcel } from '@/types';
 import AgromPreloader from '@/components/AgromPreloader';
+
 
 export const CAMEROON_REGIONS = [
   'Centre (Yaoundé)',
@@ -267,6 +274,32 @@ export default function FarmManagementScreen() {
     mediaUrl: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800',
   });
 
+  // Edit Produce Modal State
+  const [showEditProduceModal, setShowEditProduceModal] = useState(false);
+  const [editingProduceItem, setEditingProduceItem] = useState<any>(null);
+  const [savingEditProduce, setSavingEditProduce] = useState(false);
+  const [deletingProduce, setDeletingProduce] = useState(false);
+  const [uploadingProducePhoto, setUploadingProducePhoto] = useState(false);
+  const [editProduceForm, setEditProduceForm] = useState({
+    title: '',
+    description: '',
+    categoryName: 'Vegetables & Greens',
+    selectedParcelId: '',
+    pricePerUnit: '',
+    unit: 'KG',
+    customUnit: '',
+    seasonality: 'PEAK_HARVEST',
+    shelfLifeDays: '7',
+    minOrderQuantity: '1',
+    stockQuantity: '',
+    isOrganic: true,
+    isWholesaleBulkAvailable: false,
+    bulkMinQuantity: '',
+    bulkPricePerUnit: '',
+    mediaUrl: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800',
+    isAvailable: true,
+  });
+
   const handleAddSite = async () => {
     if (!newSiteForm.name.trim() || !newSiteForm.city.trim()) {
       Alert.alert('Required Fields', 'Please enter a site name (e.g. Buea Hatchery) and town/city.');
@@ -334,6 +367,17 @@ export default function FarmManagementScreen() {
 
   // Edit Farm Profile State & Handlers
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const [isDeletingFarm, setIsDeletingFarm] = useState(false);
+  // 2-Step Cascading Farm Deletion & Migration State
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [deleteStep, setDeleteStep] = useState<1 | 2>(1);
+  const [deleteAction, setDeleteAction] = useState<'transfer' | 'delete'>('transfer');
+  const [deleteTargetFarmId, setDeleteTargetFarmId] = useState<string>('');
+  const [deleteConfirmName, setDeleteConfirmName] = useState('');
+  const [deleteSingleFarmAgreed, setDeleteSingleFarmAgreed] = useState(false);
+  const [activeCoverError, setActiveCoverError] = useState(false);
+  const [editCoverError, setEditCoverError] = useState(false);
   const [editForm, setEditForm] = useState({
     name: '',
     description: '',
@@ -351,23 +395,47 @@ export default function FarmManagementScreen() {
       coverPhoto: activeFarm.coverPhoto || '',
       primaryProduce: activeFarm.primaryProduce ? [...activeFarm.primaryProduce] : [],
     });
+    setEditCoverError(false);
     setEditTagInput('');
     setShowEditProfileModal(true);
   };
 
   const handlePickEditCover = async () => {
     try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please grant photo gallery access to change your farm storefront banner.');
+        return;
+      }
+
+      // Note: On Android, UCrop activity crashes during/after cropping with 16:9 aspect ratios.
+      // Setting allowsEditing to false on Android prevents the native crash while UI auto-covers to 16:9.
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        allowsEditing: true,
+        allowsEditing: Platform.OS === 'ios',
         aspect: [16, 9],
         quality: 0.85,
       });
+
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        setEditForm((prev) => ({ ...prev, coverPhoto: result.assets[0].uri }));
+        const localUri = result.assets[0].uri;
+        setEditForm((prev) => ({ ...prev, coverPhoto: localUri }));
+        setEditCoverError(false);
+        setUploadingCover(true);
+        try {
+          const uploadRes = await uploadMediaApi(localUri, false);
+          if (uploadRes?.url) {
+            setEditForm((prev) => ({ ...prev, coverPhoto: uploadRes.url }));
+          }
+        } catch (uploadErr) {
+          console.warn('Cover upload failed, using local URI fallback', uploadErr);
+        } finally {
+          setUploadingCover(false);
+        }
       }
     } catch (e) {
       console.warn('Image picker error', e);
+      Alert.alert('Upload Error', 'Could not open image picker.');
     }
   };
 
@@ -395,10 +463,28 @@ export default function FarmManagementScreen() {
     }
     setSavingProfile(true);
     try {
+      let finalCover = editForm.coverPhoto;
+      if (
+        finalCover &&
+        (finalCover.startsWith('file:') ||
+          finalCover.startsWith('content:') ||
+          finalCover.startsWith('ph:') ||
+          finalCover.startsWith('blob:'))
+      ) {
+        try {
+          const uploadRes = await uploadMediaApi(finalCover, false);
+          if (uploadRes?.url) {
+            finalCover = uploadRes.url;
+          }
+        } catch (uploadErr) {
+          console.warn('Cover upload before save failed', uploadErr);
+        }
+      }
+
       const updated = await updateFarmApi(activeFarm.id, {
         name: editForm.name.trim(),
         description: editForm.description.trim(),
-        coverPhoto: editForm.coverPhoto,
+        coverPhoto: finalCover,
         primaryProduce: editForm.primaryProduce,
       });
 
@@ -407,11 +493,12 @@ export default function FarmManagementScreen() {
         ...updated,
         name: editForm.name.trim(),
         description: editForm.description.trim(),
-        coverPhoto: editForm.coverPhoto,
+        coverPhoto: finalCover,
         primaryProduce: editForm.primaryProduce,
       };
 
       setFarmData(updatedFarmObj);
+      setActiveCoverError(false);
       setFarmsList((prev) =>
         prev.map((f) => (f.id === activeFarm.id ? { ...f, ...updatedFarmObj } : f))
       );
@@ -430,6 +517,74 @@ export default function FarmManagementScreen() {
       setSavingProfile(false);
     }
   };
+
+  const handleOpenDeleteModal = (farmIdToDelete?: string) => {
+    const targetId = farmIdToDelete || activeFarm?.id;
+    const targetFarm = farmsList.find((f) => f.id === targetId) || activeFarm;
+    if (!targetFarm) return;
+
+    const otherFarms = farmsList.filter((f) => f.id !== targetFarm.id);
+    setDeleteStep(1);
+    setDeleteConfirmName('');
+    setDeleteSingleFarmAgreed(false);
+    if (otherFarms.length > 0) {
+      setDeleteAction('transfer');
+      setDeleteTargetFarmId(otherFarms[0].id);
+    } else {
+      setDeleteAction('delete');
+      setDeleteTargetFarmId('');
+    }
+    setShowEditProfileModal(false);
+    setDeleteModalVisible(true);
+  };
+
+  const handleDeleteFarm = (farmIdToDelete?: string) => {
+    handleOpenDeleteModal(farmIdToDelete);
+  };
+
+  const handleExecuteDeleteFarm = async () => {
+    if (!activeFarm) return;
+    if (deleteConfirmName.trim().toLowerCase() !== activeFarm.name.trim().toLowerCase()) {
+      Alert.alert('Verification Required', 'Please type the exact farm enterprise name as shown to confirm deletion.');
+      return;
+    }
+
+    const otherFarms = farmsList.filter((f) => f.id !== activeFarm.id);
+    const targetFarmId = otherFarms.length > 0 && deleteAction === 'transfer' ? deleteTargetFarmId : undefined;
+
+    setIsDeletingFarm(true);
+    try {
+      await deleteFarmApi(activeFarm.id, targetFarmId);
+      const remainingFarms = farmsList.filter((f) => f.id !== activeFarm.id);
+      setFarmsList(remainingFarms);
+      updateUser({ farms: remainingFarms });
+
+      if (activeFarm.id === selectedFarmId) {
+        const nextFarm = remainingFarms[0] || null;
+        setSelectedFarmId(nextFarm ? nextFarm.id : null);
+        setActiveFarmId(nextFarm ? nextFarm.id : null);
+        setFarmData(nextFarm);
+        setActiveCoverError(false);
+      }
+
+      setDeleteModalVisible(false);
+      Alert.alert(
+        'Farm Enterprise Removed 🌾',
+        deleteAction === 'transfer' && targetFarmId
+          ? `"${activeFarm.name}" was successfully removed. All active produce batches and harvest stories were transferred to your other farm.`
+          : `"${activeFarm.name}" and its associated produce listings and stories have been permanently deleted.`
+      );
+    } catch (err: any) {
+      console.error('Failed to delete farm:', err);
+      Alert.alert(
+        'Deletion Blocked',
+        err.response?.data?.message || err.message || 'Could not delete farm enterprise. Active customer orders must be fulfilled before this farm can be removed.'
+      );
+    } finally {
+      setIsDeletingFarm(false);
+    }
+  };
+
 
   // Quick-Stock & Inventory Management State
   const [selectedStockYield, setSelectedStockYield] = useState<any>(null);
@@ -495,6 +650,164 @@ export default function FarmManagementScreen() {
     } finally {
       setUpdatingStock(false);
     }
+  };
+
+  const openEditProduceModal = (yieldItem: any) => {
+    setEditingProduceItem(yieldItem);
+    const catName = yieldItem.category?.name || 'Vegetables & Greens';
+    const parcelMatch = activeParcels.find((p: any) =>
+      yieldItem.originRegion && yieldItem.originRegion.includes(p.name)
+    );
+    setEditProduceForm({
+      title: yieldItem.title || '',
+      description: yieldItem.description || '',
+      categoryName: catName,
+      selectedParcelId: parcelMatch?.id || activeParcels[0]?.id || '',
+      pricePerUnit: String(yieldItem.price ?? yieldItem.pricePerUnit ?? ''),
+      unit: yieldItem.unit || 'KG',
+      customUnit: yieldItem.customUnit || '',
+      seasonality: yieldItem.seasonality || 'PEAK_HARVEST',
+      shelfLifeDays: yieldItem.shelfLifeDays ? String(yieldItem.shelfLifeDays) : '7',
+      minOrderQuantity: String(yieldItem.minOrderQuantity ?? 1),
+      stockQuantity: String(yieldItem.stockQuantity ?? 0),
+      isOrganic: Boolean(yieldItem.isOrganic),
+      isWholesaleBulkAvailable: Boolean(yieldItem.isWholesaleBulkAvailable),
+      bulkMinQuantity: yieldItem.bulkMinQuantity ? String(yieldItem.bulkMinQuantity) : '',
+      bulkPricePerUnit: yieldItem.bulkPricePerUnit ? String(yieldItem.bulkPricePerUnit) : '',
+      mediaUrl:
+        yieldItem.image ||
+        yieldItem.mediaUrls?.[0] ||
+        'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800',
+      isAvailable: yieldItem.isAvailable !== false,
+    });
+    setShowEditProduceModal(true);
+  };
+
+  const handlePickProducePhoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Needed', 'Please allow photo gallery access to upload a produce photo.');
+        return;
+      }
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: Platform.OS === 'ios',
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+      if (!res.canceled && res.assets?.[0]?.uri) {
+        setUploadingProducePhoto(true);
+        const uploadRes = await uploadMediaApi(res.assets[0].uri, false);
+        setEditProduceForm((prev: any) => ({ ...prev, mediaUrl: uploadRes.url }));
+      }
+    } catch (err: any) {
+      Alert.alert('Upload Error', err.message || 'Could not upload produce image');
+    } finally {
+      setUploadingProducePhoto(false);
+    }
+  };
+
+  const handleSaveEditProduce = async () => {
+    if (!editingProduceItem?.id) return;
+    if (!editProduceForm.title.trim() || !editProduceForm.pricePerUnit) {
+      Alert.alert('Missing Required Fields', 'Please specify a produce name and price.');
+      return;
+    }
+    try {
+      setSavingEditProduce(true);
+      const categoryObj = CATEGORIES.find((c) => c.name === editProduceForm.categoryName) || CATEGORIES[0];
+      const chosenParcel = activeParcels.find((p: any) => p.id === editProduceForm.selectedParcelId) || activeParcels[0];
+      const originDisplay = chosenParcel
+        ? `${chosenParcel.name} (${chosenParcel.city}, ${chosenParcel.region})`
+        : `${activeFarm.city || 'Cameroon'}, ${activeFarm.region || ''}`.trim();
+
+      const updated = await updateProduceApi(editingProduceItem.id, {
+        title: editProduceForm.title.trim(),
+        description: editProduceForm.description.trim(),
+        categoryId: categoryObj.id,
+        categoryName: categoryObj.name,
+        pricePerUnit: parseFloat(editProduceForm.pricePerUnit),
+        unit: editProduceForm.unit === 'CUSTOM' ? 'KG' : editProduceForm.unit,
+        originRegion: originDisplay,
+        stockQuantity: parseFloat(editProduceForm.stockQuantity || '0'),
+        minOrderQuantity: parseFloat(editProduceForm.minOrderQuantity || '1'),
+        isOrganic: editProduceForm.isOrganic,
+        isWholesaleBulkAvailable: editProduceForm.isWholesaleBulkAvailable,
+        bulkMinQuantity: editProduceForm.bulkMinQuantity ? parseFloat(editProduceForm.bulkMinQuantity) : undefined,
+        bulkPricePerUnit: editProduceForm.bulkPricePerUnit ? parseFloat(editProduceForm.bulkPricePerUnit) : undefined,
+        isAvailable: editProduceForm.isAvailable,
+        mediaUrls: [editProduceForm.mediaUrl],
+      });
+
+      // Update local state optimistically
+      if (farmData && farmData.yields) {
+        setFarmData({
+          ...farmData,
+          yields: farmData.yields.map((y: any) =>
+            y.id === editingProduceItem.id
+              ? {
+                  ...y,
+                  ...updated.yield,
+                  title: editProduceForm.title.trim(),
+                  description: editProduceForm.description.trim(),
+                  price: parseFloat(editProduceForm.pricePerUnit),
+                  pricePerUnit: parseFloat(editProduceForm.pricePerUnit),
+                  stockQuantity: parseFloat(editProduceForm.stockQuantity || '0'),
+                  unit: editProduceForm.unit === 'CUSTOM' ? 'KG' : editProduceForm.unit,
+                  isOrganic: editProduceForm.isOrganic,
+                  isAvailable: editProduceForm.isAvailable,
+                  image: editProduceForm.mediaUrl,
+                  mediaUrls: [editProduceForm.mediaUrl],
+                }
+              : y
+          ),
+        });
+      }
+
+      setShowEditProduceModal(false);
+      Alert.alert('Produce Updated! 🌾', `"${editProduceForm.title}" has been successfully updated.`);
+    } catch (err: any) {
+      Alert.alert('Save Failed', err?.response?.data?.message || err.message || 'Could not update produce listing.');
+    } finally {
+      setSavingEditProduce(false);
+    }
+  };
+
+  const handleDeleteProduce = (yieldItem: any) => {
+    const itemToDelete = yieldItem || editingProduceItem;
+    if (!itemToDelete?.id) return;
+
+    Alert.alert(
+      'Delete Produce Listing? 🗑️',
+      `Are you sure you want to delete "${itemToDelete.title}"? This produce listing will be removed from ${activeFarm?.name || 'this farm'} and the marketplace.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Listing',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setDeletingProduce(true);
+              await deleteProduceApi(itemToDelete.id);
+              if (farmData && farmData.yields) {
+                setFarmData({
+                  ...farmData,
+                  yields: farmData.yields.filter((y: any) => y.id !== itemToDelete.id),
+                });
+              }
+              setShowEditProduceModal(false);
+              setStockModalVisible(false);
+              Alert.alert('Produce Removed', `"${itemToDelete.title}" has been deleted.`);
+            } catch (err: any) {
+              Alert.alert('Delete Failed', err?.response?.data?.message || err.message || 'Could not delete produce.');
+            } finally {
+              setDeletingProduce(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleCreateProduce = async () => {
@@ -663,20 +976,33 @@ export default function FarmManagementScreen() {
           <Image
             source={{
               uri:
-                activeFarm?.coverPhoto ||
-                'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=800',
+                !activeCoverError && activeFarm?.coverPhoto
+                  ? resolveMediaUrl(activeFarm.coverPhoto)
+                  : 'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=800',
             }}
             style={styles.coverImage}
+            onError={() => setActiveCoverError(true)}
           />
-          <TouchableOpacity
-            style={styles.editProfileBtn}
-            onPress={handleOpenEditProfile}
-            activeOpacity={0.85}
-            accessibilityLabel="Edit Farm Profile"
-          >
-            <Edit3 size={13} color={Colors.white} />
-            <Text style={styles.editProfileBtnText}>Edit Profile</Text>
-          </TouchableOpacity>
+          <View style={styles.activeFarmHeaderActions}>
+            <TouchableOpacity
+              style={styles.editProfileBtn}
+              onPress={handleOpenEditProfile}
+              activeOpacity={0.85}
+              accessibilityLabel="Edit Farm Profile"
+            >
+              <Edit3 size={13} color={Colors.white} />
+              <Text style={styles.editProfileBtnText}>Edit Profile</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.deleteFarmHeaderBtn}
+              onPress={() => handleDeleteFarm(activeFarm?.id)}
+              activeOpacity={0.85}
+              accessibilityLabel="Delete Farm"
+            >
+              <Trash2 size={13} color={Colors.white} />
+            </TouchableOpacity>
+          </View>
+
           <View style={styles.farmDetailsOverlay}>
             <View style={styles.tierRow}>
               <FarmerBadge
@@ -843,79 +1169,109 @@ export default function FarmManagementScreen() {
             const isOutOfStock = stockQty <= 0;
             const isPaused = yieldItem.isAvailable === false;
             return (
-              <TouchableOpacity
+              <View
                 key={yieldItem.id}
                 style={styles.yieldCardRow}
-                activeOpacity={0.88}
-                onPress={() => openStockModal(yieldItem)}
               >
-                <Image
-                  source={{
-                    uri:
-                      yieldItem.image ||
-                      yieldItem.mediaUrls?.[0] ||
-                      'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=500',
-                  }}
-                  style={styles.yieldThumb}
-                />
-                <View style={styles.yieldMainCol}>
-                  <View style={styles.yieldTitleTop}>
-                    <Text style={styles.yieldItemTitle} numberOfLines={1}>
-                      {yieldItem.title}
+                <TouchableOpacity
+                  style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
+                  activeOpacity={0.88}
+                  onPress={() => openEditProduceModal(yieldItem)}
+                >
+                  <Image
+                    source={{
+                      uri:
+                        yieldItem.image ||
+                        yieldItem.mediaUrls?.[0] ||
+                        'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=500',
+                    }}
+                    style={styles.yieldThumb}
+                  />
+                  <View style={styles.yieldMainCol}>
+                    <View style={styles.yieldTitleTop}>
+                      <Text style={styles.yieldItemTitle} numberOfLines={1}>
+                        {yieldItem.title}
+                      </Text>
+                      {yieldItem.isOrganic && (
+                        <View style={styles.miniOrganicBadge}>
+                          <Sparkles size={10} color={Colors.cultivated} />
+                          <Text style={styles.miniOrganicText}>Organic</Text>
+                        </View>
+                      )}
+                    </View>
+
+                    <Text style={styles.yieldSubtitle} numberOfLines={1}>
+                      {yieldItem.originRegion || activeFarm?.city || 'Cameroon'}
                     </Text>
-                    {yieldItem.isOrganic && (
-                      <View style={styles.miniOrganicBadge}>
-                        <Sparkles size={10} color={Colors.cultivated} />
-                        <Text style={styles.miniOrganicText}>Organic</Text>
-                      </View>
-                    )}
-                  </View>
 
-                  <Text style={styles.yieldSubtitle} numberOfLines={1}>
-                    {yieldItem.originRegion || activeFarm?.city || 'Cameroon'}
-                  </Text>
-
-                  <View style={styles.yieldBottomRow}>
-                    <PriceTag
-                      amount={yieldItem.price ?? yieldItem.pricePerUnit ?? 0}
-                      unit={yieldItem.unit}
-                      size="sm"
-                    />
-                    <View
-                      style={[
-                        styles.stockStatusPill,
-                        isPaused
-                          ? styles.stockStatusPillPaused
-                          : isOutOfStock
-                          ? styles.stockStatusPillOut
-                          : styles.stockStatusPillActive,
-                      ]}
-                    >
-                      <Text
+                    <View style={styles.yieldBottomRow}>
+                      <PriceTag
+                        amount={yieldItem.price ?? yieldItem.pricePerUnit ?? 0}
+                        unit={yieldItem.unit}
+                        size="sm"
+                      />
+                      <View
                         style={[
-                          styles.stockStatusPillText,
+                          styles.stockStatusPill,
                           isPaused
-                            ? styles.stockStatusPillTextPaused
+                            ? styles.stockStatusPillPaused
                             : isOutOfStock
-                            ? styles.stockStatusPillTextOut
-                            : styles.stockStatusPillTextActive,
+                            ? styles.stockStatusPillOut
+                            : styles.stockStatusPillActive,
                         ]}
                       >
-                        {isPaused
-                          ? '⏸ Paused'
-                          : isOutOfStock
-                          ? '⚠️ Out of Stock'
-                          : `📦 ${stockQty} ${yieldItem.unit}`}
-                      </Text>
+                        <Text
+                          style={[
+                            styles.stockStatusPillText,
+                            isPaused
+                              ? styles.stockStatusPillTextPaused
+                              : isOutOfStock
+                              ? styles.stockStatusPillTextOut
+                              : styles.stockStatusPillTextActive,
+                          ]}
+                        >
+                          {isPaused
+                            ? '⏸ Paused'
+                            : isOutOfStock
+                            ? '⚠️ Out of Stock'
+                            : `📦 ${stockQty} ${yieldItem.unit}`}
+                        </Text>
+                      </View>
                     </View>
                   </View>
-                </View>
+                </TouchableOpacity>
 
-                <View style={styles.yieldStockActionBtn}>
-                  <Sliders size={15} color={Colors.cultivated} />
-                  <Text style={styles.yieldStockActionText}>Stock</Text>
+                <View style={styles.yieldCardActionsCol}>
+                  <TouchableOpacity
+                    style={styles.yieldEditActionBtn}
+                    onPress={() => openEditProduceModal(yieldItem)}
+                    activeOpacity={0.8}
+                    accessibilityLabel="Edit Produce"
+                  >
+                    <Edit3 size={12} color={Colors.cultivated} strokeWidth={2.4} />
+                    <Text style={styles.yieldEditActionText}>Edit</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.yieldStockActionBtn}
+                    onPress={() => openStockModal(yieldItem)}
+                    activeOpacity={0.8}
+                    accessibilityLabel="Manage Stock"
+                  >
+                    <Sliders size={12} color={Colors.espresso} strokeWidth={2.4} />
+                    <Text style={styles.yieldStockActionText}>Stock</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.yieldDeleteActionBtn}
+                    onPress={() => handleDeleteProduce(yieldItem)}
+                    activeOpacity={0.8}
+                    accessibilityLabel="Delete Produce"
+                  >
+                    <Trash2 size={12} color="#DC2626" strokeWidth={2.2} />
+                  </TouchableOpacity>
                 </View>
-              </TouchableOpacity>
+              </View>
             );
           })
         )}
@@ -1589,6 +1945,7 @@ export default function FarmManagementScreen() {
             </ScrollView>
 
             {/* Modal Bottom Footer */}
+            {/* Modal Bottom Footer */}
             <View style={[styles.modalFooter, { paddingBottom: Math.max(insets.bottom, 16) }]}>
               <TouchableOpacity
                 style={[styles.modalSubmitBtn, updatingStock && { opacity: 0.7 }]}
@@ -1601,6 +1958,345 @@ export default function FarmManagementScreen() {
                   <View style={styles.modalSubmitContent}>
                     <CheckCircle2 size={18} color={Colors.white} />
                     <Text style={styles.modalSubmitBtnText}>Save Inventory Changes</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.editProduceFromStockBtn}
+                onPress={() => {
+                  const item = selectedStockYield;
+                  setStockModalVisible(false);
+                  openEditProduceModal(item);
+                }}
+              >
+                <Edit3 size={14} color={Colors.cultivated} />
+                <Text style={styles.editProduceFromStockText}>Edit Full Produce Details (Price, Photo, Info) →</Text>
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </Modal>
+
+      {/* EDIT PRODUCE MODAL */}
+      <Modal
+        visible={showEditProduceModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowEditProduceModal(false)}
+      >
+        <SafeAreaView style={styles.modalSafeArea} edges={['top', 'left', 'right']}>
+          <View style={styles.modalHeader}>
+            <View style={styles.modalHeaderTitleRow}>
+              <View style={[styles.modalHeaderIconBadge, { backgroundColor: '#eef8f1' }]}>
+                <Edit3 size={18} color={Colors.cultivated} />
+              </View>
+              <View>
+                <Text style={styles.modalTitle}>Modify Produce Batch</Text>
+                <Text style={styles.modalHeaderSub} numberOfLines={1}>
+                  {editingProduceItem?.title || 'Edit Listing'}
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.modalCloseBtn}
+              onPress={() => setShowEditProduceModal(false)}
+              accessibilityLabel="Close"
+            >
+              <X size={20} color={Colors.espresso} />
+            </TouchableOpacity>
+          </View>
+
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={{ flex: 1 }}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 24 : 0}
+          >
+            <ScrollView
+              style={styles.modalBody}
+              contentContainerStyle={styles.modalBodyContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {/* Photo Preview & Change Photo */}
+              <Text style={styles.inputLabel}>Produce Photo</Text>
+              <View style={styles.editProducePhotoWrapper}>
+                <Image
+                  source={{ uri: editProduceForm.mediaUrl }}
+                  style={styles.editProducePhoto}
+                />
+                <TouchableOpacity
+                  style={styles.changeProducePhotoBtn}
+                  onPress={handlePickProducePhoto}
+                  disabled={uploadingProducePhoto}
+                >
+                  {uploadingProducePhoto ? (
+                    <ActivityIndicator size="small" color={Colors.white} />
+                  ) : (
+                    <>
+                      <Camera size={14} color={Colors.white} />
+                      <Text style={styles.changeProducePhotoText}>Change Photo</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              {/* Harvest Operating Site Selector */}
+              <View style={styles.siteSelectorWrapper}>
+                <View style={styles.siteSelectorTitleRow}>
+                  <MapPin size={15} color={Colors.cultivated} />
+                  <Text style={[styles.inputLabel, { marginBottom: 0 }]}>Harvest Operating Site</Text>
+                </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.siteChipsScroll}>
+                  {activeParcels.map((parcel: any) => {
+                    const isSelected = (editProduceForm.selectedParcelId || activeParcels[0]?.id) === parcel.id;
+                    return (
+                      <TouchableOpacity
+                        key={parcel.id}
+                        style={[styles.siteSelectCard, isSelected && styles.siteSelectCardActive]}
+                        onPress={() => setEditProduceForm((p: any) => ({ ...p, selectedParcelId: parcel.id }))}
+                      >
+                        <View style={styles.siteSelectCardTop}>
+                          <Text style={[styles.siteSelectCardName, isSelected && styles.siteSelectCardNameActive]} numberOfLines={1}>
+                            {parcel.name || parcel.city}
+                          </Text>
+                          {parcel.isHeadquarters && (
+                            <View style={styles.hqPillMini}>
+                              <Text style={styles.hqPillMiniText}>HQ</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={[styles.siteSelectCardSub, isSelected && styles.siteSelectCardSubActive]}>
+                          {parcel.city} • {parcel.sizeHectares || 1.0} Ha
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+
+              {/* Title */}
+              <Text style={styles.inputLabel}>Produce Name *</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="e.g. Fresh Foumbot Vine Tomatoes..."
+                placeholderTextColor={Colors.text.muted}
+                value={editProduceForm.title}
+                onChangeText={(t) => setEditProduceForm((p: any) => ({ ...p, title: t }))}
+              />
+
+              {/* Category */}
+              <Text style={styles.inputLabel}>Agricultural Category *</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
+                {CATEGORIES.map((cat) => {
+                  const isSelected = editProduceForm.categoryName === cat.name;
+                  return (
+                    <TouchableOpacity
+                      key={cat.id}
+                      style={[styles.choiceChip, isSelected && styles.choiceChipActive]}
+                      onPress={() => setEditProduceForm((p: any) => ({ ...p, categoryName: cat.name }))}
+                    >
+                      <Text style={styles.catEmoji}>{cat.emoji}</Text>
+                      <Text style={[styles.choiceChipText, isSelected && styles.choiceChipTextActive]}>
+                        {cat.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
+              {/* Price and Unit */}
+              <View style={styles.twoColRow}>
+                <View style={{ flex: 1.2 }}>
+                  <Text style={styles.inputLabel}>Price (FCFA) *</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="e.g. 1500"
+                    placeholderTextColor={Colors.text.muted}
+                    keyboardType="numeric"
+                    value={editProduceForm.pricePerUnit}
+                    onChangeText={(t) => setEditProduceForm((p: any) => ({ ...p, pricePerUnit: t }))}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.inputLabel}>Unit Measure</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.miniUnitScroll}>
+                    {UNITS.slice(0, 7).map((u) => {
+                      const isSelected = editProduceForm.unit === u.id;
+                      return (
+                        <TouchableOpacity
+                          key={u.id}
+                          style={[styles.unitChip, isSelected && styles.unitChipActive]}
+                          onPress={() => setEditProduceForm((p: any) => ({ ...p, unit: u.id }))}
+                        >
+                          <Text style={[styles.unitChipText, isSelected && styles.unitChipTextActive]}>
+                            {u.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              </View>
+
+              {/* Stock and MOQ */}
+              <View style={styles.twoColRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.inputLabel}>Available Stock ({editProduceForm.unit})</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="e.g. 50"
+                    placeholderTextColor={Colors.text.muted}
+                    keyboardType="numeric"
+                    value={editProduceForm.stockQuantity}
+                    onChangeText={(t) => setEditProduceForm((p: any) => ({ ...p, stockQuantity: t }))}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.inputLabel}>Min Order (MOQ)</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="e.g. 1"
+                    placeholderTextColor={Colors.text.muted}
+                    keyboardType="numeric"
+                    value={editProduceForm.minOrderQuantity}
+                    onChangeText={(t) => setEditProduceForm((p: any) => ({ ...p, minOrderQuantity: t }))}
+                  />
+                </View>
+              </View>
+
+              {/* Description */}
+              <Text style={styles.inputLabel}>Farmer Notes & Description</Text>
+              <TextInput
+                style={[styles.textInput, styles.textAreaInput]}
+                placeholder="Describe freshness, harvest time, packaging, sweetness, and grading..."
+                placeholderTextColor={Colors.text.muted}
+                multiline
+                numberOfLines={3}
+                value={editProduceForm.description}
+                onChangeText={(t) => setEditProduceForm((p: any) => ({ ...p, description: t }))}
+              />
+
+              {/* Wholesale / Bulk Pricing */}
+              <TouchableOpacity
+                style={styles.toggleRow}
+                onPress={() =>
+                  setEditProduceForm((p: any) => ({
+                    ...p,
+                    isWholesaleBulkAvailable: !p.isWholesaleBulkAvailable,
+                  }))
+                }
+              >
+                <View
+                  style={[
+                    styles.checkbox,
+                    editProduceForm.isWholesaleBulkAvailable && styles.checkboxActive,
+                  ]}
+                >
+                  {editProduceForm.isWholesaleBulkAvailable && (
+                    <Check size={14} color={Colors.white} strokeWidth={3} />
+                  )}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.toggleTitle}>Wholesale / Bulk Pricing</Text>
+                </View>
+              </TouchableOpacity>
+
+              {editProduceForm.isWholesaleBulkAvailable && (
+                <View style={styles.twoColRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.inputLabel}>Min Bulk Qty</Text>
+                    <TextInput
+                      style={styles.textInput}
+                      placeholder="e.g. 10"
+                      placeholderTextColor={Colors.text.muted}
+                      keyboardType="numeric"
+                      value={editProduceForm.bulkMinQuantity}
+                      onChangeText={(t) => setEditProduceForm((p: any) => ({ ...p, bulkMinQuantity: t }))}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.inputLabel}>Bulk Price (FCFA)</Text>
+                    <TextInput
+                      style={styles.textInput}
+                      placeholder="e.g. 1200"
+                      placeholderTextColor={Colors.text.muted}
+                      keyboardType="numeric"
+                      value={editProduceForm.bulkPricePerUnit}
+                      onChangeText={(t) => setEditProduceForm((p: any) => ({ ...p, bulkPricePerUnit: t }))}
+                    />
+                  </View>
+                </View>
+              )}
+
+              {/* Organic toggle */}
+              <TouchableOpacity
+                style={[styles.toggleRow, { marginTop: 10 }]}
+                onPress={() => setEditProduceForm((p: any) => ({ ...p, isOrganic: !p.isOrganic }))}
+              >
+                <View style={[styles.checkbox, editProduceForm.isOrganic && styles.checkboxActive]}>
+                  {editProduceForm.isOrganic && (
+                    <Check size={14} color={Colors.white} strokeWidth={3} />
+                  )}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.toggleTitle}>Certified Organic / GAP</Text>
+                </View>
+              </TouchableOpacity>
+
+              {/* Availability Switch */}
+              <View style={[styles.availabilityRow, { marginTop: 16 }]}>
+                <View style={{ flex: 1, paddingRight: 12 }}>
+                  <Text style={styles.availabilityTitle}>Marketplace Listing Status</Text>
+                  <Text style={styles.availabilitySubtitle}>
+                    {editProduceForm.isAvailable
+                      ? 'Listing is LIVE. Buyers can browse and order.'
+                      : 'Listing is PAUSED. Produce is hidden from buyer searches.'}
+                  </Text>
+                </View>
+                <Switch
+                  value={editProduceForm.isAvailable}
+                  onValueChange={(v) => setEditProduceForm((p: any) => ({ ...p, isAvailable: v }))}
+                  trackColor={{ false: Colors.parchmentDim, true: Colors.cultivated }}
+                  thumbColor={Colors.white}
+                />
+              </View>
+
+              {/* Danger Zone: Delete Listing */}
+              <View style={styles.dangerZoneBox}>
+                <Text style={styles.dangerZoneTitle}>Delete Listing</Text>
+                <Text style={styles.dangerZoneDesc}>
+                  Permanently remove this harvest batch from this farm and the AgroMarket catalog.
+                </Text>
+                <TouchableOpacity
+                  style={styles.deleteProduceOutlineBtn}
+                  onPress={() => handleDeleteProduce(editingProduceItem)}
+                  disabled={deletingProduce}
+                >
+                  {deletingProduce ? (
+                    <ActivityIndicator size="small" color="#dc2626" />
+                  ) : (
+                    <>
+                      <Trash2 size={15} color="#dc2626" />
+                      <Text style={styles.deleteProduceOutlineText}>Delete This Produce Batch</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+
+            <View style={[styles.modalFooter, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+              <TouchableOpacity
+                style={[styles.modalSubmitBtn, savingEditProduce && { opacity: 0.7 }]}
+                onPress={handleSaveEditProduce}
+                disabled={savingEditProduce}
+              >
+                {savingEditProduce ? (
+                  <ActivityIndicator color={Colors.white} />
+                ) : (
+                  <View style={styles.modalSubmitContent}>
+                    <CheckCircle2 size={18} color={Colors.white} />
+                    <Text style={styles.modalSubmitBtnText}>Save Produce Changes</Text>
                   </View>
                 )}
               </TouchableOpacity>
@@ -1788,19 +2484,28 @@ export default function FarmManagementScreen() {
                 <Image
                   source={{
                     uri:
-                      editForm.coverPhoto ||
-                      'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=800',
+                      !editCoverError && editForm.coverPhoto
+                        ? resolveMediaUrl(editForm.coverPhoto)
+                        : 'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=800',
                   }}
                   style={styles.editBannerImage}
+                  onError={() => setEditCoverError(true)}
                 />
                 <TouchableOpacity
                   style={styles.editBannerChangeBtn}
                   onPress={handlePickEditCover}
+                  disabled={uploadingCover}
                   activeOpacity={0.85}
                   accessibilityLabel="Change Cover Photo"
                 >
-                  <Camera size={15} color={Colors.white} />
-                  <Text style={styles.editBannerChangeBtnText}>Change Photo (16:9)</Text>
+                  {uploadingCover ? (
+                    <ActivityIndicator size="small" color={Colors.white} />
+                  ) : (
+                    <>
+                      <Camera size={15} color={Colors.white} />
+                      <Text style={styles.editBannerChangeBtnText}>Change Photo (16:9)</Text>
+                    </>
+                  )}
                 </TouchableOpacity>
               </View>
 
@@ -1860,6 +2565,31 @@ export default function FarmManagementScreen() {
                   No manual tags added. Your public card will automatically display tags based on your active listed produce.
                 </Text>
               )}
+
+              {/* Danger Zone: Delete Farm */}
+              <View style={styles.dangerZone}>
+                <Text style={styles.dangerZoneTitle}>Danger Zone</Text>
+                <Text style={styles.dangerZoneSubtitle}>
+                  Permanently remove this farm enterprise from your AgroMarket portfolio. Any active produce listed under this farm will be detached.
+                </Text>
+                <TouchableOpacity
+                  style={styles.deleteFarmBtn}
+                  onPress={() => handleDeleteFarm(activeFarm?.id)}
+                  disabled={isDeletingFarm}
+                  activeOpacity={0.85}
+                  accessibilityLabel="Delete Farm Enterprise"
+                >
+                  {isDeletingFarm ? (
+                    <ActivityIndicator size="small" color={Colors.white} />
+                  ) : (
+                    <>
+                      <Trash2 size={16} color={Colors.white} />
+                      <Text style={styles.deleteFarmBtnText}>Delete Farm Enterprise</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+
             </ScrollView>
 
             <View style={[styles.modalFooter, { paddingBottom: Math.max(insets.bottom, 16) }]}>
@@ -1877,6 +2607,411 @@ export default function FarmManagementScreen() {
                   </View>
                 )}
               </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </Modal>
+
+      {/* 2-STEP CASCADING DELETION & MIGRATION MODAL */}
+      <Modal
+        visible={deleteModalVisible}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => {
+          if (!isDeletingFarm) setDeleteModalVisible(false);
+        }}
+      >
+        <SafeAreaView style={styles.modalSafeArea} edges={['top', 'bottom']}>
+          <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          >
+            {/* Modal Header */}
+            <View style={styles.modalHeader}>
+              <View style={styles.modalHeaderTitleRow}>
+                <View style={[styles.modalHeaderIconBadge, { backgroundColor: '#FEE2E2' }]}>
+                  {deleteStep === 1 ? (
+                    <AlertTriangle size={18} color="#DC2626" />
+                  ) : (
+                    <Trash2 size={18} color="#DC2626" />
+                  )}
+                </View>
+                <View>
+                  <Text style={[styles.modalTitle, { color: '#991B1B' }]}>
+                    {deleteStep === 1 ? 'Delete Farm Enterprise' : 'Final Destruction Confirmation'}
+                  </Text>
+                  <Text style={styles.modalHeaderSub}>
+                    {deleteStep === 1 ? 'Step 1 of 2: Impact Assessment' : 'Step 2 of 2: Type Farm Name to Confirm'}
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={styles.modalCloseBtn}
+                onPress={() => {
+                  if (!isDeletingFarm) setDeleteModalVisible(false);
+                }}
+                disabled={isDeletingFarm}
+              >
+                <X size={18} color={Colors.espresso} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              style={styles.modalBody}
+              contentContainerStyle={{ padding: 18, paddingBottom: 40 }}
+              showsVerticalScrollIndicator={true}
+            >
+              {deleteStep === 1 ? (
+                <>
+                  {/* Warning Header Banner */}
+                  <View style={styles.delWarnCard}>
+                    <View style={styles.delWarnHeader}>
+                      <AlertTriangle size={20} color="#DC2626" />
+                      <Text style={styles.delWarnTitle}>Critical Enterprise Deletion</Text>
+                    </View>
+                    <Text style={styles.delWarnText}>
+                      You are preparing to delete <Text style={{ fontFamily: Fonts.bodyBold, color: '#991B1B' }}>"{activeFarm?.name}"</Text>.
+                      This enterprise profile and storefront will be removed from AgroMarket.
+                    </Text>
+                  </View>
+
+                  {/* Associated Assets Found Card */}
+                  <Text style={styles.delSectionTitle}>Associated Farm Assets Found</Text>
+                  <View style={styles.delAssetsCard}>
+                    <View style={styles.delAssetRow}>
+                      <View style={[styles.delAssetIconBox, { backgroundColor: '#EEF8F1' }]}>
+                        <Package size={17} color={Colors.cultivated} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.delAssetCountText}>
+                          {farmYields.length} Active produce batches
+                        </Text>
+                        <Text style={styles.delAssetSubText}>Listed in AgroMarket catalog</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.delAssetDivider} />
+
+                    <View style={styles.delAssetRow}>
+                      <View style={[styles.delAssetIconBox, { backgroundColor: '#FEF3C7' }]}>
+                        <Video size={17} color="#D97706" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.delAssetCountText}>
+                          {farmData?.posts?.length ?? (activeFarm?.posts?.length ?? 1)} Published harvest stories
+                        </Text>
+                        <Text style={styles.delAssetSubText}>Live on AgroFeed with buyer links</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.delAssetDivider} />
+
+                    <View style={styles.delAssetRow}>
+                      <View style={[styles.delAssetIconBox, { backgroundColor: '#F3E8FF' }]}>
+                        <Star size={17} color="#7C3AED" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.delAssetCountText}>
+                          {activeFarm?.reviewsCount || farmData?.reviews?.length || 0} Customer reviews & ratings
+                        </Text>
+                        <Text style={styles.delAssetSubText}>Verified community trust score</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Safety Escrow Check Notice */}
+                  <View style={styles.delEscrowNotice}>
+                    <ShieldCheck size={16} color="#047857" />
+                    <Text style={styles.delEscrowNoticeText}>
+                      Safety Rule: Deletion will be strictly blocked if this farm has active escrow orders in progress or pending delivery.
+                    </Text>
+                  </View>
+
+                  {/* MULTI-FARM CASE (farmsList.length > 1) */}
+                  {farmsList.filter((f) => f.id !== activeFarm?.id).length > 0 ? (
+                    <View style={{ marginTop: 18 }}>
+                      <Text style={styles.delSectionTitle}>Asset Migration Option</Text>
+                      <Text style={styles.delSectionSubtitle}>
+                        You have other active farms. You can seamlessly transfer all produce batches and stories instead of losing them:
+                      </Text>
+
+                      {/* Option 1: Transfer (Recommended) */}
+                      <TouchableOpacity
+                        style={[
+                          styles.delOptionCard,
+                          deleteAction === 'transfer' && styles.delOptionCardSelected,
+                        ]}
+                        onPress={() => setDeleteAction('transfer')}
+                        activeOpacity={0.8}
+                      >
+                        <View style={styles.delOptionRadioRow}>
+                          <View style={[styles.delRadioCircle, deleteAction === 'transfer' && styles.delRadioCircleActive]}>
+                            {deleteAction === 'transfer' && <View style={styles.delRadioInnerDot} />}
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <View style={styles.delOptionBadgeRow}>
+                              <Text style={styles.delOptionTitle}>Transfer produce & stories to another farm</Text>
+                              <View style={styles.recommendedBadge}>
+                                <Text style={styles.recommendedBadgeText}>Recommended</Text>
+                              </View>
+                            </View>
+                            <Text style={styles.delOptionDesc}>
+                              All active marketplace listings and AgroFeed stories will be reassigned so you don't lose sales or followers.
+                            </Text>
+                          </View>
+                        </View>
+
+                        {/* If transfer is selected, show farm picker */}
+                        {deleteAction === 'transfer' && (
+                          <View style={styles.delFarmPickerBox}>
+                            <Text style={styles.delFarmPickerLabel}>Select Destination Farm:</Text>
+                            {farmsList
+                              .filter((f) => f.id !== activeFarm?.id)
+                              .map((otherFarm) => {
+                                const isTarget = deleteTargetFarmId === otherFarm.id;
+                                return (
+                                  <TouchableOpacity
+                                    key={otherFarm.id}
+                                    style={[
+                                      styles.delFarmChoiceCard,
+                                      isTarget && styles.delFarmChoiceCardActive,
+                                    ]}
+                                    onPress={() => setDeleteTargetFarmId(otherFarm.id)}
+                                    activeOpacity={0.85}
+                                  >
+                                    <View style={styles.delFarmChoiceInfo}>
+                                      <Text style={styles.delFarmChoiceName}>{otherFarm.name}</Text>
+                                      <Text style={styles.delFarmChoiceLoc}>
+                                        📍 {otherFarm.city || otherFarm.region || 'Cameroon'}
+                                      </Text>
+                                    </View>
+                                    <View style={[styles.delChoiceCheck, isTarget && styles.delChoiceCheckActive]}>
+                                      {isTarget && <Check size={14} color={Colors.white} />}
+                                    </View>
+                                  </TouchableOpacity>
+                                );
+                              })}
+                          </View>
+                        )}
+                      </TouchableOpacity>
+
+                      {/* Option 2: Delete All */}
+                      <TouchableOpacity
+                        style={[
+                          styles.delOptionCard,
+                          deleteAction === 'delete' && styles.delOptionCardSelectedDanger,
+                        ]}
+                        onPress={() => setDeleteAction('delete')}
+                        activeOpacity={0.8}
+                      >
+                        <View style={styles.delOptionRadioRow}>
+                          <View style={[styles.delRadioCircle, deleteAction === 'delete' && styles.delRadioCircleActiveDanger]}>
+                            {deleteAction === 'delete' && <View style={[styles.delRadioInnerDot, { backgroundColor: '#DC2626' }]} />}
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.delOptionTitle, deleteAction === 'delete' && { color: '#991B1B' }]}>
+                              Permanently delete all produce & stories
+                            </Text>
+                            <Text style={styles.delOptionDesc}>
+                              All produce batches will be removed from AgroMarket, and all harvest stories, comments, and likes will be permanently erased.
+                            </Text>
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    /* SINGLE FARM CASE (farmsList.length <= 1) */
+                    <View style={{ marginTop: 18 }}>
+                      <Text style={styles.delSectionTitle}>Recommended Alternatives</Text>
+                      <Text style={styles.delSectionSubtitle}>
+                        This is your only registered farm. Before deleting it, consider these safer alternatives:
+                      </Text>
+
+                      {/* Alternative 1: Edit Profile */}
+                      <View style={styles.delAltCard}>
+                        <View style={styles.delAltHeader}>
+                          <Edit3 size={18} color={Colors.cultivated} />
+                          <Text style={styles.delAltTitle}>Rebrand or Edit Profile Instead</Text>
+                        </View>
+                        <Text style={styles.delAltDesc}>
+                          Need to change your farm name, location, or crop specialties? Editing your profile keeps your produce listings, review score, and harvest stories intact.
+                        </Text>
+                        <TouchableOpacity
+                          style={styles.delAltBtn}
+                          onPress={() => {
+                            setDeleteModalVisible(false);
+                            handleOpenEditProfile();
+                          }}
+                        >
+                          <Text style={styles.delAltBtnText}>✏️ Edit Farm Profile</Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      {/* Alternative 2: Register New Farm First */}
+                      <View style={styles.delAltCard}>
+                        <View style={styles.delAltHeader}>
+                          <Plus size={18} color="#D97706" />
+                          <Text style={styles.delAltTitle}>Create New Farm First to Migrate</Text>
+                        </View>
+                        <Text style={styles.delAltDesc}>
+                          Register your new farm enterprise first, then come back to migrate your existing produce and harvest stories seamlessly.
+                        </Text>
+                        <TouchableOpacity
+                          style={[styles.delAltBtn, { backgroundColor: '#FEF3C7', borderColor: '#F59E0B' }]}
+                          onPress={() => {
+                            setDeleteModalVisible(false);
+                            router.push('/farmer/new');
+                          }}
+                        >
+                          <Text style={[styles.delAltBtnText, { color: '#92400E' }]}>+ Register New Farm First</Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      {/* Destruction Acknowledgement Checkbox */}
+                      <TouchableOpacity
+                        style={[
+                          styles.delAckBox,
+                          deleteSingleFarmAgreed && styles.delAckBoxActive,
+                        ]}
+                        onPress={() => setDeleteSingleFarmAgreed(!deleteSingleFarmAgreed)}
+                        activeOpacity={0.85}
+                      >
+                        <View style={[styles.delAckCheckbox, deleteSingleFarmAgreed && styles.delAckCheckboxActive]}>
+                          {deleteSingleFarmAgreed && <Check size={14} color={Colors.white} />}
+                        </View>
+                        <Text style={styles.delAckText}>
+                          I understand that all produce batches and harvest stories will be permanently deleted and cannot be recovered.
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </>
+              ) : (
+                /* STEP 2: DESTRUCTIVE CONFIRMATION SCREEN */
+                <>
+                  <View style={styles.delStep2Hero}>
+                    <View style={styles.delStep2IconCircle}>
+                      <Trash2 size={28} color="#DC2626" />
+                    </View>
+                    <Text style={styles.delStep2Title}>Permanent Action Required</Text>
+                    <Text style={styles.delStep2Sub}>
+                      Please read carefully before confirming the deletion of your farm enterprise.
+                    </Text>
+                  </View>
+
+                  {/* Chosen Action Summary Box */}
+                  <View style={styles.delSummaryCard}>
+                    <Text style={styles.delSummaryHeading}>Action Summary:</Text>
+                    {deleteAction === 'transfer' && deleteTargetFarmId ? (
+                      <View style={styles.delSummaryRow}>
+                        <CheckCircle2 size={18} color={Colors.cultivated} />
+                        <Text style={styles.delSummaryText}>
+                          Produce batches and stories will be migrated to{' '}
+                          <Text style={{ fontFamily: Fonts.bodyBold, color: Colors.espresso }}>
+                            "{farmsList.find((f) => f.id === deleteTargetFarmId)?.name || 'selected farm'}"
+                          </Text>
+                          .
+                        </Text>
+                      </View>
+                    ) : (
+                      <View style={styles.delSummaryRow}>
+                        <AlertCircle size={18} color="#DC2626" />
+                        <Text style={[styles.delSummaryText, { color: '#991B1B' }]}>
+                          ALL {farmYields.length} produce batches and {farmData?.posts?.length ?? 1} stories tied to this farm will be permanently erased.
+                        </Text>
+                      </View>
+                    )}
+
+                    <View style={styles.delSummaryRow}>
+                      <Trash2 size={18} color="#DC2626" />
+                      <Text style={[styles.delSummaryText, { color: '#991B1B' }]}>
+                        Farm profile "{activeFarm?.name}" will be completely deleted.
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Verification Input Box */}
+                  <View style={styles.delConfirmInputBox}>
+                    <Text style={styles.delConfirmPrompt}>
+                      To proceed, type the exact farm name <Text style={{ fontFamily: Fonts.bodyBold, color: '#991B1B' }}>"{activeFarm?.name}"</Text> below:
+                    </Text>
+                    <TextInput
+                      style={[
+                        styles.textInput,
+                        styles.delConfirmInput,
+                        deleteConfirmName.trim().toLowerCase() === activeFarm?.name?.trim().toLowerCase() && styles.delConfirmInputValid,
+                      ]}
+                      placeholder={activeFarm?.name || 'Type farm name'}
+                      placeholderTextColor={Colors.text.muted}
+                      value={deleteConfirmName}
+                      onChangeText={setDeleteConfirmName}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+                    {deleteConfirmName.length > 0 && deleteConfirmName.trim().toLowerCase() !== activeFarm?.name?.trim().toLowerCase() && (
+                      <Text style={styles.delInputMismatch}>Names do not match yet.</Text>
+                    )}
+                  </View>
+                </>
+              )}
+            </ScrollView>
+
+            {/* Bottom Actions Bar */}
+            <View style={[styles.delModalFooter, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+              {deleteStep === 1 ? (
+                <View style={styles.delFooterRow}>
+                  <TouchableOpacity
+                    style={styles.delCancelBtn}
+                    onPress={() => setDeleteModalVisible(false)}
+                    disabled={isDeletingFarm}
+                  >
+                    <Text style={styles.delCancelBtnText}>Cancel</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.delNextBtn,
+                      (farmsList.filter((f) => f.id !== activeFarm?.id).length === 0 && !deleteSingleFarmAgreed) && {
+                        opacity: 0.45,
+                      },
+                    ]}
+                    onPress={() => setDeleteStep(2)}
+                    disabled={farmsList.filter((f) => f.id !== activeFarm?.id).length === 0 && !deleteSingleFarmAgreed}
+                  >
+                    <Text style={styles.delNextBtnText}>Continue to Confirmation →</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.delFooterRow}>
+                  <TouchableOpacity
+                    style={styles.delCancelBtn}
+                    onPress={() => setDeleteStep(1)}
+                    disabled={isDeletingFarm}
+                  >
+                    <Text style={styles.delCancelBtnText}>← Back</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.delExecuteBtn,
+                      (deleteConfirmName.trim().toLowerCase() !== activeFarm?.name?.trim().toLowerCase() || isDeletingFarm) && {
+                        opacity: 0.4,
+                      },
+                    ]}
+                    onPress={handleExecuteDeleteFarm}
+                    disabled={deleteConfirmName.trim().toLowerCase() !== activeFarm?.name?.trim().toLowerCase() || isDeletingFarm}
+                  >
+                    {isDeletingFarm ? (
+                      <ActivityIndicator color={Colors.white} size="small" />
+                    ) : (
+                      <>
+                        <Trash2 size={16} color={Colors.white} />
+                        <Text style={styles.delExecuteBtnText}>Permanently Delete Farm</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           </KeyboardAvoidingView>
         </SafeAreaView>
@@ -2705,22 +3840,164 @@ const styles = StyleSheet.create({
   stockStatusPillTextOut: {
     color: '#dc2626',
   },
-  yieldStockActionBtn: {
+  yieldCardActionsCol: {
+    alignItems: 'center',
+    gap: 6,
+    marginLeft: 8,
+  },
+  yieldEditActionBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 10,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
     borderRadius: Radii.sm,
-    backgroundColor: '#eef8f1',
+    backgroundColor: '#EEF8F1',
     borderWidth: 1,
-    borderColor: '#c6e7ce',
-    marginLeft: 8,
-    gap: 2,
+    borderColor: '#CCEBD5',
+    gap: 3,
+    minWidth: 54,
+  },
+  yieldEditActionText: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 10.5,
+    color: Colors.cultivated,
+  },
+  yieldStockActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+    borderRadius: Radii.sm,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    gap: 3,
+    minWidth: 54,
   },
   yieldStockActionText: {
     fontFamily: Fonts.bodyBold,
-    fontSize: 10,
+    fontSize: 10.5,
+    color: Colors.espresso,
+  },
+  yieldDeleteActionBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  editProduceFromStockBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    marginTop: 6,
+  },
+  editProduceFromStockText: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 12,
     color: Colors.cultivated,
+  },
+  editProducePhotoWrapper: {
+    width: '100%',
+    height: 160,
+    borderRadius: Radii.card,
+    overflow: 'hidden',
+    position: 'relative',
+    marginBottom: 14,
+    backgroundColor: '#F3F4F6',
+  },
+  editProducePhoto: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  changeProducePhotoBtn: {
+    position: 'absolute',
+    bottom: 10,
+    right: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(23, 58, 32, 0.85)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: Radii.pill,
+  },
+  changeProducePhotoText: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 11,
+    color: Colors.white,
+  },
+  miniUnitScroll: {
+    flexDirection: 'row',
+    gap: 4,
+    marginTop: 2,
+  },
+  unitChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: Radii.sm,
+    backgroundColor: Colors.parchment,
+    borderWidth: 1,
+    borderColor: Colors.parchmentDim,
+    marginRight: 6,
+  },
+  unitChipActive: {
+    backgroundColor: '#eef8f1',
+    borderColor: Colors.cultivated,
+  },
+  unitChipText: {
+    fontFamily: Fonts.body,
+    fontSize: 11,
+    color: Colors.text.secondary,
+  },
+  unitChipTextActive: {
+    fontFamily: Fonts.bodyBold,
+    color: Colors.cultivated,
+  },
+  dangerZoneBox: {
+    marginTop: 24,
+    padding: 14,
+    borderRadius: Radii.card,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
+    gap: 6,
+  },
+  dangerZoneTitle: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 13,
+    color: '#DC2626',
+  },
+  dangerZoneDesc: {
+    fontFamily: Fonts.body,
+    fontSize: 11.5,
+    color: '#991B1B',
+    lineHeight: 16,
+  },
+  deleteProduceOutlineBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: Radii.pill,
+    borderWidth: 1.5,
+    borderColor: '#DC2626',
+    backgroundColor: Colors.white,
+    marginTop: 4,
+  },
+  deleteProduceOutlineText: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 12.5,
+    color: '#DC2626',
   },
 
   // Stock Modal Styles
@@ -3171,10 +4448,16 @@ const styles = StyleSheet.create({
     color: Colors.canopy,
     lineHeight: 16,
   },
-  editProfileBtn: {
+  activeFarmHeaderActions: {
     position: 'absolute',
     top: 14,
     right: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    zIndex: 10,
+  },
+  editProfileBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -3186,11 +4469,23 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(246, 238, 221, 0.3)',
     ...Shadows.subtle,
   },
+  deleteFarmHeaderBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(220, 38, 38, 0.85)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    ...Shadows.subtle,
+  },
   editProfileBtnText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 12,
     color: Colors.white,
   },
+
   editBannerContainer: {
     width: '100%',
     height: 160,
@@ -3274,4 +4569,471 @@ const styles = StyleSheet.create({
     marginTop: 8,
     lineHeight: 16,
   },
+  dangerZone: {
+    marginTop: 24,
+    marginBottom: 8,
+    padding: 16,
+    borderRadius: Radii.card,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  dangerZoneTitle: {
+    fontFamily: Fonts.displayBold,
+    fontSize: 14,
+    color: '#991B1B',
+    marginBottom: 4,
+  },
+  dangerZoneSubtitle: {
+    fontFamily: Fonts.body,
+    fontSize: 12,
+    color: '#B91C1C',
+    lineHeight: 17,
+    marginBottom: 12,
+  },
+  deleteFarmBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#DC2626',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: Radii.pill,
+  },
+  deleteFarmBtnText: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 13.5,
+    color: Colors.white,
+  },
+
+  // Deletion Modal Styles
+  delWarnCard: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: Radii.card,
+    padding: 14,
+    marginBottom: 16,
+  },
+  delWarnHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  delWarnTitle: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 14.5,
+    color: '#991B1B',
+  },
+  delWarnText: {
+    fontFamily: Fonts.body,
+    fontSize: 13,
+    color: '#7F1D1D',
+    lineHeight: 19,
+  },
+  delSectionTitle: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 14,
+    color: Colors.espresso,
+    marginBottom: 4,
+  },
+  delSectionSubtitle: {
+    fontFamily: Fonts.body,
+    fontSize: 12.5,
+    color: Colors.text.secondary,
+    marginBottom: 12,
+    lineHeight: 18,
+  },
+  delAssetsCard: {
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.parchmentDim,
+    borderRadius: Radii.card,
+    padding: 14,
+    marginBottom: 14,
+    ...Shadows.subtle,
+  },
+  delAssetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  delAssetIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  delAssetCountText: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 13.5,
+    color: Colors.espresso,
+  },
+  delAssetSubText: {
+    fontFamily: Fonts.body,
+    fontSize: 11.5,
+    color: Colors.text.secondary,
+    marginTop: 1,
+  },
+  delAssetDivider: {
+    height: 1,
+    backgroundColor: Colors.parchmentDim,
+    marginVertical: 10,
+  },
+  delEscrowNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#EEF8F1',
+    borderRadius: Radii.input,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#CCEBD5',
+    marginBottom: 14,
+  },
+  delEscrowNoticeText: {
+    flex: 1,
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 11.5,
+    color: '#047857',
+    lineHeight: 16,
+  },
+  delOptionCard: {
+    backgroundColor: Colors.white,
+    borderWidth: 1.5,
+    borderColor: Colors.parchmentDim,
+    borderRadius: Radii.card,
+    padding: 14,
+    marginBottom: 12,
+    ...Shadows.subtle,
+  },
+  delOptionCardSelected: {
+    borderColor: Colors.cultivated,
+    backgroundColor: '#F7FCF8',
+  },
+  delOptionCardSelectedDanger: {
+    borderColor: '#DC2626',
+    backgroundColor: '#FEF2F2',
+  },
+  delOptionRadioRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  delRadioCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: Colors.text.muted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  delRadioCircleActive: {
+    borderColor: Colors.cultivated,
+  },
+  delRadioCircleActiveDanger: {
+    borderColor: '#DC2626',
+  },
+  delRadioInnerDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: Colors.cultivated,
+  },
+  delOptionBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+    marginBottom: 3,
+  },
+  delOptionTitle: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 13.5,
+    color: Colors.espresso,
+  },
+  recommendedBadge: {
+    backgroundColor: '#EEF8F1',
+    borderWidth: 1,
+    borderColor: '#CCEBD5',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: Radii.pill,
+  },
+  recommendedBadgeText: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 9.5,
+    color: '#047857',
+  },
+  delOptionDesc: {
+    fontFamily: Fonts.body,
+    fontSize: 12,
+    color: Colors.text.secondary,
+    lineHeight: 17,
+  },
+  delFarmPickerBox: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  delFarmPickerLabel: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 12,
+    color: Colors.espresso,
+    marginBottom: 8,
+  },
+  delFarmChoiceCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.parchment,
+    borderRadius: Radii.input,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: Colors.parchmentDim,
+    marginBottom: 6,
+  },
+  delFarmChoiceCardActive: {
+    backgroundColor: '#EEF8F1',
+    borderColor: Colors.cultivated,
+  },
+  delFarmChoiceInfo: {
+    flex: 1,
+  },
+  delFarmChoiceName: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 13,
+    color: Colors.espresso,
+  },
+  delFarmChoiceLoc: {
+    fontFamily: Fonts.body,
+    fontSize: 11.5,
+    color: Colors.text.secondary,
+    marginTop: 1,
+  },
+  delChoiceCheck: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    borderColor: Colors.text.muted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  delChoiceCheckActive: {
+    backgroundColor: Colors.cultivated,
+    borderColor: Colors.cultivated,
+  },
+  delAltCard: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: Radii.card,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 14,
+    marginBottom: 10,
+  },
+  delAltHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  delAltTitle: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 13.5,
+    color: Colors.espresso,
+  },
+  delAltDesc: {
+    fontFamily: Fonts.body,
+    fontSize: 12,
+    color: Colors.text.secondary,
+    lineHeight: 17,
+    marginBottom: 10,
+  },
+  delAltBtn: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#EEF8F1',
+    borderWidth: 1,
+    borderColor: '#CCEBD5',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: Radii.pill,
+  },
+  delAltBtnText: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 12,
+    color: '#047857',
+  },
+  delAckBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: Radii.input,
+    padding: 12,
+    marginTop: 8,
+  },
+  delAckBoxActive: {
+    borderColor: '#DC2626',
+    backgroundColor: '#FEE2E2',
+  },
+  delAckCheckbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#DC2626',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  delAckCheckboxActive: {
+    backgroundColor: '#DC2626',
+  },
+  delAckText: {
+    flex: 1,
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 12,
+    color: '#991B1B',
+    lineHeight: 17,
+  },
+  delStep2Hero: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    marginBottom: 14,
+  },
+  delStep2IconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  delStep2Title: {
+    fontFamily: Fonts.displayItalic,
+    fontSize: 20,
+    color: '#991B1B',
+    marginBottom: 4,
+  },
+  delStep2Sub: {
+    fontFamily: Fonts.body,
+    fontSize: 13,
+    color: Colors.text.secondary,
+    textAlign: 'center',
+    paddingHorizontal: 16,
+  },
+  delSummaryCard: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: Radii.card,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 14,
+    marginBottom: 18,
+    gap: 10,
+  },
+  delSummaryHeading: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 13,
+    color: Colors.espresso,
+    marginBottom: 2,
+  },
+  delSummaryRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  delSummaryText: {
+    flex: 1,
+    fontFamily: Fonts.body,
+    fontSize: 12.5,
+    color: Colors.text.secondary,
+    lineHeight: 18,
+  },
+  delConfirmInputBox: {
+    marginBottom: 14,
+  },
+  delConfirmPrompt: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 13,
+    color: Colors.espresso,
+    marginBottom: 8,
+    lineHeight: 19,
+  },
+  delConfirmInput: {
+    borderColor: '#DC2626',
+    borderWidth: 1.5,
+  },
+  delConfirmInputValid: {
+    borderColor: Colors.cultivated,
+    borderWidth: 1.5,
+    backgroundColor: '#F7FCF8',
+  },
+  delInputMismatch: {
+    fontFamily: Fonts.body,
+    fontSize: 11.5,
+    color: '#DC2626',
+    marginTop: 4,
+  },
+  delModalFooter: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: Colors.parchmentDim,
+    backgroundColor: Colors.white,
+  },
+  delFooterRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  delCancelBtn: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: Radii.pill,
+    backgroundColor: Colors.parchment,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  delCancelBtnText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 13.5,
+    color: Colors.espresso,
+  },
+  delNextBtn: {
+    flex: 1.6,
+    paddingVertical: 13,
+    borderRadius: Radii.pill,
+    backgroundColor: '#DC2626',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  delNextBtnText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 13.5,
+    color: Colors.white,
+  },
+  delExecuteBtn: {
+    flex: 1.8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 13,
+    borderRadius: Radii.pill,
+    backgroundColor: '#DC2626',
+  },
+  delExecuteBtnText: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 13.5,
+    color: Colors.white,
+  },
 });
+

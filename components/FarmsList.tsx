@@ -11,7 +11,14 @@ interface FarmsListProps {
 
 export default function FarmsList({ farms, isOwner = true }: FarmsListProps) {
   const { user } = useAuthStore();
-  const displayFarms = farms && farms.length > 0 ? farms : user?.farms || [];
+  let displayFarms: Farm[] = [];
+  if (isOwner && user?.farms && user.farms.length > 0) {
+    displayFarms = user.farms;
+  } else if (farms && farms.length > 0) {
+    displayFarms = farms;
+  } else if (user?.farms) {
+    displayFarms = user.farms;
+  }
 
   return (
     <View style={styles.container}>
@@ -24,7 +31,8 @@ export default function FarmsList({ farms, isOwner = true }: FarmsListProps) {
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 0,
     paddingTop: 12,
   },
 });
+

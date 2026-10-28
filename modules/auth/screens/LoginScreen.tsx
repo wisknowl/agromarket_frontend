@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Eye, EyeOff, Lock, Mail, Phone, Sparkles, User as UserIcon, Shield } from 'lucide-react-native';
+import { Eye, EyeOff, Lock, Mail, Phone, Sparkles, User as UserIcon, Shield, Coffee } from 'lucide-react-native';
 import { useAuthStore } from '@/store/authStore';
 import { loginApi } from '@/components/api/auth';
 import Colors, { Radii, Shadows } from '@/constants/colors';
@@ -165,20 +165,47 @@ export default function LoginScreen() {
                 <Text style={styles.demoHeaderText}>Quick Test Credentials (Database Synced)</Text>
               </View>
               <View style={styles.demoChipsRow}>
+                {/* Farmer 1: Victoy Eyong */}
                 <TouchableOpacity
                   style={styles.demoChip}
                   onPress={() => handleFillDemo('user@agromarket.com', 'password123')}
+                  activeOpacity={0.8}
                 >
                   <UserIcon size={13} color={Colors.cultivated} />
-                  <Text style={styles.demoChipText}>Farmer: user@agromarket.com</Text>
+                  <Text style={styles.demoChipText}>Victoy Eyong: user@agromarket.com</Text>
                 </TouchableOpacity>
 
+                {/* Farmer 2: Mbah Paul Fru */}
                 <TouchableOpacity
                   style={styles.demoChip}
-                  onPress={() => handleFillDemo('admin@agromarket.com', 'admin123')}
+                  onPress={() => handleFillDemo('mbah@agromarket.com', 'password123')}
+                  activeOpacity={0.8}
                 >
-                  <Shield size={13} color={Colors.canopy} />
-                  <Text style={styles.demoChipText}>Admin: admin@agromarket.com</Text>
+                  <UserIcon size={13} color={Colors.cultivated} />
+                  <Text style={styles.demoChipText}>Mbah Paul Fru: mbah@agromarket.com</Text>
+                </TouchableOpacity>
+
+                {/* Buyer / User with No Farm: Sarah Manga */}
+                <TouchableOpacity
+                  style={styles.demoChip}
+                  onPress={() => handleFillDemo('sarah@agromarket.com', 'password123')}
+                  activeOpacity={0.8}
+                >
+                  <UserIcon size={13} color={Colors.cultivated} />
+                  <Text style={styles.demoChipText}>Sarah Manga (No Farm): sarah@agromarket.com</Text>
+                </TouchableOpacity>
+
+                {/* Administrator */}
+                <TouchableOpacity
+                  style={[
+                    styles.demoChip,
+                    { backgroundColor: '#F3E8FF', borderColor: 'rgba(124, 58, 237, 0.3)' },
+                  ]}
+                  onPress={() => handleFillDemo('admin@agromarket.com', 'admin123')}
+                  activeOpacity={0.8}
+                >
+                  <Shield size={13} color="#7C3AED" />
+                  <Text style={[styles.demoChipText, { color: '#7C3AED' }]}>Chief Eyong (Admin): admin@agromarket.com</Text>
                 </TouchableOpacity>
               </View>
             </View>

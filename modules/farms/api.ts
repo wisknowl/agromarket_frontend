@@ -16,8 +16,9 @@ export const createFarmApi = async (farmData: Partial<Farm>): Promise<Farm> => {
   return res.data.farm || res.data;
 };
 
-export const fetchFarmByIdApi = async (farmId: string): Promise<any> => {
-  const res = await apiClient.get(`/farms/${farmId}`);
+export const fetchFarmByIdApi = async (farmId: string, includeAll: boolean = true): Promise<any> => {
+  const url = includeAll ? `/farms/${farmId}?includeAllYields=true` : `/farms/${farmId}`;
+  const res = await apiClient.get(url);
   return res.data;
 };
 
@@ -25,6 +26,17 @@ export const updateFarmApi = async (farmId: string, farmData: Partial<Farm>): Pr
   const res = await apiClient.put(`/farms/${farmId}`, farmData);
   return res.data.farm || res.data;
 };
+
+export const deleteFarmApi = async (
+  farmId: string,
+  targetFarmId?: string
+): Promise<{ success: boolean; message: string; id: string; migratedTo?: string }> => {
+  const res = await apiClient.delete(`/farms/${farmId}`, {
+    data: targetFarmId ? { targetFarmId } : undefined,
+  });
+  return res.data;
+};
+
 
 export const fetchFarmAnalyticsApi = async (farmId: string): Promise<any> => {
   const res = await apiClient.get(`/farms/${farmId}/analytics`);
@@ -38,6 +50,11 @@ export const createProduceApi = async (produceData: any): Promise<any> => {
 
 export const updateProduceApi = async (yieldId: string, updates: any): Promise<any> => {
   const res = await apiClient.put(`/yields/${yieldId}`, updates);
+  return res.data;
+};
+
+export const deleteProduceApi = async (yieldId: string): Promise<any> => {
+  const res = await apiClient.delete(`/yields/${yieldId}`);
   return res.data;
 };
 

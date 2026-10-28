@@ -9,22 +9,26 @@ import {
   Text,
   RefreshControl,
   TouchableOpacity,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { useRouter, useFocusEffect, useIsFocused } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import HomeTabBar from '@/components/HomeTabBar';
 import PostCard from '@/components/PostCard';
 import { Post } from '@/types';
-import Colors from '@/constants/colors';
+import Colors, { Radii, Shadows } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
 import { useAuthStore } from '@/store/authStore';
 import { fetchFeedPostsApi } from '@/components/api/posts';
-import { Sprout, Plus, Star, Compass } from 'lucide-react-native';
+import { Sprout, Plus, Star, Compass, Warehouse } from 'lucide-react-native';
 import Basket from '@/components/basket';
 import AgromPreloader from '@/components/AgromPreloader';
 import { waitRemainingMs } from '@/utils/minDuration';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
   const isScreenFocused = useIsFocused();
   const [activeTab, setActiveTab] = useState<'AgroFeed' | 'Patronized ⭐'>('AgroFeed');
@@ -33,6 +37,7 @@ export default function HomeScreen() {
   const [loadingFeed, setLoadingFeed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [activePostIndex, setActivePostIndex] = useState<number>(0);
+  const [showFarmRequiredModal, setShowFarmRequiredModal] = useState(false);
 
   const viewabilityConfig = useRef({
     itemVisiblePercentThreshold: 60,
@@ -108,7 +113,13 @@ export default function HomeScreen() {
         rightAction={
           <TouchableOpacity
             style={styles.headerStoryBtn}
-            onPress={() => router.push(userHasFarm ? '/feed/create' : '/farmer/new')}
+            onPress={() => {
+              if (userHasFarm) {
+                router.push('/feed/create');
+              } else {
+                setShowFarmRequiredModal(true);
+              }
+            }}
             activeOpacity={0.85}
             accessibilityRole="button"
             accessibilityLabel="Create Harvest Story"
@@ -203,6 +214,57 @@ export default function HomeScreen() {
       </View>
       {/* Ephemeral AgroFeed Flying Basket */}
       <Basket isAgroFeed={true} isInTabs={true} />
+
+      {/* Register Farm Required Bottom Sheet Modal */}
+      <Modal
+        visible={showFarmRequiredModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowFarmRequiredModal(false)}
+      >
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => setShowFarmRequiredModal(false)}
+        >
+          <Pressable
+            style={[styles.bottomSheetCard, { paddingBottom: Math.max(insets.bottom + 16, 24) }]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.sheetHandle} />
+
+            <View style={styles.sheetIconCircle}>
+              <Warehouse size={32} color={Colors.cultivated} strokeWidth={2.2} />
+            </View>
+
+            <Text style={styles.sheetTitle}>Register Your Farm Page to Post Stories</Text>
+            <Text style={styles.sheetSubtitle}>
+              Harvest stories connect buyers directly to your farm produce with 1-tap checkout. Set up your farm profile in 60 seconds to start publishing videos and receiving direct orders.
+            </Text>
+
+            <View style={styles.sheetActionButtons}>
+              <TouchableOpacity
+                style={styles.sheetPrimaryBtn}
+                onPress={() => {
+                  setShowFarmRequiredModal(false);
+                  router.push('/farmer/new');
+                }}
+                activeOpacity={0.85}
+              >
+                <Plus size={16} color={Colors.white} strokeWidth={2.5} />
+                <Text style={styles.sheetPrimaryBtnText}>+ Register My Farm</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.sheetSecondaryBtn}
+                onPress={() => setShowFarmRequiredModal(false)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.sheetSecondaryBtnText}>Not Now</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -278,5 +340,87 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontFamily: Fonts.bodySemiBold,
     fontSize: 12,
+  },
+
+  // Bottom Sheet Modal Styles
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'flex-end',
+  },
+  bottomSheetCard: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 22,
+    paddingTop: 12,
+    alignItems: 'center',
+    ...Shadows.card,
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4.5,
+    borderRadius: 3,
+    backgroundColor: '#D1D5DB',
+    marginBottom: 18,
+  },
+  sheetIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#EEF8F1',
+    borderWidth: 1.5,
+    borderColor: '#CCEBD5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  sheetTitle: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 18,
+    color: Colors.espresso,
+    textAlign: 'center',
+    marginBottom: 8,
+    paddingHorizontal: 12,
+  },
+  sheetSubtitle: {
+    fontFamily: Fonts.body,
+    fontSize: 13.5,
+    color: Colors.text.secondary,
+    textAlign: 'center',
+    lineHeight: 19,
+    marginBottom: 22,
+    paddingHorizontal: 14,
+  },
+  sheetActionButtons: {
+    width: '100%',
+    gap: 10,
+  },
+  sheetPrimaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: Colors.cultivated,
+    paddingVertical: 13,
+    borderRadius: Radii.pill,
+    width: '100%',
+  },
+  sheetPrimaryBtnText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 14.5,
+    color: Colors.white,
+  },
+  sheetSecondaryBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: Radii.pill,
+    width: '100%',
+  },
+  sheetSecondaryBtnText: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 13.5,
+    color: Colors.text.secondary,
   },
 });

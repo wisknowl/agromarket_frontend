@@ -200,11 +200,20 @@ export default function PostCard({
     }
   }, [post.linkedYieldId]);
 
-  const goToFarmerOrFarm = () => {
+  const goToFarm = () => {
     if (post.farmId) {
       router.push(`/farmer/${post.farmId}`);
     } else if (post.farmerId) {
       router.push(`/farmer/${post.farmerId}`);
+    }
+  };
+
+  const goToFarmerUser = () => {
+    const uid = post.userId || post.farmer?.userId;
+    if (uid) {
+      router.push(`/profile/${uid}` as any);
+    } else {
+      goToFarm();
     }
   };
 
@@ -319,14 +328,9 @@ export default function PostCard({
     'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500';
 
   const farmName = post.farm?.name;
-  const ownerName = post.farmerName || post.user?.name;
-  const hasBothNames = Boolean(
-    farmName &&
-    ownerName &&
-    farmName.trim().toLowerCase() !== ownerName.trim().toLowerCase()
-  );
-  const primaryTitle = farmName || ownerName || 'Agro Producer';
-  const secondaryOwner = hasBothNames ? ownerName : null;
+  const ownerName = post.user?.name || (post as any).farmer?.user?.name || (post.farmerName !== farmName ? post.farmerName : null);
+  const displayFarmName = farmName || 'Agro Farm';
+  const displayUserName = ownerName ? `by ${ownerName}` : null;
 
   const [isTextExceeded, setIsTextExceeded] = useState(false);
 
@@ -457,7 +461,7 @@ export default function PostCard({
       {/* Floating actions and avatar (Right-side Action Bar positioned down near bottom) */}
       <View style={[styles.floatingActionsContainer, { bottom: bottomPosition }]}>
         {/* 1. Farmer Avatar */}
-        <Pressable onPress={goToFarmerOrFarm} style={[styles.avatarWrapper, isPatronStory && styles.avatarPatronHalo]}>
+        <Pressable onPress={goToFarm} style={[styles.avatarWrapper, isPatronStory && styles.avatarPatronHalo]}>
           <Image source={{ uri: avatarSource }} style={styles.avatar} />
           {isPatronStory ? (
             <View style={styles.patronIconDot}>
@@ -533,21 +537,23 @@ export default function PostCard({
           </View>
         )}
 
-        {/* Farmer & Farm Name Block with Owner Name in Brackets */}
-        <Pressable onPress={goToFarmerOrFarm} style={styles.farmerInfoBlock}>
-          <View style={styles.farmerNameRow}>
-            <Text style={styles.farmerName}>{primaryTitle}</Text>
+        {/* Farmer & Farm Name Block */}
+        <View style={styles.farmerInfoBlock}>
+          <Pressable onPress={goToFarm} style={styles.farmerNameRow} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
+            <Text style={styles.farmerName}>{displayFarmName}</Text>
             {isPatronStory && (
               <View style={styles.patronInlineBadge}>
                 <Star size={9} color={Colors.gold} fill={Colors.gold} />
                 <Text style={styles.patronInlineBadgeText}>AgroPatron ⭐</Text>
               </View>
             )}
-          </View>
-          {secondaryOwner && (
-            <Text style={styles.farmerOwnerSubName}>({secondaryOwner})</Text>
+          </Pressable>
+          {displayUserName && (
+            <Pressable onPress={goToFarmerUser} hitSlop={{ top: 2, bottom: 4, left: 4, right: 4 }}>
+              <Text style={styles.farmerOwnerSubName}>{displayUserName}</Text>
+            </Pressable>
           )}
-        </Pressable>
+        </View>
 
         {/* Expandable Caption with ...more / ...less (only shows when text body exceeds limit) */}
         {isCaptionExpanded ? (
@@ -869,8 +875,8 @@ const styles = StyleSheet.create({
   },
   farmerOwnerSubName: {
     fontFamily: Fonts.bodyMedium,
-    fontSize: 13,
-    color: Colors.parchment,
+    fontSize: 12.5,
+    color: '#CCEBD5',
     marginTop: 1,
     marginBottom: 2,
     textShadowColor: 'rgba(0,0,0,0.85)',
