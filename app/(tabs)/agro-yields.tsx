@@ -218,12 +218,12 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.white,
+    backgroundColor: '#EEF8F1',
     borderRadius: Radii.input,
     paddingHorizontal: 14,
     height: 46,
-    borderWidth: 1.5,
-    borderColor: Colors.parchmentDim,
+    borderWidth: 1,
+    borderColor: '#CCEBD5',
   },
   searchIcon: {
     marginRight: 10,
@@ -250,14 +250,14 @@ const styles = StyleSheet.create({
   chip: {
     paddingVertical: 7,
     paddingHorizontal: 14,
-    borderRadius: Radii.chip,
-    backgroundColor: Colors.parchment,
+    borderRadius: Radii.pill,
+    backgroundColor: '#EEF8F1',
     borderWidth: 1,
-    borderColor: Colors.parchmentDim,
+    borderColor: '#CCEBD5',
   },
   chipActive: {
-    backgroundColor: Colors.canopy,
-    borderColor: Colors.canopy,
+    backgroundColor: Colors.cultivated,
+    borderColor: Colors.cultivated,
   },
   chipText: {
     fontFamily: Fonts.bodyMedium,
@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
   },
   chipTextActive: {
     fontFamily: Fonts.bodyBold,
-    color: Colors.parchment,
+    color: Colors.white,
   },
   emptyContainer: {
     flexGrow: 1,

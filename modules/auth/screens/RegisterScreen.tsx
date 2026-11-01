@@ -65,7 +65,7 @@ export default function RegisterScreen() {
       login(response.user, response.token);
 
       Alert.alert(
-        '🎉 Welcome to AgroMarket!',
+        'Welcome to Agrom!',
         'Your account has been created. You can now browse direct harvests or register your farms.',
         [
           {
@@ -98,9 +98,9 @@ export default function RegisterScreen() {
           {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <ArrowLeft size={22} color={Colors.espresso} strokeWidth={2.2} />
+              <ArrowLeft size={21} color={Colors.espresso} strokeWidth={2.2} />
             </TouchableOpacity>
-            <MeetingLeafLogo size={36} variant="fullColor" />
+            <MeetingLeafLogo size={38} showWordmark wordmarkColor={Colors.canopy} variant="fullColor" />
             <View style={{ width: 40 }} />
           </View>
 
@@ -119,7 +119,7 @@ export default function RegisterScreen() {
             {/* Full Name */}
             <Text style={styles.inputLabel}>Full Name *</Text>
             <View style={styles.inputWrapper}>
-              <User size={18} color={Colors.soil} style={styles.inputIcon} />
+              <User size={18} color={Colors.cultivated} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="e.g., Victoy Eyong"
@@ -132,13 +132,14 @@ export default function RegisterScreen() {
             {/* Email */}
             <Text style={styles.inputLabel}>Email Address *</Text>
             <View style={styles.inputWrapper}>
-              <Mail size={18} color={Colors.soil} style={styles.inputIcon} />
+              <Mail size={18} color={Colors.cultivated} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="e.g., victoy@agromarket.com"
                 placeholderTextColor={Colors.text.muted}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                autoCorrect={false}
                 value={email}
                 onChangeText={setEmail}
               />
@@ -147,7 +148,7 @@ export default function RegisterScreen() {
             {/* Phone */}
             <Text style={styles.inputLabel}>Phone Number (MTN / Orange) *</Text>
             <View style={styles.inputWrapper}>
-              <Phone size={18} color={Colors.soil} style={styles.inputIcon} />
+              <Phone size={18} color={Colors.cultivated} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="e.g., +237671111111"
@@ -161,7 +162,7 @@ export default function RegisterScreen() {
             {/* Password */}
             <Text style={styles.inputLabel}>Password *</Text>
             <View style={styles.inputWrapper}>
-              <Lock size={18} color={Colors.soil} style={styles.inputIcon} />
+              <Lock size={18} color={Colors.cultivated} style={styles.inputIcon} />
               <TextInput
                 style={[styles.input, { paddingRight: 40 }]}
                 placeholder="Minimum 6 characters"
@@ -185,7 +186,7 @@ export default function RegisterScreen() {
             {/* Confirm Password */}
             <Text style={styles.inputLabel}>Confirm Password *</Text>
             <View style={styles.inputWrapper}>
-              <Lock size={18} color={Colors.soil} style={styles.inputIcon} />
+              <Lock size={18} color={Colors.cultivated} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Repeat password"
@@ -196,11 +197,11 @@ export default function RegisterScreen() {
               />
             </View>
 
-            <View style={{ marginTop: 16 }}>
+            <View style={{ marginTop: 18 }}>
               <BrandButton
                 title={loading ? 'Registering in Database...' : 'Create Account'}
                 onPress={handleRegister}
-                variant="primary"
+                variant="cultivated"
                 size="lg"
                 disabled={loading}
               />
@@ -226,7 +227,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 18,
     alignItems: 'center',
   },
   header: {
@@ -234,13 +235,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 18,
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.parchment,
+    backgroundColor: '#EEF8F1',
+    borderWidth: 1,
+    borderColor: '#CCEBD5',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -249,13 +252,13 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     borderRadius: Radii.card,
     borderWidth: 1,
-    borderColor: Colors.parchmentDim,
-    padding: 20,
+    borderColor: '#CCEBD5',
+    padding: 22,
     ...Shadows.subtle,
   },
   formTitle: {
     fontFamily: Fonts.displayItalic,
-    fontSize: 22,
+    fontSize: 23,
     color: Colors.canopy,
     marginBottom: 4,
   },
@@ -267,9 +270,9 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   errorBox: {
-    backgroundColor: '#fef2f2',
+    backgroundColor: '#FEF2F2',
     borderWidth: 1,
-    borderColor: '#fca5a5',
+    borderColor: '#FCA5A5',
     borderRadius: Radii.sm,
     padding: 10,
     marginBottom: 12,
@@ -284,20 +287,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.espresso,
     marginBottom: 6,
-    marginTop: 8,
+    marginTop: 10,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.parchment,
+    backgroundColor: '#EEF8F1',
     borderWidth: 1,
-    borderColor: Colors.parchmentDim,
+    borderColor: '#CCEBD5',
     borderRadius: Radii.input,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     marginBottom: 4,
   },
   inputIcon: {
-    marginRight: 8,
+    marginRight: 10,
   },
   input: {
     flex: 1,
@@ -312,7 +315,7 @@ const styles = StyleSheet.create({
   footerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 22,
     marginBottom: 16,
   },
   footerText: {

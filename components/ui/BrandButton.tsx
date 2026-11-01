@@ -11,7 +11,7 @@ import {
 import Colors, { Radii } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
 
-export type ButtonVariant = 'primary' | 'cultivated' | 'secondary' | 'alert' | 'text' | 'canopy';
+export type ButtonVariant = 'primary' | 'cultivated' | 'gold' | 'secondary' | 'alert' | 'text' | 'canopy';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
 interface BrandButtonProps extends PressableProps {
@@ -26,12 +26,6 @@ interface BrandButtonProps extends PressableProps {
   onPress?: () => void;
 }
 
-/**
- * Standard brand button complying with brand guide v2:
- * - Fully rounded pill radius (borderRadius: 9999)
- * - 44px minimum touch target
- * - High contrast accessible typography (Inter SemiBold)
- */
 export default function BrandButton({
   title,
   variant = 'primary',
@@ -63,7 +57,13 @@ export default function BrandButton({
       {loading ? (
         <ActivityIndicator
           size="small"
-          color={variant === 'primary' ? Colors.espresso : variant === 'cultivated' ? Colors.white : Colors.cultivated}
+          color={
+            variant === 'gold'
+              ? Colors.espresso
+              : variant === 'secondary' || variant === 'text'
+              ? Colors.cultivated
+              : Colors.white
+          }
         />
       ) : (
         <>
@@ -108,24 +108,27 @@ const styles = StyleSheet.create({
     minHeight: 52,
   },
 
-  // Variants from Brand Guide
+  // Updated Botanical-Fintech Variants (Cultivated Green Primary)
   primary: {
-    backgroundColor: Colors.gold,
+    backgroundColor: Colors.cultivated,
   },
   cultivated: {
     backgroundColor: Colors.cultivated,
+  },
+  gold: {
+    backgroundColor: Colors.gold,
   },
   canopy: {
     backgroundColor: Colors.canopy,
   },
   secondary: {
-    backgroundColor: 'transparent',
-    borderWidth: 1.5,
-    borderColor: Colors.cultivated,
+    backgroundColor: '#EEF8F1',
+    borderWidth: 1,
+    borderColor: '#CCEBD5',
   },
   alert: {
-    backgroundColor: 'transparent',
-    borderWidth: 1.5,
+    backgroundColor: '#FDF3F1',
+    borderWidth: 1,
     borderColor: Colors.clay,
   },
   text: {
@@ -148,13 +151,16 @@ const styles = StyleSheet.create({
   },
 
   text_primary: {
-    color: Colors.espresso,
+    color: Colors.white,
   },
   text_cultivated: {
     color: Colors.white,
   },
+  text_gold: {
+    color: Colors.espresso,
+  },
   text_canopy: {
-    color: Colors.parchment,
+    color: Colors.white,
   },
   text_secondary: {
     color: Colors.cultivated,
@@ -163,15 +169,15 @@ const styles = StyleSheet.create({
     color: Colors.clay,
   },
   text_text: {
-    color: Colors.espresso,
+    color: Colors.cultivated,
     textDecorationLine: 'underline',
   },
 
   pressed: {
-    opacity: 0.85,
-    transform: [{ scale: 0.98 }],
+    opacity: 0.88,
+    transform: [{ scale: 0.985 }],
   },
   disabled: {
-    opacity: 0.35,
+    opacity: 0.45,
   },
 });

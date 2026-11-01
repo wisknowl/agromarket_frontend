@@ -210,7 +210,7 @@ export default function SettingsScreen() {
 
           <View style={styles.infoBox}>
             <Text style={styles.infoLabel}>Logged in as:</Text>
-            <Text style={styles.infoValue}>{user?.name || 'AgroMarket Member'}</Text>
+            <Text style={styles.infoValue}>{user?.name || 'Agrom Member'}</Text>
             <Text style={styles.infoRole}>Role: {user?.role || 'FARMER'}</Text>
           </View>
         </View>
@@ -218,7 +218,7 @@ export default function SettingsScreen() {
         {/* Logout button */}
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.85}>
           <LogOut size={18} color={Colors.clay} />
-          <Text style={styles.logoutText}>Log Out of AgroMarket</Text>
+          <Text style={styles.logoutText}>Log Out of Agrom</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -442,12 +442,12 @@ const styles = StyleSheet.create({
     color: Colors.gold,
   },
   glossaryPreviewBox: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#EEF8F1',
     borderRadius: Radii.card,
     padding: 12,
     marginTop: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#CCEBD5',
   },
   glossaryTitle: {
     fontFamily: Fonts.display,

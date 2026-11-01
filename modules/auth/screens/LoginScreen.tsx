@@ -8,11 +8,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Eye, EyeOff, Lock, Mail, Phone, Sparkles, User as UserIcon, Shield, Coffee } from 'lucide-react-native';
+import { Eye, EyeOff, Lock, Mail, Sparkles, User as UserIcon, Shield } from 'lucide-react-native';
 import { useAuthStore } from '@/store/authStore';
 import { loginApi } from '@/components/api/auth';
 import Colors, { Radii, Shadows } from '@/constants/colors';
@@ -40,8 +39,11 @@ export default function LoginScreen() {
     setLoading(true);
 
     try {
-      console.log(`[AUTH] Sending login request for ${identifier.trim()} to backend...`);
-      const response = await loginApi(identifier.trim(), password);
+      const normalizedIdentifier = identifier.includes('@')
+        ? identifier.trim().toLowerCase()
+        : identifier.trim();
+      console.log(`[AUTH] Sending login request for ${normalizedIdentifier} to backend...`);
+      const response = await loginApi(normalizedIdentifier, password);
       console.log('✅ [AUTH] Login successful! Backend response:', response.user.email);
 
       // Save live PostgreSQL user and JWT token in AuthStore
@@ -87,10 +89,9 @@ export default function LoginScreen() {
           {/* Brand Header */}
           <View style={styles.brandHeader}>
             <MeetingLeafLogo
-              size={64}
+              size={60}
               showWordmark
               wordmarkColor={Colors.canopy}
-              showTagline
               variant="fullColor"
             />
           </View>
@@ -111,13 +112,14 @@ export default function LoginScreen() {
             {/* Email / Phone Field */}
             <Text style={styles.inputLabel}>Email or Phone Number</Text>
             <View style={styles.inputWrapper}>
-              <Mail size={18} color={Colors.soil} style={styles.inputIcon} />
+              <Mail size={18} color={Colors.cultivated} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="user@agromarket.com or +237..."
                 placeholderTextColor={Colors.text.muted}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                autoCorrect={false}
                 value={identifier}
                 onChangeText={setIdentifier}
               />
@@ -126,7 +128,7 @@ export default function LoginScreen() {
             {/* Password Field */}
             <Text style={styles.inputLabel}>Password</Text>
             <View style={styles.inputWrapper}>
-              <Lock size={18} color={Colors.soil} style={styles.inputIcon} />
+              <Lock size={18} color={Colors.cultivated} style={styles.inputIcon} />
               <TextInput
                 style={[styles.input, { paddingRight: 40 }]}
                 placeholder="••••••••"
@@ -148,11 +150,11 @@ export default function LoginScreen() {
             </View>
 
             {/* Submit Button */}
-            <View style={{ marginTop: 14 }}>
+            <View style={{ marginTop: 16 }}>
               <BrandButton
                 title={loading ? 'Verifying with Database...' : 'Sign In'}
                 onPress={handleLogin}
-                variant="primary"
+                variant="cultivated"
                 size="lg"
                 disabled={loading}
               />
@@ -205,7 +207,9 @@ export default function LoginScreen() {
                   activeOpacity={0.8}
                 >
                   <Shield size={13} color="#7C3AED" />
-                  <Text style={[styles.demoChipText, { color: '#7C3AED' }]}>Chief Eyong (Admin): admin@agromarket.com</Text>
+                  <Text style={[styles.demoChipText, { color: '#7C3AED' }]}>
+                    Chief Eyong (Admin): admin@agromarket.com
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -213,7 +217,7 @@ export default function LoginScreen() {
 
           {/* Footer Actions */}
           <View style={styles.footerRow}>
-            <Text style={styles.footerText}>New to AgroMarket? </Text>
+            <Text style={styles.footerText}>New to Agrom? </Text>
             <TouchableOpacity onPress={() => router.push('/auth/register')}>
               <Text style={styles.footerLink}>Create Account</Text>
             </TouchableOpacity>
@@ -235,7 +239,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingVertical: 24,
+    paddingVertical: 28,
     alignItems: 'center',
   },
   brandHeader: {
@@ -247,13 +251,13 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     borderRadius: Radii.card,
     borderWidth: 1,
-    borderColor: Colors.parchmentDim,
-    padding: 20,
+    borderColor: '#CCEBD5',
+    padding: 22,
     ...Shadows.subtle,
   },
   formTitle: {
     fontFamily: Fonts.displayItalic,
-    fontSize: 22,
+    fontSize: 23,
     color: Colors.canopy,
     marginBottom: 4,
   },
@@ -265,9 +269,9 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   errorBox: {
-    backgroundColor: '#fef2f2',
+    backgroundColor: '#FEF2F2',
     borderWidth: 1,
-    borderColor: '#fca5a5',
+    borderColor: '#FCA5A5',
     borderRadius: Radii.sm,
     padding: 10,
     marginBottom: 12,
@@ -282,20 +286,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.espresso,
     marginBottom: 6,
-    marginTop: 8,
+    marginTop: 10,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.parchment,
+    backgroundColor: '#EEF8F1',
     borderWidth: 1,
-    borderColor: Colors.parchmentDim,
+    borderColor: '#CCEBD5',
     borderRadius: Radii.input,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     marginBottom: 4,
   },
   inputIcon: {
-    marginRight: 8,
+    marginRight: 10,
   },
   input: {
     flex: 1,
@@ -311,13 +315,13 @@ const styles = StyleSheet.create({
     marginTop: 18,
     paddingTop: 14,
     borderTopWidth: 1,
-    borderTopColor: Colors.parchmentDim,
+    borderTopColor: '#CCEBD5',
   },
   demoHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   demoHeaderText: {
     fontFamily: Fonts.mono,
@@ -326,17 +330,17 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   demoChipsRow: {
-    gap: 6,
+    gap: 7,
   },
   demoChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#eef8f1',
+    backgroundColor: '#EEF8F1',
     borderWidth: 1,
-    borderColor: 'rgba(78, 139, 63, 0.3)',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: Radii.chip,
+    borderColor: '#CCEBD5',
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: Radii.pill,
     gap: 6,
   },
   demoChipText: {
@@ -347,7 +351,7 @@ const styles = StyleSheet.create({
   footerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 22,
     marginBottom: 8,
   },
   footerText: {

@@ -386,7 +386,7 @@ export default function CheckoutScreen() {
           disabled={loading}
           activeOpacity={0.85}
         >
-          <Lock size={16} color={Colors.espresso} strokeWidth={2.4} />
+          <Lock size={16} color={Colors.white} strokeWidth={2.4} />
           <Text style={styles.payButtonText}>
             {loading ? 'Authorizing Escrow...' : 'Authorize Escrow'}
           </Text>
@@ -407,7 +407,7 @@ export default function CheckoutScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F6F0',
+    backgroundColor: Colors.white,
   },
   header: {
     backgroundColor: Colors.white,
@@ -679,7 +679,7 @@ const styles = StyleSheet.create({
     color: Colors.espresso,
   },
   exchangeRateNoteRow: {
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#EEF8F1',
     padding: 8,
     borderRadius: 6,
     marginVertical: 6,
@@ -713,7 +713,7 @@ const styles = StyleSheet.create({
   totalValue: {
     fontFamily: Fonts.bodyBold,
     fontSize: 18,
-    color: Colors.gold,
+    color: Colors.cultivated,
   },
   bottomBar: {
     position: 'absolute',
@@ -722,7 +722,7 @@ const styles = StyleSheet.create({
     right: 0,
     backgroundColor: Colors.white,
     borderTopWidth: 1,
-    borderTopColor: Colors.border,
+    borderTopColor: '#CCEBD5',
     paddingHorizontal: 16,
     paddingTop: 10,
     flexDirection: 'row',
@@ -741,12 +741,12 @@ const styles = StyleSheet.create({
   bottomTotalAmount: {
     fontFamily: Fonts.bodyBold,
     fontSize: 17,
-    color: Colors.gold,
+    color: Colors.cultivated,
   },
   payButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.harvest,
+    backgroundColor: Colors.cultivated,
     paddingVertical: 13,
     paddingHorizontal: 20,
     borderRadius: Radii.pill,
@@ -756,6 +756,6 @@ const styles = StyleSheet.create({
   payButtonText: {
     fontFamily: Fonts.bodyBold,
     fontSize: 14.5,
-    color: Colors.espresso,
+    color: Colors.white,
   },
 });

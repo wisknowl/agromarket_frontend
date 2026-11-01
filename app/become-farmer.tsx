@@ -19,7 +19,7 @@ export default function BecomeFarmerScreen() {
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Become a Farmer</Text>
       <Text style={styles.subtitle}>
-        Fill in the details below to apply as a farmer on agromarket.
+        Fill in the details below to apply as a farmer on Agrom.
       </Text>
 
       <Text style={styles.label}>Farm Name</Text>
@@ -57,13 +57,13 @@ export default function BecomeFarmerScreen() {
 const styles = StyleSheet.create({
   container: {
     padding: 24,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.white,
     flexGrow: 1,
   },
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: Colors.primary,
+    color: Colors.canopy,
     marginBottom: 8,
   },
   subtitle: {
@@ -79,21 +79,21 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: 8,
+    borderColor: Colors.parchmentDim,
+    borderRadius: 12,
     padding: 12,
     fontSize: 16,
-    backgroundColor: Colors.card,
+    backgroundColor: Colors.parchment,
   },
   button: {
-    backgroundColor: Colors.primary,
-    borderRadius: 12,
+    backgroundColor: Colors.cultivated,
+    borderRadius: 999,
     paddingVertical: 16,
     alignItems: 'center',
     marginTop: 32,
   },
   buttonText: {
-    color: Colors.text.light,
+    color: Colors.white,
     fontWeight: '600',
     fontSize: 16,
   },

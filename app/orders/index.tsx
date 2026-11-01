@@ -372,16 +372,19 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     gap: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: '#CCEBD5',
   },
   filterPill: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: Radii.pill,
-    backgroundColor: Colors.parchment,
+    backgroundColor: '#EEF8F1',
+    borderWidth: 1,
+    borderColor: '#CCEBD5',
   },
   filterPillActive: {
-    backgroundColor: Colors.canopy,
+    backgroundColor: Colors.cultivated,
+    borderColor: Colors.cultivated,
   },
   filterPillText: {
     fontFamily: Fonts.bodyMedium,
@@ -390,7 +393,7 @@ const styles = StyleSheet.create({
   },
   filterPillTextActive: {
     fontFamily: Fonts.bodyBold,
-    color: Colors.gold,
+    color: Colors.white,
   },
   listContent: {
     padding: 16,
@@ -401,7 +404,7 @@ const styles = StyleSheet.create({
     borderRadius: Radii.card,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#CCEBD5',
     ...Shadows.subtle,
   },
   orderTopBar: {
@@ -411,7 +414,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     paddingBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: '#CCEBD5',
   },
   orderIdBox: {
     flexDirection: 'row',
@@ -478,7 +481,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: '#CCEBD5',
   },
   totalLabel: {
     fontFamily: Fonts.body,
@@ -494,7 +497,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: Colors.canopy,
+    backgroundColor: Colors.cultivated,
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: Radii.pill,
@@ -502,6 +505,6 @@ const styles = StyleSheet.create({
   trackCtaText: {
     fontFamily: Fonts.bodyBold,
     fontSize: 11,
-    color: Colors.gold,
+    color: Colors.white,
   },
 });

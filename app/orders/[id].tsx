@@ -572,7 +572,7 @@ export default function EscrowOrderDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: Colors.white,
   },
   loadingContainer: {
     flex: 1,
@@ -640,12 +640,8 @@ const styles = StyleSheet.create({
     borderRadius: Radii.card,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 2,
+    borderColor: '#CCEBD5',
+    ...Shadows.subtle,
   },
   cardHeader: {
     flexDirection: 'row',

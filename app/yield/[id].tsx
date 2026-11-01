@@ -519,7 +519,7 @@ export default function YieldDetailScreen() {
             </>
           ) : (
             <>
-              <ShoppingBag size={20} color={Colors.espresso} strokeWidth={2.2} />
+              <ShoppingBag size={20} color={Colors.white} strokeWidth={2.2} />
               <View style={styles.addBasketButtonTextCol}>
                 <Text style={styles.addBasketButtonText}>Add to Basket</Text>
                 <Text style={styles.addBasketSubText}>{totalPrice.toLocaleString()} FCFA</Text>
@@ -770,9 +770,9 @@ const styles = StyleSheet.create({
     color: Colors.white,
   },
   wholesaleCard: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#EEF8F1',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: '#CCEBD5',
     borderRadius: Radii.card,
     padding: 12,
     marginBottom: 14,
@@ -965,7 +965,7 @@ const styles = StyleSheet.create({
   },
   addBasketButton: {
     flex: 1,
-    backgroundColor: Colors.gold,
+    backgroundColor: Colors.cultivated,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -984,12 +984,12 @@ const styles = StyleSheet.create({
   addBasketButtonText: {
     fontFamily: Fonts.bodyBold,
     fontSize: 14,
-    color: Colors.espresso,
+    color: Colors.white,
   },
   addBasketSubText: {
     fontFamily: Fonts.monoBold,
     fontSize: 11,
-    color: 'rgba(36, 26, 18, 0.75)',
+    color: 'rgba(255, 255, 255, 0.85)',
   },
 
   // Engine 4 Wholesale Styles

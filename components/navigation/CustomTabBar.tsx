@@ -242,8 +242,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   iconWrapperActiveGround: {
-    backgroundColor: '#EEF6ED', // Light ground cultivated green tint
-    borderColor: 'rgba(78, 139, 63, 0.22)',
+    backgroundColor: '#EEF8F1',
+    borderColor: '#CCEBD5',
   },
   iconWrapperActiveCart: {
     backgroundColor: '#FEF6E8', // Light harvest gold tint

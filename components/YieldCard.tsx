@@ -145,7 +145,7 @@ export default function YieldCard({
 
         <View style={styles.actionButtonsRow}>
           <Pressable ref={cartBtnRef} style={styles.cartButton} onPress={handleAddToCart}>
-            <ShoppingBag size={14} color={Colors.espresso} strokeWidth={2.2} />
+            <ShoppingBag size={14} color={Colors.white} strokeWidth={2.2} />
           </Pressable>
 
           <Popover
@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   cartButton: {
-    backgroundColor: Colors.gold,
+    backgroundColor: Colors.cultivated,
     borderRadius: Radii.pill,
     width: 32,
     height: 32,
