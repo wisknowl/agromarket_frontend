@@ -12,6 +12,7 @@ import Popover, { PopoverPlacement } from 'react-native-popover-view';
 import PriceTag from './ui/PriceTag';
 import FarmerBadge from './ui/FarmerBadge';
 import { useLocale } from '@/context/LocaleContext';
+import { resolveMediaUrl, FALLBACK_POST_IMAGE } from '@/utils/media';
 
 interface YieldCardProps {
   item: AgroYield;
@@ -53,21 +54,10 @@ export default function YieldCard({
   };
 
   const handleAddToCart = () => {
-    // Produce flying animation commented out for UI smoothness
-    /*
-    if (cartBtnRef.current) {
-      cartBtnRef.current.measureInWindow((x: number, y: number, w: number, h: number) => {
-        if (x && y) {
-          triggerFly(x + w / 2, y + h / 2, item.image);
-        } else {
-          triggerFly(0, 0, item.image);
-        }
-      });
-    } else {
-      triggerFly(0, 0, item.image);
-    }
-    */
-    addToCart(item, 1);
+    const displayPrice = Number(item.price !== undefined ? item.price : (item.pricePerUnit || 0));
+    const displayImage = resolveMediaUrl(item.image || item.mediaUrls?.[0]) || FALLBACK_POST_IMAGE;
+    const qtyToAdd = item.minOrderQuantity && item.minOrderQuantity > 1 ? item.minOrderQuantity : 1;
+    addToCart({ ...item, price: displayPrice, image: displayImage }, qtyToAdd);
     useCartAnimationStore.getState().triggerBasketBounce();
   };
 
@@ -100,7 +90,10 @@ export default function YieldCard({
   return (
     <View style={styles.container} ref={cardRef}>
       <Pressable onPress={handlePress} style={styles.imageContainer}>
-        <Image source={{ uri: item.image }} style={styles.image} />
+        <Image
+          source={{ uri: resolveMediaUrl(item.image || item.mediaUrls?.[0]) || FALLBACK_POST_IMAGE }}
+          style={styles.image}
+        />
         {isGoldTier ? (
           <View style={styles.floatingBadge}>
             <FarmerBadge tier={creditTier as any} label={creditTier === 'PLATINUM' ? 'Platinum' : 'Gold'} size="sm" />
@@ -120,7 +113,7 @@ export default function YieldCard({
 
         <View style={styles.priceRow}>
           <PriceTag
-            amount={item.price}
+            amount={Number(item.price !== undefined ? item.price : (item.pricePerUnit || 0))}
             unit={item.unit}
             size="md"
             color={Colors.canopy}
@@ -145,7 +138,7 @@ export default function YieldCard({
 
         <View style={styles.actionButtonsRow}>
           <Pressable ref={cartBtnRef} style={styles.cartButton} onPress={handleAddToCart}>
-            <ShoppingBag size={14} color={Colors.white} strokeWidth={2.2} />
+            <ShoppingBag size={14} color="#241A12" strokeWidth={2.4} />
           </Pressable>
 
           <Popover
@@ -290,12 +283,14 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   cartButton: {
-    backgroundColor: Colors.cultivated,
+    backgroundColor: '#E2A63C',
     borderRadius: Radii.pill,
     width: 32,
     height: 32,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#F7D9A4',
   },
   moreButton: {
     padding: 4,

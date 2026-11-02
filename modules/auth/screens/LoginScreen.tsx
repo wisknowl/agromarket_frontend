@@ -58,7 +58,7 @@ export default function LoginScreen() {
       console.error('❌ [AUTH] Login error:', err?.response?.data || err.message);
       setErrorMessage(
         err?.response?.data?.message ||
-          'Invalid credentials. Please verify your email/phone and password.'
+        'Invalid credentials. Please verify your email/phone and password.'
       );
     } finally {
       setLoading(false);

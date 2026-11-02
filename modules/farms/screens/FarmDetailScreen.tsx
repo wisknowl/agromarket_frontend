@@ -41,6 +41,7 @@ import {
   TrendingUp,
   Sprout,
   Clock,
+  ExternalLink,
 } from 'lucide-react-native';
 import Colors, { Radii, Shadows } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
@@ -54,6 +55,7 @@ import AgroPatronModal from '@/components/AgroPatronModal';
 import YieldCard from '@/components/YieldCard';
 import PostCard from '@/components/PostCard';
 import FarmerBadge from '@/components/ui/FarmerBadge';
+import AgromPostButton from '@/components/ui/AgromPostButton';
 import Basket from '@/components/basket';
 import CustomTabBar from '@/components/navigation/CustomTabBar';
 import AgromPreloader from '@/components/AgromPreloader';
@@ -87,15 +89,15 @@ export default function FarmDetailScreen() {
   const activeParcels: FarmParcel[] = (farm?.parcels && Array.isArray(farm.parcels) && farm.parcels.length > 0)
     ? farm.parcels
     : (farm ? [{
-        id: `${farm.id}-hq`,
-        name: `${farm.name} (Main Base / HQ)`,
-        region: farm.region || 'West Region',
-        city: farm.city || 'Foumbot',
-        division: farm.division || '',
-        location: farm.location || '',
-        sizeHectares: farm.sizeHectares || 1.0,
-        isHeadquarters: true,
-      }] : []);
+      id: `${farm.id}-hq`,
+      name: `${farm.name} (Main Base / HQ)`,
+      region: farm.region || 'West Region',
+      city: farm.city || 'Foumbot',
+      division: farm.division || '',
+      location: farm.location || '',
+      sizeHectares: farm.sizeHectares || 1.0,
+      isHeadquarters: true,
+    }] : []);
 
   // Produce Creation Modal State
   const [showAddProduceModal, setShowAddProduceModal] = useState(false);
@@ -135,7 +137,7 @@ export default function FarmDetailScreen() {
           .then((st) => {
             if (st?.isPatron) setIsPatron(true);
           })
-          .catch(() => {});
+          .catch(() => { });
       }
 
       if (data?.userId && user?.id && data.userId !== user.id) {
@@ -214,7 +216,7 @@ export default function FarmDetailScreen() {
       setSavingProduce(true);
       const categoryObj = CATEGORIES.find((c) => c.name === produceForm.categoryName) || CATEGORIES[0];
       const effectiveUnitLabel = produceForm.unit === 'CUSTOM' ? produceForm.customUnit.trim() : produceForm.unit;
-      
+
       const chosenParcel = activeParcels.find((p: any) => p.id === produceForm.selectedParcelId) || activeParcels[0];
       const originDisplay = chosenParcel
         ? `${chosenParcel.name} (${chosenParcel.city}, ${chosenParcel.region})`
@@ -294,7 +296,13 @@ export default function FarmDetailScreen() {
     );
   }
 
-  const farmYields = farm.yields || [];
+  const farmYields = (farm.yields || []).map((y: any) => ({
+    ...y,
+    price: Number(y.price !== undefined ? y.price : (y.pricePerUnit || 0)),
+    pricePerUnit: Number(y.pricePerUnit !== undefined ? y.pricePerUnit : (y.price || 0)),
+    image: resolveMediaUrl(y.image || y.mediaUrls?.[0]) || 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800',
+    mediaUrls: y.mediaUrls?.length ? y.mediaUrls : [y.image].filter(Boolean),
+  }));
   const farmPosts = farm.posts || [];
   const farmOwner = farm.user || {};
 
@@ -317,12 +325,6 @@ export default function FarmDetailScreen() {
           </TouchableOpacity>
 
           <View style={styles.headerRightBox}>
-            {isOwner && (
-              <View style={styles.ownerBadgePill}>
-                <Sparkles size={13} color={Colors.white} />
-                <Text style={styles.ownerBadgePillText}>Owner View</Text>
-              </View>
-            )}
             <TouchableOpacity style={styles.iconCircle}>
               <Share2 size={18} color={Colors.espresso} strokeWidth={2.2} />
             </TouchableOpacity>
@@ -353,9 +355,13 @@ export default function FarmDetailScreen() {
           <View style={styles.avatarRow}>
             <TouchableOpacity
               onPress={() => {
-                const uid = farm?.userId || farmOwner?.id;
-                if (uid) {
-                  router.push(`/profile/${uid}` as any);
+                if (isOwner) {
+                  router.push('/(tabs)/profile');
+                } else {
+                  const uid = farm?.userId || farmOwner?.id;
+                  if (uid) {
+                    router.push(`/profile/${uid}` as any);
+                  }
                 }
               }}
               activeOpacity={0.8}
@@ -365,8 +371,8 @@ export default function FarmDetailScreen() {
               <Image
                 source={{
                   uri:
-                    !avatarError && (farm.avatarPhoto || farmOwner.avatarUrl)
-                      ? resolveMediaUrl(farm.avatarPhoto || farmOwner.avatarUrl)
+                    !avatarError && (farmOwner.avatarUrl || farm.avatarPhoto || farm.avatarUrl)
+                      ? resolveMediaUrl(farmOwner.avatarUrl || farm.avatarPhoto || farm.avatarUrl)
                       : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500',
                 }}
                 style={styles.avatar}
@@ -386,7 +392,7 @@ export default function FarmDetailScreen() {
           </View>
 
           <Text style={styles.farmTitle}>{farm.name}</Text>
-          
+
           <View style={styles.metaRow}>
             <View style={styles.metaItem}>
               <MapPin size={14} color={Colors.text.secondary} />
@@ -425,12 +431,12 @@ export default function FarmDetailScreen() {
             </View>
           </View>
 
-          {/* Engine 1 AgroTrust Underwriting & Behavioral Risk Card */}
+          {/* AgroTrust Verification Score & Reliability Card */}
           <View style={styles.agroTrustCard}>
             <View style={styles.agroTrustHeader}>
               <View style={styles.agroTrustTitleRow}>
                 <Award size={16} color={Colors.gold} strokeWidth={2.4} />
-                <Text style={styles.agroTrustTitle}>AgroTrust Underwriting (Engine 1)</Text>
+                <Text style={styles.agroTrustTitle}>AgroTrust Verification Score</Text>
               </View>
               <View style={styles.agroTrustBadgePill}>
                 <Text style={styles.agroTrustBadgePillText}>
@@ -442,17 +448,17 @@ export default function FarmDetailScreen() {
             <View style={styles.agroTrustMetricsRow}>
               <View style={styles.agroTrustMetricCol}>
                 <Text style={styles.agroTrustMetricVal}>99.2%</Text>
-                <Text style={styles.agroTrustMetricLabel}>Fulfillment (M4)</Text>
+                <Text style={styles.agroTrustMetricLabel}>Fulfillment Rate</Text>
               </View>
               <View style={styles.agroTrustDivider} />
               <View style={styles.agroTrustMetricCol}>
                 <Text style={styles.agroTrustMetricVal}>98.4%</Text>
-                <Text style={styles.agroTrustMetricLabel}>Punctuality (M5)</Text>
+                <Text style={styles.agroTrustMetricLabel}>On-Time Dispatch</Text>
               </View>
               <View style={styles.agroTrustDivider} />
               <View style={styles.agroTrustMetricCol}>
                 <Text style={styles.agroTrustMetricVal}>{farm.rating?.toFixed(1) || '4.9'} ★</Text>
-                <Text style={styles.agroTrustMetricLabel}>Bayesian (M3)</Text>
+                <Text style={styles.agroTrustMetricLabel}>Verified Rating</Text>
               </View>
             </View>
 
@@ -483,22 +489,24 @@ export default function FarmDetailScreen() {
               // OWNER WORKSPACE BUTTONS
               <View style={styles.ownerActionsRow}>
                 <TouchableOpacity
+                  style={styles.openWorkspaceBtn}
+                  onPress={() => router.push('/farmer/manage' as any)}
+                  activeOpacity={0.85}
+                >
+                  <ExternalLink size={14} color="#E2A63C" strokeWidth={2.2} />
+                  <Text style={styles.openWorkspaceBtnText}>Workspace</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
                   style={styles.addProduceBtn}
                   onPress={() => setShowAddProduceModal(true)}
                   activeOpacity={0.85}
                 >
-                  <Plus size={18} color={Colors.white} strokeWidth={2.5} />
-                  <Text style={styles.addProduceBtnText}>+ Add Harvest Produce</Text>
+                  <Plus size={16} color={Colors.white} strokeWidth={2.5} />
+                  <Text style={styles.addProduceBtnText}>+ List Produce</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={styles.postStoryBtn}
-                  onPress={openCreatePostModal}
-                  activeOpacity={0.85}
-                >
-                  <Sparkles size={16} color={Colors.cultivated} />
-                  <Text style={styles.postStoryBtnText}>Post Story</Text>
-                </TouchableOpacity>
+                <AgromPostButton onPress={openCreatePostModal} />
               </View>
             ) : (
               // VISITOR / BUYER BUTTONS
@@ -1346,21 +1354,38 @@ const styles = StyleSheet.create({
   },
   ownerActionsRow: {
     flexDirection: 'row',
-    gap: 10,
+    alignItems: 'center',
+    gap: 8,
   },
-  addProduceBtn: {
-    flex: 1.4,
+  openWorkspaceBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 5,
+    backgroundColor: '#173A20',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: Radii.pill,
+  },
+  openWorkspaceBtnText: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 11.5,
+    color: '#E2A63C',
+  },
+  addProduceBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
     backgroundColor: Colors.cultivated,
-    paddingVertical: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     borderRadius: Radii.pill,
   },
   addProduceBtnText: {
     fontFamily: Fonts.bodySemiBold,
-    fontSize: 13.5,
+    fontSize: 12,
     color: Colors.white,
   },
   postStoryBtn: {

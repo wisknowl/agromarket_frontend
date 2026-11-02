@@ -149,11 +149,26 @@ export default function YieldDetailScreen() {
   const unitPrice = yieldItem.price || yieldItem.pricePerUnit || 0;
   const totalPrice = unitPrice * quantity;
 
+  // Clean description and parse Agro Info tags for the specifications grid
+  let cleanDescription = yieldItem.description || '';
+  const agroDetails: Record<string, string> = {};
+  const agroMatch = cleanDescription.match(/\[Agro Info:\s*([^\]]+)\]/i);
+  if (agroMatch) {
+    const parts = agroMatch[1].split('•');
+    parts.forEach((p) => {
+      const [k, v] = p.split(':').map((s) => s.trim());
+      if (k && v) {
+        agroDetails[k.toLowerCase()] = v;
+      }
+    });
+    cleanDescription = cleanDescription.replace(agroMatch[0], '').trim();
+  }
+
   const mediaList =
     yieldItem.mediaUrls && yieldItem.mediaUrls.length > 0
-      ? yieldItem.mediaUrls
+      ? yieldItem.mediaUrls.map((u) => resolveMediaUrl(u) || u)
       : yieldItem.image
-        ? [yieldItem.image]
+        ? [resolveMediaUrl(yieldItem.image) || yieldItem.image]
         : ['https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800'];
 
   const categoryName =
@@ -342,45 +357,12 @@ export default function YieldDetailScreen() {
             )}
           </View>
 
-          {/* Engine 4 Mutual AgroPartner Wholesale Pricing Card */}
-          <View style={[styles.partnerPricingCard, isAgroPartner && styles.partnerPricingCardActive]}>
-            <View style={styles.partnerPricingHeader}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Handshake size={16} color={isAgroPartner ? Colors.gold : Colors.canopy} strokeWidth={2.2} />
-                <Text style={styles.partnerPricingTitle}>
-                  {isAgroPartner ? 'Mutual AgroPartner Rate (-20% Active)' : 'AgroPartner Wholesale Tier'}
-                </Text>
-              </View>
-              <View style={[styles.partnerDiscountPill, isAgroPartner && { backgroundColor: Colors.gold }]}>
-                <Text style={[styles.partnerDiscountPillText, isAgroPartner && { color: Colors.espresso }]}>
-                  -20% OFF
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.partnerPriceRow}>
-              <Text style={styles.partnerPriceNumber}>
-                {Math.round(unitPrice * 0.8).toLocaleString()}
-              </Text>
-              <Text style={styles.partnerPriceUnit}>{currentRegion.currency} / {yieldItem.unit}</Text>
-              {!isAgroPartner && (
-                <TouchableOpacity
-                  style={styles.partnerApplyBtn}
-                  onPress={handleTogglePartner}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.partnerApplyBtnText}>Unlock 20%</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-
-          {/* Wholesale Bulk Pricing Card */}
+          {/* Wholesale Bulk Pricing Card (Controlled by Farmer on Listing) */}
           {yieldItem.isWholesaleBulkAvailable && yieldItem.bulkPricePerUnit && (
             <View style={styles.wholesaleCard}>
               <View style={styles.wholesaleHeader}>
                 <Layers size={18} color={Colors.cultivated} />
-                <Text style={styles.wholesaleTitle}>Bulk Volume Tier</Text>
+                <Text style={styles.wholesaleTitle}>Wholesale Volume Discount</Text>
               </View>
               <Text style={styles.wholesaleText}>
                 Order <Text style={{ fontFamily: Fonts.bodyBold }}>{yieldItem.bulkMinQuantity || 10}+ {yieldItem.unit}s</Text> at discount rate of{' '}
@@ -405,9 +387,42 @@ export default function YieldDetailScreen() {
           {/* Description Section */}
           <Text style={styles.sectionHeading}>Harvest Description & Soil Notes</Text>
           <Text style={styles.descriptionText}>
-            {yieldItem.description ||
+            {cleanDescription ||
               'Freshly harvested directly from volcanic fertile soils. Handpicked and graded for direct delivery with guaranteed quality and optimal shelf-life.'}
           </Text>
+
+          <View style={styles.divider} />
+
+          {/* Harvest Specifications Grid */}
+          <Text style={styles.sectionHeading}>Harvest Specifications</Text>
+          <View style={styles.specsGrid}>
+            <View style={styles.specItem}>
+              <Text style={styles.specLabel}>Packaging Unit</Text>
+              <Text style={styles.specValue}>{yieldItem.unit}</Text>
+            </View>
+            <View style={styles.specItem}>
+              <Text style={styles.specLabel}>Min Order (MOQ)</Text>
+              <Text style={styles.specValue}>{yieldItem.minOrderQuantity || 1} {yieldItem.unit}</Text>
+            </View>
+            <View style={styles.specItem}>
+              <Text style={styles.specLabel}>Harvest Season</Text>
+              <Text style={styles.specValue}>{agroDetails['season'] || yieldItem.seasonality || 'Peak Harvest'}</Text>
+            </View>
+            <View style={styles.specItem}>
+              <Text style={styles.specLabel}>Shelf-Life</Text>
+              <Text style={styles.specValue}>{agroDetails['shelf life'] || (yieldItem.shelfLifeDays ? `${yieldItem.shelfLifeDays} days` : '7–14 days')}</Text>
+            </View>
+            <View style={styles.specItem}>
+              <Text style={styles.specLabel}>Farming Standard</Text>
+              <Text style={[styles.specValue, { color: Colors.cultivated }]}>
+                {yieldItem.isOrganic ? '🌱 Certified Organic' : '✓ GAP Verified'}
+              </Text>
+            </View>
+            <View style={styles.specItem}>
+              <Text style={styles.specLabel}>Available Stock</Text>
+              <Text style={styles.specValue}>{yieldItem.stockQuantity || 50} {yieldItem.unit}s</Text>
+            </View>
+          </View>
 
           <View style={styles.divider} />
 
@@ -939,12 +954,12 @@ const styles = StyleSheet.create({
   quantityControlsWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.parchment,
+    backgroundColor: '#FEF7EE',
     borderRadius: Radii.pill,
     paddingHorizontal: 8,
     paddingVertical: 6,
     borderWidth: 1,
-    borderColor: Colors.parchmentDim,
+    borderColor: '#F7D9A4',
     gap: 10,
   },
   qtyBtn: {
@@ -954,18 +969,20 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#F7D9A4',
     ...Shadows.subtle,
   },
   quantityValueText: {
     fontFamily: Fonts.monoBold,
     fontSize: 15,
-    color: Colors.espresso,
+    color: '#8D5B28',
     minWidth: 20,
     textAlign: 'center',
   },
   addBasketButton: {
     flex: 1,
-    backgroundColor: Colors.cultivated,
+    backgroundColor: '#E2A63C',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -973,10 +990,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: Radii.pill,
+    borderWidth: 1,
+    borderColor: '#C68F30',
     ...Shadows.subtle,
   },
   addBasketButtonActive: {
-    backgroundColor: Colors.canopy,
+    backgroundColor: '#C68F30',
   },
   addBasketButtonTextCol: {
     alignItems: 'flex-start',
@@ -989,7 +1008,33 @@ const styles = StyleSheet.create({
   addBasketSubText: {
     fontFamily: Fonts.monoBold,
     fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.85)',
+    color: 'rgba(255, 255, 255, 0.9)',
+  },
+  specsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  specItem: {
+    width: '48%',
+    backgroundColor: '#EEF8F1',
+    borderWidth: 1,
+    borderColor: '#CCEBD5',
+    borderRadius: Radii.card,
+    padding: 10,
+  },
+  specLabel: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 11,
+    color: '#5C5245',
+    marginBottom: 2,
+  },
+  specValue: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 13,
+    color: '#173A20',
   },
 
   // Engine 4 Wholesale Styles

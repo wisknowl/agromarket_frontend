@@ -369,7 +369,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -3,
     right: -3,
-    backgroundColor: Colors.cultivated,
+    backgroundColor: '#E2A63C',
     minWidth: 22,
     height: 22,
     borderRadius: 11,
@@ -382,9 +382,10 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   badgeText: {
-    color: Colors.white,
+    color: '#241A12',
     fontFamily: Fonts.monoBold,
     fontSize: 10.5,
+    fontWeight: '800',
     textAlign: 'center',
   },
   pricePill: {

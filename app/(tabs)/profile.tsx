@@ -68,6 +68,7 @@ import Colors, { Radii, Shadows } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
 import MeetingLeafLogo from '@/components/MeetingLeafLogo';
 import BrandButton from '@/components/ui/BrandButton';
+import AgromPostButton from '@/components/ui/AgromPostButton';
 import FarmerBadge from '@/components/ui/FarmerBadge';
 import ProfileHeaderMenu from '../../modules/farms/components/ProfileHeaderMenu';
 import AgroPatronModal from '@/components/AgroPatronModal';
@@ -701,13 +702,12 @@ export default function ProfileScreen() {
                     : 'This user has not published any harvest updates yet.'}
                 </Text>
                 {isOwner && (
-                  <BrandButton
-                    title="+ Create Farm Story"
-                    variant="cultivated"
-                    size="sm"
-                    onPress={() => router.push('/feed/create')}
-                    style={{ marginTop: 14 }}
-                  />
+                  <View style={{ marginTop: 14 }}>
+                    <AgromPostButton
+                      label="Create Farm Story"
+                      onPress={() => router.push('/feed/create')}
+                    />
+                  </View>
                 )}
               </View>
             ) : (

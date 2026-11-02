@@ -142,7 +142,7 @@ export default function EscrowOrderDetailScreen() {
             clearInterval(interval);
             loadOrder();
           }
-        } catch (e) {}
+        } catch (e) { }
       }, 4000);
       return () => clearInterval(interval);
     }

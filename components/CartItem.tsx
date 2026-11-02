@@ -7,6 +7,7 @@ import Colors, { Radii, Shadows } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
 import PriceTag from './ui/PriceTag';
 import { useLocale } from '@/context/LocaleContext';
+import { resolveMediaUrl, FALLBACK_POST_IMAGE } from '@/utils/media';
 
 interface CartItemProps {
   item: CartItemType;
@@ -16,12 +17,14 @@ export default function CartItem({ item }: CartItemProps) {
   const { formatCurrency } = useLocale();
   const { updateQuantity, removeFromCart } = useCartStore();
 
+  const minQty = item.yield.minOrderQuantity || 1;
+
   const handleIncrement = () => {
     updateQuantity(item.id, item.quantity + 1);
   };
 
   const handleDecrement = () => {
-    if (item.quantity > 1) {
+    if (item.quantity > minQty) {
       updateQuantity(item.id, item.quantity - 1);
     } else {
       removeFromCart(item.id);
@@ -32,31 +35,43 @@ export default function CartItem({ item }: CartItemProps) {
     removeFromCart(item.id);
   };
 
+  const imageUrl = resolveMediaUrl(item.yield.image) || FALLBACK_POST_IMAGE;
+
   return (
     <View style={styles.container}>
-      <Image source={{ uri: item.yield.image }} style={styles.image} />
+      <Image source={{ uri: imageUrl }} style={styles.image} resizeMode="cover" />
 
       <View style={styles.content}>
-        <Text style={styles.title} numberOfLines={1}>
-          {item.yield.title}
-        </Text>
+        <View>
+          <Text style={styles.title} numberOfLines={1}>
+            {item.yield.title}
+          </Text>
+          {item.yield.originRegion ? (
+            <Text style={styles.origin} numberOfLines={1}>
+              {item.yield.originRegion}
+            </Text>
+          ) : null}
+        </View>
+
         <PriceTag
           amount={item.yield.price}
           unit={item.yield.unit}
           size="sm"
-          color={Colors.text.secondary}
+          color="#5C5245"
         />
 
         <View style={styles.quantityContainer}>
-          <Pressable style={styles.quantityButton} onPress={handleDecrement}>
-            <Minus size={14} color={Colors.espresso} />
-          </Pressable>
+          <View style={styles.counterPill}>
+            <Pressable style={styles.quantityButton} onPress={handleDecrement}>
+              <Minus size={13} color="#241A12" strokeWidth={2.5} />
+            </Pressable>
 
-          <Text style={styles.quantity}>{item.quantity}</Text>
+            <Text style={styles.quantity}>{item.quantity}</Text>
 
-          <Pressable style={styles.quantityButton} onPress={handleIncrement}>
-            <Plus size={14} color={Colors.espresso} />
-          </Pressable>
+            <Pressable style={styles.quantityButton} onPress={handleIncrement}>
+              <Plus size={13} color="#241A12" strokeWidth={2.5} />
+            </Pressable>
+          </View>
 
           <Text style={styles.subtotal}>
             {formatCurrency(item.yield.price * item.quantity)}
@@ -65,7 +80,7 @@ export default function CartItem({ item }: CartItemProps) {
       </View>
 
       <Pressable style={styles.removeButton} onPress={handleRemove}>
-        <Trash2 size={18} color={Colors.clay} />
+        <Trash2 size={16} color="#B54A34" />
       </Pressable>
     </View>
   );
@@ -74,20 +89,26 @@ export default function CartItem({ item }: CartItemProps) {
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: Colors.white,
-    borderRadius: Radii.card,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: Colors.parchmentDim,
+    borderColor: '#F2DCAA',
     padding: 12,
     marginBottom: 12,
-    ...Shadows.subtle,
+    shadowColor: '#241A12',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
   image: {
     width: 76,
     height: 76,
-    borderRadius: 8,
+    borderRadius: 14,
     marginRight: 12,
-    backgroundColor: Colors.parchment,
+    backgroundColor: '#FFF9EE',
+    borderWidth: 1,
+    borderColor: '#F2DCAA',
   },
   content: {
     flex: 1,
@@ -95,36 +116,53 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: Fonts.bodySemiBold,
-    fontSize: 15,
-    color: Colors.espresso,
-    marginBottom: 2,
+    fontSize: 14,
+    color: '#241A12',
+    marginBottom: 1,
+  },
+  origin: {
+    fontFamily: Fonts.body,
+    fontSize: 11,
+    color: '#5C5245',
+    marginBottom: 4,
   },
   quantityContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 6,
+  },
+  counterPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF9EE',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#F2DCAA',
+    padding: 2,
   },
   quantityButton: {
-    backgroundColor: Colors.parchment,
-    borderRadius: Radii.sm,
-    width: 28,
-    height: 28,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 999,
+    width: 24,
+    height: 24,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#F2DCAA',
   },
   quantity: {
     fontFamily: Fonts.monoBold,
-    fontSize: 14,
-    color: Colors.espresso,
-    marginHorizontal: 10,
+    fontSize: 13,
+    color: '#241A12',
+    marginHorizontal: 8,
     minWidth: 18,
     textAlign: 'center',
   },
   subtotal: {
     fontFamily: Fonts.monoBold,
-    fontSize: 14,
+    fontSize: 13,
     marginLeft: 'auto',
-    color: Colors.canopy,
+    color: '#B87D1E',
   },
   removeButton: {
     padding: 6,

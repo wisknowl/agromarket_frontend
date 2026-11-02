@@ -272,6 +272,7 @@ export default function FarmManagementScreen() {
     bulkMinQuantity: '',
     bulkPricePerUnit: '',
     mediaUrl: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800',
+    mediaUrls: [] as string[],
   });
 
   // Edit Produce Modal State
@@ -297,6 +298,7 @@ export default function FarmManagementScreen() {
     bulkMinQuantity: '',
     bulkPricePerUnit: '',
     mediaUrl: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800',
+    mediaUrls: [] as string[],
     isAvailable: true,
   });
 
@@ -678,6 +680,9 @@ export default function FarmManagementScreen() {
         yieldItem.image ||
         yieldItem.mediaUrls?.[0] ||
         'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800',
+      mediaUrls: (yieldItem.mediaUrls && yieldItem.mediaUrls.length > 0
+        ? yieldItem.mediaUrls
+        : [yieldItem.image || 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800']).filter(Boolean),
       isAvailable: yieldItem.isAvailable !== false,
     });
     setShowEditProduceModal(true);
@@ -692,20 +697,87 @@ export default function FarmManagementScreen() {
       }
       const res = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: Platform.OS === 'ios',
-        aspect: [4, 3],
+        allowsMultipleSelection: true,
         quality: 0.8,
       });
-      if (!res.canceled && res.assets?.[0]?.uri) {
+      if (!res.canceled && res.assets && res.assets.length > 0) {
         setUploadingProducePhoto(true);
-        const uploadRes = await uploadMediaApi(res.assets[0].uri, false);
-        setEditProduceForm((prev: any) => ({ ...prev, mediaUrl: uploadRes.url }));
+        for (const asset of res.assets) {
+          const uploadRes = await uploadMediaApi(asset.uri, false);
+          if (uploadRes?.url) {
+            setEditProduceForm((prev: any) => {
+              const prevUrls = prev.mediaUrls || [];
+              return {
+                ...prev,
+                mediaUrl: prevUrls.length ? prev.mediaUrl : uploadRes.url,
+                mediaUrls: [...prevUrls, uploadRes.url],
+              };
+            });
+          }
+        }
       }
     } catch (err: any) {
       Alert.alert('Upload Error', err.message || 'Could not upload produce image');
     } finally {
       setUploadingProducePhoto(false);
     }
+  };
+
+  const handleRemoveEditProducePhoto = (idx: number) => {
+    setEditProduceForm((prev: any) => {
+      const next = (prev.mediaUrls || []).filter((_: any, i: number) => i !== idx);
+      return {
+        ...prev,
+        mediaUrl: next[0] || 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800',
+        mediaUrls: next,
+      };
+    });
+  };
+
+  const handlePickNewProducePhoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Needed', 'Please allow photo gallery access to upload a produce photo.');
+        return;
+      }
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: true,
+        quality: 0.8,
+      });
+      if (!res.canceled && res.assets && res.assets.length > 0) {
+        setUploadingProducePhoto(true);
+        for (const asset of res.assets) {
+          const uploadRes = await uploadMediaApi(asset.uri, false);
+          if (uploadRes?.url) {
+            setProduceForm((prev: any) => {
+              const prevUrls = prev.mediaUrls || [];
+              return {
+                ...prev,
+                mediaUrl: prevUrls.length ? prev.mediaUrl : uploadRes.url,
+                mediaUrls: [...prevUrls, uploadRes.url],
+              };
+            });
+          }
+        }
+      }
+    } catch (err: any) {
+      Alert.alert('Upload Error', err.message || 'Could not upload produce image');
+    } finally {
+      setUploadingProducePhoto(false);
+    }
+  };
+
+  const handleRemoveNewProducePhoto = (idx: number) => {
+    setProduceForm((prev: any) => {
+      const next = (prev.mediaUrls || []).filter((_: any, i: number) => i !== idx);
+      return {
+        ...prev,
+        mediaUrl: next[0] || 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800',
+        mediaUrls: next,
+      };
+    });
   };
 
   const handleSaveEditProduce = async () => {
@@ -737,10 +809,11 @@ export default function FarmManagementScreen() {
         bulkMinQuantity: editProduceForm.bulkMinQuantity ? parseFloat(editProduceForm.bulkMinQuantity) : undefined,
         bulkPricePerUnit: editProduceForm.bulkPricePerUnit ? parseFloat(editProduceForm.bulkPricePerUnit) : undefined,
         isAvailable: editProduceForm.isAvailable,
-        mediaUrls: [editProduceForm.mediaUrl],
+        mediaUrls: editProduceForm.mediaUrls?.length ? editProduceForm.mediaUrls : [editProduceForm.mediaUrl],
       });
 
       // Update local state optimistically
+      const savedUrls = editProduceForm.mediaUrls?.length ? editProduceForm.mediaUrls : [editProduceForm.mediaUrl];
       if (farmData && farmData.yields) {
         setFarmData({
           ...farmData,
@@ -757,8 +830,8 @@ export default function FarmManagementScreen() {
                   unit: editProduceForm.unit === 'CUSTOM' ? 'KG' : editProduceForm.unit,
                   isOrganic: editProduceForm.isOrganic,
                   isAvailable: editProduceForm.isAvailable,
-                  image: editProduceForm.mediaUrl,
-                  mediaUrls: [editProduceForm.mediaUrl],
+                  image: savedUrls[0] || editProduceForm.mediaUrl,
+                  mediaUrls: savedUrls,
                 }
               : y
           ),
@@ -854,7 +927,7 @@ export default function FarmManagementScreen() {
         isWholesaleBulkAvailable: produceForm.isWholesaleBulkAvailable,
         bulkMinQuantity: produceForm.bulkMinQuantity ? parseFloat(produceForm.bulkMinQuantity) : undefined,
         bulkPricePerUnit: produceForm.bulkPricePerUnit ? parseFloat(produceForm.bulkPricePerUnit) : undefined,
-        mediaUrls: [produceForm.mediaUrl],
+        mediaUrls: produceForm.mediaUrls?.length ? produceForm.mediaUrls : [produceForm.mediaUrl],
       });
 
       Alert.alert(
@@ -879,6 +952,7 @@ export default function FarmManagementScreen() {
         bulkMinQuantity: '',
         bulkPricePerUnit: '',
         mediaUrl: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800',
+        mediaUrls: [],
       });
       loadSelectedFarmDetails(activeFarm.id);
     } catch (error: any) {
@@ -1181,8 +1255,7 @@ export default function FarmManagementScreen() {
                   <Image
                     source={{
                       uri:
-                        yieldItem.image ||
-                        yieldItem.mediaUrls?.[0] ||
+                        resolveMediaUrl(yieldItem.image || yieldItem.mediaUrls?.[0]) ||
                         'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=500',
                     }}
                     style={styles.yieldThumb}
@@ -1429,6 +1502,90 @@ export default function FarmManagementScreen() {
                 </ScrollView>
               </View>
 
+              {/* Produce Harvest Photos (Multiple Photos) */}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <Text style={[styles.inputLabel, { marginBottom: 0 }]}>
+                  Produce Photos * {produceForm.mediaUrls?.length > 0 && `(${produceForm.mediaUrls.length})`}
+                </Text>
+                {produceForm.mediaUrls?.length > 0 && produceForm.mediaUrls.length < 5 && (
+                  <TouchableOpacity
+                    onPress={handlePickNewProducePhoto}
+                    disabled={uploadingProducePhoto}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                  >
+                    <Plus size={13} color={Colors.cultivated} />
+                    <Text style={{ fontFamily: Fonts.bodyBold, fontSize: 11, color: Colors.cultivated }}>
+                      Add Photo
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {produceForm.mediaUrls?.length > 0 ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoThumbnailsScroll}>
+                  <View style={styles.photoThumbContainer}>
+                    {produceForm.mediaUrls.map((url: string, idx: number) => (
+                      <View key={idx} style={styles.photoThumbItem}>
+                        <Image
+                          source={{ uri: resolveMediaUrl(url) }}
+                          style={styles.photoThumbImg}
+                          resizeMode="cover"
+                        />
+                        {idx === 0 && (
+                          <View style={styles.photoCoverBadge}>
+                            <Text style={styles.photoCoverText}>Cover</Text>
+                          </View>
+                        )}
+                        <TouchableOpacity
+                          style={styles.photoRemoveBtn}
+                          onPress={() => handleRemoveNewProducePhoto(idx)}
+                        >
+                          <X size={11} color="#FFFFFF" strokeWidth={2.5} />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+
+                    {produceForm.mediaUrls.length < 5 && (
+                      <TouchableOpacity
+                        style={styles.addPhotoThumbBtn}
+                        onPress={handlePickNewProducePhoto}
+                        disabled={uploadingProducePhoto}
+                      >
+                        {uploadingProducePhoto ? (
+                          <ActivityIndicator size="small" color={Colors.cultivated} />
+                        ) : (
+                          <>
+                            <Plus size={18} color={Colors.cultivated} />
+                            <Text style={styles.addPhotoThumbText}>Add Photo</Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </ScrollView>
+              ) : (
+                <View style={styles.editProducePhotoWrapper}>
+                  <Image
+                    source={{ uri: resolveMediaUrl(produceForm.mediaUrl) || 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800' }}
+                    style={styles.editProducePhoto}
+                  />
+                  <TouchableOpacity
+                    style={styles.changeProducePhotoBtn}
+                    onPress={handlePickNewProducePhoto}
+                    disabled={uploadingProducePhoto}
+                  >
+                    {uploadingProducePhoto ? (
+                      <ActivityIndicator size="small" color={Colors.white} />
+                    ) : (
+                      <>
+                        <Camera size={14} color={Colors.white} />
+                        <Text style={styles.changeProducePhotoText}>Upload Harvest Photos</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              )}
+
               {/* 1. Produce Title */}
               <Text style={styles.inputLabel}>Produce Name *</Text>
               <TextInput
@@ -1671,6 +1828,18 @@ export default function FarmManagementScreen() {
                   <Text style={styles.toggleTitle}>Certified Organic / GAP</Text>
                 </View>
               </TouchableOpacity>
+
+              {/* 10. Produce Description & Field Notes */}
+              <Text style={[styles.inputLabel, { marginTop: 14 }]}>Harvest Notes & Quality Description</Text>
+              <TextInput
+                style={[styles.textInput, { height: 80, textAlignVertical: 'top', paddingTop: 10 }]}
+                placeholder="Describe freshness, harvest conditions, variety, taste, packaging..."
+                placeholderTextColor={Colors.text.muted}
+                multiline
+                numberOfLines={3}
+                value={produceForm.description}
+                onChangeText={(t) => setProduceForm((p) => ({ ...p, description: t }))}
+              />
             </ScrollView>
 
             {/* Pinned Bottom Action Bar - Protected from phone navbar & gesture bar */}
@@ -2018,28 +2187,89 @@ export default function FarmManagementScreen() {
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
-              {/* Photo Preview & Change Photo */}
-              <Text style={styles.inputLabel}>Produce Photo</Text>
-              <View style={styles.editProducePhotoWrapper}>
-                <Image
-                  source={{ uri: editProduceForm.mediaUrl }}
-                  style={styles.editProducePhoto}
-                />
-                <TouchableOpacity
-                  style={styles.changeProducePhotoBtn}
-                  onPress={handlePickProducePhoto}
-                  disabled={uploadingProducePhoto}
-                >
-                  {uploadingProducePhoto ? (
-                    <ActivityIndicator size="small" color={Colors.white} />
-                  ) : (
-                    <>
-                      <Camera size={14} color={Colors.white} />
-                      <Text style={styles.changeProducePhotoText}>Change Photo</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
+              {/* Produce Harvest Photos (Multiple Photos) */}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <Text style={[styles.inputLabel, { marginBottom: 0 }]}>
+                  Produce Photos {editProduceForm.mediaUrls?.length > 0 && `(${editProduceForm.mediaUrls.length})`}
+                </Text>
+                {editProduceForm.mediaUrls?.length < 5 && (
+                  <TouchableOpacity
+                    onPress={handlePickProducePhoto}
+                    disabled={uploadingProducePhoto}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                  >
+                    <Plus size={13} color={Colors.cultivated} />
+                    <Text style={{ fontFamily: Fonts.bodyBold, fontSize: 11, color: Colors.cultivated }}>
+                      Add Photo
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
+
+              {editProduceForm.mediaUrls?.length > 0 ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoThumbnailsScroll}>
+                  <View style={styles.photoThumbContainer}>
+                    {editProduceForm.mediaUrls.map((url: string, idx: number) => (
+                      <View key={idx} style={styles.photoThumbItem}>
+                        <Image
+                          source={{ uri: resolveMediaUrl(url) }}
+                          style={styles.photoThumbImg}
+                          resizeMode="cover"
+                        />
+                        {idx === 0 && (
+                          <View style={styles.photoCoverBadge}>
+                            <Text style={styles.photoCoverText}>Cover</Text>
+                          </View>
+                        )}
+                        <TouchableOpacity
+                          style={styles.photoRemoveBtn}
+                          onPress={() => handleRemoveEditProducePhoto(idx)}
+                        >
+                          <X size={11} color="#FFFFFF" strokeWidth={2.5} />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+
+                    {editProduceForm.mediaUrls.length < 5 && (
+                      <TouchableOpacity
+                        style={styles.addPhotoThumbBtn}
+                        onPress={handlePickProducePhoto}
+                        disabled={uploadingProducePhoto}
+                      >
+                        {uploadingProducePhoto ? (
+                          <ActivityIndicator size="small" color={Colors.cultivated} />
+                        ) : (
+                          <>
+                            <Plus size={18} color={Colors.cultivated} />
+                            <Text style={styles.addPhotoThumbText}>Add Photo</Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </ScrollView>
+              ) : (
+                <View style={styles.editProducePhotoWrapper}>
+                  <Image
+                    source={{ uri: resolveMediaUrl(editProduceForm.mediaUrl) || 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800' }}
+                    style={styles.editProducePhoto}
+                  />
+                  <TouchableOpacity
+                    style={styles.changeProducePhotoBtn}
+                    onPress={handlePickProducePhoto}
+                    disabled={uploadingProducePhoto}
+                  >
+                    {uploadingProducePhoto ? (
+                      <ActivityIndicator size="small" color={Colors.white} />
+                    ) : (
+                      <>
+                        <Camera size={14} color={Colors.white} />
+                        <Text style={styles.changeProducePhotoText}>Add Produce Photos</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              )}
 
               {/* Harvest Operating Site Selector */}
               <View style={styles.siteSelectorWrapper}>
@@ -3934,6 +4164,71 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.bodyBold,
     fontSize: 11,
     color: Colors.white,
+  },
+  photoThumbnailsScroll: {
+    marginBottom: 14,
+  },
+  photoThumbContainer: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  photoThumbItem: {
+    width: 90,
+    height: 90,
+    borderRadius: 14,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: '#EEF8F1',
+    borderWidth: 1,
+    borderColor: '#CCEBD5',
+  },
+  photoThumbImg: {
+    width: '100%',
+    height: '100%',
+  },
+  photoCoverBadge: {
+    position: 'absolute',
+    bottom: 4,
+    left: 4,
+    backgroundColor: 'rgba(23, 58, 32, 0.9)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  photoCoverText: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 8,
+    color: '#E2A63C',
+  },
+  photoRemoveBtn: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addPhotoThumbBtn: {
+    width: 90,
+    height: 90,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: '#CCEBD5',
+    backgroundColor: '#EEF8F1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  addPhotoThumbText: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 10,
+    color: '#4E8B3F',
   },
   miniUnitScroll: {
     flexDirection: 'row',

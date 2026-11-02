@@ -24,6 +24,7 @@ import { fetchFeedPostsApi } from '@/components/api/posts';
 import { Sprout, Plus, Star, Compass, Warehouse } from 'lucide-react-native';
 import Basket from '@/components/basket';
 import AgromPreloader from '@/components/AgromPreloader';
+import AgromPostButton from '@/components/ui/AgromPostButton';
 import { waitRemainingMs } from '@/utils/minDuration';
 
 export default function HomeScreen() {
@@ -111,8 +112,9 @@ export default function HomeScreen() {
         activeTab={activeTab}
         onTabChange={(t) => setActiveTab(t as any)}
         rightAction={
-          <TouchableOpacity
-            style={styles.headerStoryBtn}
+          <AgromPostButton
+            label="Story"
+            compact
             onPress={() => {
               if (userHasFarm) {
                 router.push('/feed/create');
@@ -120,13 +122,7 @@ export default function HomeScreen() {
                 setShowFarmRequiredModal(true);
               }
             }}
-            activeOpacity={0.85}
-            accessibilityRole="button"
-            accessibilityLabel="Create Harvest Story"
-          >
-            <Plus size={13} color={Colors.white} strokeWidth={3} />
-            <Text style={styles.headerStoryBtnText}>Story</Text>
-          </TouchableOpacity>
+          />
         }
       />
 
@@ -164,14 +160,12 @@ export default function HomeScreen() {
                   Be the first farmer to share a live crop update, produce video, or wholesale deal!
                 </Text>
                 {userHasFarm && (
-                  <TouchableOpacity
-                    style={styles.createStoryButton}
-                    onPress={() => router.push('/feed/create')}
-                    activeOpacity={0.8}
-                  >
-                    <Plus size={18} color="#FFF" style={{ marginRight: 6 }} />
-                    <Text style={styles.createStoryButtonText}>Create Harvest Story</Text>
-                  </TouchableOpacity>
+                  <View style={{ marginTop: 20 }}>
+                    <AgromPostButton
+                      label="Create Harvest Story"
+                      onPress={() => router.push('/feed/create')}
+                    />
+                  </View>
                 )}
               </>
             )}

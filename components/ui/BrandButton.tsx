@@ -61,8 +61,8 @@ export default function BrandButton({
             variant === 'gold'
               ? Colors.espresso
               : variant === 'secondary' || variant === 'text'
-              ? Colors.cultivated
-              : Colors.white
+                ? Colors.cultivated
+                : Colors.white
           }
         />
       ) : (
