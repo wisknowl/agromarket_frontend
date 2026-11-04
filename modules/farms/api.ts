@@ -11,6 +11,14 @@ export const fetchMyFarmsApi = async (): Promise<Farm[]> => {
   }
 };
 
+export const checkFarmSlugApi = async (
+  name: string,
+  excludeId?: string
+): Promise<{ slug: string; available: boolean; candidate: string }> => {
+  const res = await apiClient.get('/farms/check-slug', { params: { name, excludeId } });
+  return res.data;
+};
+
 export const createFarmApi = async (farmData: Partial<Farm>): Promise<Farm> => {
   const res = await apiClient.post('/farms', farmData);
   return res.data.farm || res.data;

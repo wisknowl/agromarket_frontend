@@ -28,6 +28,7 @@ export const fetchYieldsApi = async (params?: {
   search?: string;
   isWholesale?: boolean;
   farmId?: string;
+  storeId?: string;
 }): Promise<Yield[]> => {
   try {
     const res = await apiClient.get('/yields', { params });

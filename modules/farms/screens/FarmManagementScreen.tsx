@@ -230,15 +230,15 @@ export default function FarmManagementScreen() {
   const activeParcels: FarmParcel[] = (activeFarm?.parcels && Array.isArray(activeFarm.parcels) && activeFarm.parcels.length > 0)
     ? activeFarm.parcels
     : (activeFarm ? [{
-        id: `${activeFarm.id}-hq`,
-        name: `${activeFarm.name} (Main Base / HQ)`,
-        region: activeFarm.region || 'West Region',
-        city: activeFarm.city || 'Foumbot',
-        division: activeFarm.division || '',
-        location: activeFarm.location || '',
-        sizeHectares: activeFarm.sizeHectares || 1.0,
-        isHeadquarters: true,
-      }] : []);
+      id: `${activeFarm.id}-hq`,
+      name: `${activeFarm.name} (Main Base / HQ)`,
+      region: activeFarm.region || 'West Region',
+      city: activeFarm.city || 'Foumbot',
+      division: activeFarm.division || '',
+      location: activeFarm.location || '',
+      sizeHectares: activeFarm.sizeHectares || 1.0,
+      isHeadquarters: true,
+    }] : []);
 
   // Multi-Site / Parcel Addition State
   const [showAddSiteModal, setShowAddSiteModal] = useState(false);
@@ -820,19 +820,19 @@ export default function FarmManagementScreen() {
           yields: farmData.yields.map((y: any) =>
             y.id === editingProduceItem.id
               ? {
-                  ...y,
-                  ...updated.yield,
-                  title: editProduceForm.title.trim(),
-                  description: editProduceForm.description.trim(),
-                  price: parseFloat(editProduceForm.pricePerUnit),
-                  pricePerUnit: parseFloat(editProduceForm.pricePerUnit),
-                  stockQuantity: parseFloat(editProduceForm.stockQuantity || '0'),
-                  unit: editProduceForm.unit === 'CUSTOM' ? 'KG' : editProduceForm.unit,
-                  isOrganic: editProduceForm.isOrganic,
-                  isAvailable: editProduceForm.isAvailable,
-                  image: savedUrls[0] || editProduceForm.mediaUrl,
-                  mediaUrls: savedUrls,
-                }
+                ...y,
+                ...updated.yield,
+                title: editProduceForm.title.trim(),
+                description: editProduceForm.description.trim(),
+                price: parseFloat(editProduceForm.pricePerUnit),
+                pricePerUnit: parseFloat(editProduceForm.pricePerUnit),
+                stockQuantity: parseFloat(editProduceForm.stockQuantity || '0'),
+                unit: editProduceForm.unit === 'CUSTOM' ? 'KG' : editProduceForm.unit,
+                isOrganic: editProduceForm.isOrganic,
+                isAvailable: editProduceForm.isAvailable,
+                image: savedUrls[0] || editProduceForm.mediaUrl,
+                mediaUrls: savedUrls,
+              }
               : y
           ),
         });
@@ -903,7 +903,7 @@ export default function FarmManagementScreen() {
       setSavingProduce(true);
       const categoryObj = CATEGORIES.find((c) => c.name === produceForm.categoryName) || CATEGORIES[0];
       const effectiveUnitLabel = produceForm.unit === 'CUSTOM' ? produceForm.customUnit.trim() : produceForm.unit;
-      
+
       const chosenParcel = activeParcels.find((p: any) => p.id === produceForm.selectedParcelId) || activeParcels[0];
       const originDisplay = chosenParcel
         ? `${chosenParcel.name} (${chosenParcel.city}, ${chosenParcel.region})`
@@ -1289,8 +1289,8 @@ export default function FarmManagementScreen() {
                           isPaused
                             ? styles.stockStatusPillPaused
                             : isOutOfStock
-                            ? styles.stockStatusPillOut
-                            : styles.stockStatusPillActive,
+                              ? styles.stockStatusPillOut
+                              : styles.stockStatusPillActive,
                         ]}
                       >
                         <Text
@@ -1299,15 +1299,15 @@ export default function FarmManagementScreen() {
                             isPaused
                               ? styles.stockStatusPillTextPaused
                               : isOutOfStock
-                              ? styles.stockStatusPillTextOut
-                              : styles.stockStatusPillTextActive,
+                                ? styles.stockStatusPillTextOut
+                                : styles.stockStatusPillTextActive,
                           ]}
                         >
                           {isPaused
                             ? '⏸ Paused'
                             : isOutOfStock
-                            ? '⚠️ Out of Stock'
-                            : `📦 ${stockQty} ${yieldItem.unit}`}
+                              ? '⚠️ Out of Stock'
+                              : `📦 ${stockQty} ${yieldItem.unit}`}
                         </Text>
                       </View>
                     </View>
@@ -2036,9 +2036,9 @@ export default function FarmManagementScreen() {
                       style={[
                         styles.presetChip,
                         isCurrent &&
-                          (stockActionTab === 'REPLENISH'
-                            ? styles.presetChipActiveGreen
-                            : styles.presetChipActiveRed),
+                        (stockActionTab === 'REPLENISH'
+                          ? styles.presetChipActiveGreen
+                          : styles.presetChipActiveRed),
                       ]}
                       onPress={() => setStockInputDelta(val)}
                     >
@@ -2046,9 +2046,9 @@ export default function FarmManagementScreen() {
                         style={[
                           styles.presetChipText,
                           isCurrent &&
-                            (stockActionTab === 'REPLENISH'
-                              ? styles.presetChipTextActiveGreen
-                              : styles.presetChipTextActiveRed),
+                          (stockActionTab === 'REPLENISH'
+                            ? styles.presetChipTextActiveGreen
+                            : styles.presetChipTextActiveRed),
                         ]}
                       >
                         {stockActionTab === 'REPLENISH' ? `+${val}` : `-${val}`} {selectedStockYield?.unit}
@@ -2084,9 +2084,9 @@ export default function FarmManagementScreen() {
                       {Math.max(
                         0,
                         (selectedStockYield.stockQuantity || 0) +
-                          (stockActionTab === 'REPLENISH'
-                            ? parseFloat(stockInputDelta || '0') || 0
-                            : -(parseFloat(stockInputDelta || '0') || 0))
+                        (stockActionTab === 'REPLENISH'
+                          ? parseFloat(stockInputDelta || '0') || 0
+                          : -(parseFloat(stockInputDelta || '0') || 0))
                       )}{' '}
                       {selectedStockYield.unit}
                     </Text>

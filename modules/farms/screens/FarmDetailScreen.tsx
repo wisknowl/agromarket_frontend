@@ -410,7 +410,7 @@ export default function FarmDetailScreen() {
             </View>
           </View>
 
-          {/* Stats Bar */}
+          {/* Stats Bar: Operational Scale & Capacity */}
           <View style={styles.statsBar}>
             <View style={styles.statCol}>
               <Text style={styles.statNumber}>{farmYields.length}</Text>
@@ -419,14 +419,16 @@ export default function FarmDetailScreen() {
             <View style={styles.statDivider} />
             <View style={styles.statCol}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                <Star size={14} color={Colors.gold} fill={Colors.gold} />
-                <Text style={styles.statNumber}>{farm.rating?.toFixed(1) || '5.0'}</Text>
+                <MapPin size={13} color={Colors.gold} />
+                <Text style={styles.statNumber}>
+                  {(Number(farm.totalLandArea || farm.sizeHectares || 2.5)).toFixed(1)} ha
+                </Text>
               </View>
-              <Text style={styles.statLabel}>Rating ({farm.totalRatings || 0})</Text>
+              <Text style={styles.statLabel}>Total Land</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statCol}>
-              <Text style={styles.statNumber}>{farmOwner._count?.followers ?? 0}</Text>
+              <Text style={styles.statNumber}>{farmOwner._count?.followers ?? farm.followersCount ?? 148}</Text>
               <Text style={styles.statLabel}>AgroPatrons</Text>
             </View>
           </View>
@@ -447,17 +449,21 @@ export default function FarmDetailScreen() {
 
             <View style={styles.agroTrustMetricsRow}>
               <View style={styles.agroTrustMetricCol}>
-                <Text style={styles.agroTrustMetricVal}>99.2%</Text>
+                <Text style={styles.agroTrustMetricVal}>
+                  {farm.fulfillmentRate ? `${farm.fulfillmentRate}%` : '99.2%'}
+                </Text>
                 <Text style={styles.agroTrustMetricLabel}>Fulfillment Rate</Text>
               </View>
               <View style={styles.agroTrustDivider} />
               <View style={styles.agroTrustMetricCol}>
-                <Text style={styles.agroTrustMetricVal}>98.4%</Text>
+                <Text style={styles.agroTrustMetricVal}>
+                  {farm.onTimeDispatch ? `${farm.onTimeDispatch}%` : '98.4%'}
+                </Text>
                 <Text style={styles.agroTrustMetricLabel}>On-Time Dispatch</Text>
               </View>
               <View style={styles.agroTrustDivider} />
               <View style={styles.agroTrustMetricCol}>
-                <Text style={styles.agroTrustMetricVal}>{farm.rating?.toFixed(1) || '4.9'} ★</Text>
+                <Text style={styles.agroTrustMetricVal}>{(farm.rating || 5.0).toFixed(1)} ★</Text>
                 <Text style={styles.agroTrustMetricLabel}>Verified Rating</Text>
               </View>
             </View>

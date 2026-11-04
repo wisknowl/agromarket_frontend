@@ -28,6 +28,7 @@ export default function AgroYieldsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'farms' | 'stores' | 'combos'>('all');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
   const [yieldsList, setYieldsList] = useState<AgroYield[]>([]);
@@ -88,7 +89,21 @@ export default function AgroYieldsScreen() {
       catName.toLowerCase().includes(selectedCategory.toLowerCase()) ||
       item.title.toLowerCase().includes(selectedCategory.toLowerCase());
 
-    return matchesSearch && matchesCategory;
+    const isMealCombo = Boolean(
+      item.isMealCombo ||
+      catName.toLowerCase().includes('combo') ||
+      item.title.toLowerCase().includes('combo') ||
+      item.title.toLowerCase().includes('meal pack')
+    );
+    const isWholesale = Boolean(item.isWholesaleBulkAvailable || item.storeId);
+
+    const matchesSource =
+      sourceFilter === 'all' ||
+      (sourceFilter === 'farms' && !isMealCombo && !isWholesale) ||
+      (sourceFilter === 'stores' && isWholesale) ||
+      (sourceFilter === 'combos' && isMealCombo);
+
+    return matchesSearch && matchesCategory && matchesSource;
   });
 
   const renderYieldItem = ({ item }: { item: AgroYield }) => (
@@ -123,6 +138,47 @@ export default function AgroYieldsScreen() {
             </Pressable>
           )}
         </View>
+      </View>
+
+      {/* Master Source Segment: All | Direct Farms | AgroStores | Meal Combos */}
+      <View style={styles.sourceSegmentContainer}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sourceSegmentScroll}>
+          <TouchableOpacity
+            style={[styles.sourceBtn, sourceFilter === 'all' && styles.sourceBtnActive]}
+            onPress={() => setSourceFilter('all')}
+          >
+            <Text style={[styles.sourceBtnText, sourceFilter === 'all' && styles.sourceBtnTextActive]}>
+              All Harvests
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.sourceBtn, sourceFilter === 'farms' && styles.sourceBtnActive]}
+            onPress={() => setSourceFilter('farms')}
+          >
+            <Text style={[styles.sourceBtnText, sourceFilter === 'farms' && styles.sourceBtnTextActive]}>
+              🌱 Direct Farms
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.sourceBtn, sourceFilter === 'stores' && styles.sourceBtnActive]}
+            onPress={() => setSourceFilter('stores')}
+          >
+            <Text style={[styles.sourceBtnText, sourceFilter === 'stores' && styles.sourceBtnTextActive]}>
+              🏪 AgroStores & Depots
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.sourceBtn, sourceFilter === 'combos' && styles.sourceBtnComboActive]}
+            onPress={() => setSourceFilter('combos')}
+          >
+            <Text style={[styles.sourceBtnText, sourceFilter === 'combos' && styles.sourceBtnComboTextActive]}>
+              🍲 Meal Combos
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
       </View>
 
       {/* Category Filter Chips */}
@@ -239,6 +295,42 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.bodySemiBold,
     fontSize: 12,
     color: Colors.soil,
+  },
+  sourceSegmentContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  sourceSegmentScroll: {
+    gap: 8,
+  },
+  sourceBtn: {
+    paddingHorizontal: 13,
+    paddingVertical: 7,
+    borderRadius: Radii.card,
+    backgroundColor: '#EEF8F1',
+    borderWidth: 1,
+    borderColor: '#CCEBD5',
+  },
+  sourceBtnActive: {
+    backgroundColor: '#173A20',
+    borderColor: '#173A20',
+  },
+  sourceBtnComboActive: {
+    backgroundColor: '#E2A63C',
+    borderColor: '#E2A63C',
+  },
+  sourceBtnText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 12,
+    color: '#241A12',
+  },
+  sourceBtnTextActive: {
+    color: Colors.white,
+  },
+  sourceBtnComboTextActive: {
+    color: '#241A12',
+    fontFamily: Fonts.bodyBold,
   },
   categoryContainer: {
     marginBottom: 8,

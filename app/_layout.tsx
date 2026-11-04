@@ -171,6 +171,7 @@ function RootLayoutNav() {
         <Stack.Screen name="farmer/new" options={{ headerShown: false }} />
         <Stack.Screen name="farmer/manage" options={{ headerShown: false }} />
         <Stack.Screen name="farmer/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="store/new" options={{ headerShown: false }} />
         <Stack.Screen
           name="chat/[id]"
           options={{
@@ -248,6 +249,13 @@ function RootLayoutNav() {
         />
         <Stack.Screen
           name="wallet"
+          options={{
+            headerShown: false,
+            presentation: 'card',
+          }}
+        />
+        <Stack.Screen
+          name="agro-store"
           options={{
             headerShown: false,
             presentation: 'card',

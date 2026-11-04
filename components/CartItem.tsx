@@ -51,6 +51,13 @@ export default function CartItem({ item }: CartItemProps) {
               {item.yield.originRegion}
             </Text>
           ) : null}
+          {item.yield.dispatchSiteName ? (
+            <View style={styles.dispatchBadge}>
+              <Text style={styles.dispatchBadgeText} numberOfLines={1}>
+                🏢 Dispatch: {item.yield.dispatchSiteName}
+              </Text>
+            </View>
+          ) : null}
         </View>
 
         <PriceTag
@@ -124,7 +131,22 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.body,
     fontSize: 11,
     color: '#5C5245',
+    marginBottom: 2,
+  },
+  dispatchBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#FEF6E8',
+    borderColor: '#F2DCAA',
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     marginBottom: 4,
+  },
+  dispatchBadgeText: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 9,
+    color: '#7A4A2D',
   },
   quantityContainer: {
     flexDirection: 'row',

@@ -99,7 +99,11 @@ export default function YieldCard({
             <FarmerBadge tier={creditTier as any} label={creditTier === 'PLATINUM' ? 'Platinum' : 'Gold'} size="sm" />
           </View>
         ) : null}
-        {item.isWholesaleBulkAvailable ? (
+        {item.isMealCombo || item.sourceType === 'COMBO' || item.title?.toLowerCase().includes('combo') ? (
+          <View style={styles.comboFloatingBadge}>
+            <Text style={styles.comboFloatingBadgeText}>🍲 Meal Combo</Text>
+          </View>
+        ) : item.isWholesaleBulkAvailable ? (
           <View style={styles.wholesaleFloatingBadge}>
             <Text style={styles.wholesaleFloatingBadgeText}>Wholesale</Text>
           </View>
@@ -110,6 +114,12 @@ export default function YieldCard({
         <Text style={styles.title} numberOfLines={1}>
           {item.title || (typeof item.category === 'object' ? item.category?.name : item.category)}
         </Text>
+
+        {item.comboItems && item.comboItems.length > 0 && (
+          <Text style={styles.comboSnippet} numberOfLines={1}>
+            Kit: {item.comboItems.join(' • ')}
+          </Text>
+        )}
 
         <View style={styles.priceRow}>
           <PriceTag
@@ -231,6 +241,27 @@ const styles = StyleSheet.create({
     fontSize: 9.5,
     color: Colors.white,
     letterSpacing: 0.2,
+  },
+  comboFloatingBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#E2A63C',
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: Radii.pill,
+  },
+  comboFloatingBadgeText: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 9.5,
+    color: '#241A12',
+    letterSpacing: 0.2,
+  },
+  comboSnippet: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 10.5,
+    color: '#4E8B3F',
+    marginBottom: 2,
   },
   content: {
     padding: 10,

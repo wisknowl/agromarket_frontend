@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -24,6 +24,7 @@ import {
   MapPin,
   ShieldCheck,
   Check,
+  CheckCircle2,
   Sparkles,
   ChevronRight,
   Upload,
@@ -40,7 +41,7 @@ import BrandButton from '@/components/ui/BrandButton';
 import { useAuthStore } from '@/store/authStore';
 import { useUIStore } from '@/store/uiStore';
 import { Farm, FarmCategory } from '@/types';
-import { createFarmApi } from '../api';
+import { createFarmApi, checkFarmSlugApi } from '../api';
 import { uploadMediaApi } from '@/components/api/posts';
 import { resolveMediaUrl } from '@/utils/media';
 
@@ -86,6 +87,43 @@ export default function RegisterFarmScreen() {
   const [name, setName] = useState('');
   const [category, setCategory] = useState<FarmCategory>('CROPS');
   const [description, setDescription] = useState('');
+
+  // Real-time Slug Availability State
+  const [slugStatus, setSlugStatus] = useState<{
+    checking: boolean;
+    available: boolean | null;
+    slug: string;
+    candidate: string;
+  }>({
+    checking: false,
+    available: null,
+    slug: '',
+    candidate: '',
+  });
+
+  useEffect(() => {
+    if (!name.trim()) {
+      setSlugStatus({ checking: false, available: null, slug: '', candidate: '' });
+      return;
+    }
+
+    setSlugStatus((prev) => ({ ...prev, checking: true }));
+    const timer = setTimeout(async () => {
+      try {
+        const res = await checkFarmSlugApi(name.trim());
+        setSlugStatus({
+          checking: false,
+          available: res.available,
+          slug: res.slug,
+          candidate: res.candidate,
+        });
+      } catch {
+        setSlugStatus((prev) => ({ ...prev, checking: false }));
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [name]);
 
   // Operational Parcels & Multi-Site State
   const [parcels, setParcels] = useState<Array<{
@@ -387,6 +425,26 @@ export default function RegisterFarmScreen() {
                 }}
               />
               {errors.name && <Text style={styles.inlineError}>{errors.name}</Text>}
+
+              {/* Real-time Slug Availability Indicator */}
+              {name.trim().length > 1 && (
+                <View style={styles.slugIndicatorRow}>
+                  {slugStatus.checking ? (
+                    <Text style={styles.slugCheckingText}>Checking handle availability...</Text>
+                  ) : slugStatus.available === true ? (
+                    <View style={styles.slugAvailableBadge}>
+                      <CheckCircle2 size={13} color="#15803d" />
+                      <Text style={styles.slugAvailableText}>Available: agrom.app/farm/{slugStatus.slug}</Text>
+                    </View>
+                  ) : slugStatus.available === false ? (
+                    <View style={styles.slugTakenBadge}>
+                      <Text style={styles.slugTakenText}>
+                        Taken. Suggested: agrom.app/farm/{slugStatus.candidate}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+              )}
 
               <Text style={styles.inputLabel}>Farming Category</Text>
               <View style={styles.categoriesGrid}>
@@ -909,6 +967,45 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     color: '#dc2626',
     marginTop: 4,
+  },
+  slugIndicatorRow: {
+    marginTop: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  slugCheckingText: {
+    fontFamily: Fonts.body,
+    fontSize: 11,
+    color: Colors.text.muted,
+  },
+  slugAvailableBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0fdf4',
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+    borderRadius: Radii.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    gap: 5,
+  },
+  slugAvailableText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 11,
+    color: '#15803d',
+  },
+  slugTakenBadge: {
+    backgroundColor: '#fffbeb',
+    borderWidth: 1,
+    borderColor: '#fde68a',
+    borderRadius: Radii.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  slugTakenText: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 11,
+    color: '#b45309',
   },
   inputError: {
     borderColor: '#dc2626',

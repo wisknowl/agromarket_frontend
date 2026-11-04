@@ -324,6 +324,11 @@ export default function CheckoutScreen() {
                 <Text style={styles.itemTitle} numberOfLines={1}>
                   {item.yield?.title || item.product?.title || 'Fresh Produce'}
                 </Text>
+                {item.yield?.dispatchSiteName ? (
+                  <Text style={styles.itemDispatchDepot} numberOfLines={1}>
+                    🏢 Dispatch Depot: {item.yield.dispatchSiteName}
+                  </Text>
+                ) : null}
                 <Text style={styles.itemQuantity}>
                   {item.quantity} {item.yield?.unit || item.product?.unit || 'Units'} × {formatCurrency(item.yield?.pricePerUnit || item.yield?.price || 0)}
                 </Text>
@@ -645,6 +650,13 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13.5,
     color: Colors.espresso,
+  },
+  itemDispatchDepot: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 10.5,
+    color: '#7A4A2D',
+    marginTop: 1,
+    marginBottom: 2,
   },
   itemQuantity: {
     fontFamily: Fonts.body,

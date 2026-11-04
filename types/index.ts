@@ -93,6 +93,7 @@ export interface Farm {
   id: string;
   userId: string;
   name: string;
+  slug?: string;
   category: FarmCategory | string;
   description?: string;
   location: string;
@@ -141,7 +142,12 @@ export interface WholesalerProfile {
   primaryMarketCity: string;
   buyingCapacityTons?: number;
   preferredCommodities?: string[];
+  linkedFarmId?: string;
+  storeBio?: string;
+  avatarUrl?: string;
 }
+
+export type AgroStore = WholesalerProfile;
 
 export interface TransporterProfile {
   id: string;
@@ -208,6 +214,13 @@ export interface Yield {
   bulkPricePerUnit?: number;
   isOrganic?: boolean;
   available?: boolean;
+  isMealCombo?: boolean;
+  comboItems?: string[];
+  storeId?: string;
+  storeSiteId?: string;
+  dispatchSiteName?: string;
+  storeName?: string;
+  sourceType?: 'FARM' | 'STORE' | 'COMBO';
   harvestDate?: string;
   mediaUrls?: string[];
   image: string;

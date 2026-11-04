@@ -24,6 +24,7 @@ import {
   Crown,
   TrendingUp,
   ChevronDown,
+  ChevronRight,
   Check,
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
@@ -217,9 +218,9 @@ export default function ProfileHeaderMenu() {
                   <Wallet size={18} color={Colors.cultivated} strokeWidth={2.4} />
                 </View>
                 <View style={styles.itemTextContainer}>
-                  <Text style={styles.itemTitle}>AgroWallet & Escrow Vault 💳</Text>
-                  <Text style={styles.itemSub}>Balance, escrow releases & patron passes</Text>
+                  <Text style={styles.itemTitle}>AgroWallet</Text>
                 </View>
+                <ChevronRight size={16} color="#A3A3A3" strokeWidth={2} />
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -231,23 +232,9 @@ export default function ProfileHeaderMenu() {
                   <ShieldCheck size={18} color={Colors.cultivated} strokeWidth={2.4} />
                 </View>
                 <View style={styles.itemTextContainer}>
-                  <Text style={styles.itemTitle}>Escrow Orders & Settlements 🛡️</Text>
-                  <Text style={styles.itemSub}>Live MoMo verification & dispute release</Text>
+                  <Text style={styles.itemTitle}>Smart Escrow</Text>
                 </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => handleNavigate('/farmer/new')}
-                activeOpacity={0.75}
-              >
-                <View style={[styles.itemIconCircle, { backgroundColor: '#EEF8F1' }]}>
-                  <Plus size={18} color={Colors.cultivated} strokeWidth={2.5} />
-                </View>
-                <View style={styles.itemTextContainer}>
-                  <Text style={styles.itemTitle}>Register New Farm</Text>
-                  <Text style={styles.itemSub}>Crops, Livestock, Fish, Poultry</Text>
-                </View>
+                <ChevronRight size={16} color="#A3A3A3" strokeWidth={2} />
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -255,13 +242,27 @@ export default function ProfileHeaderMenu() {
                 onPress={() => handleNavigate('/farmer/manage')}
                 activeOpacity={0.75}
               >
+                <View style={[styles.itemIconCircle, { backgroundColor: '#EEF8F1' }]}>
+                  <Plus size={18} color={Colors.cultivated} strokeWidth={2.5} />
+                </View>
+                <View style={styles.itemTextContainer}>
+                  <Text style={styles.itemTitle}>My AgroFarms</Text>
+                </View>
+                <ChevronRight size={16} color="#A3A3A3" strokeWidth={2} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => handleNavigate('/agro-store')}
+                activeOpacity={0.75}
+              >
                 <View style={[styles.itemIconCircle, { backgroundColor: '#FEF7EE' }]}>
                   <Store size={18} color={Colors.gold} strokeWidth={2.2} />
                 </View>
                 <View style={styles.itemTextContainer}>
-                  <Text style={styles.itemTitle}>Become Buyam-Sellam</Text>
-                  <Text style={styles.itemSub}>Wholesale trading & bulk aggregator</Text>
+                  <Text style={styles.itemTitle}>Store Management</Text>
                 </View>
+                <ChevronRight size={16} color="#A3A3A3" strokeWidth={2} />
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -273,9 +274,9 @@ export default function ProfileHeaderMenu() {
                   <Truck size={18} color="#0284c7" strokeWidth={2.2} />
                 </View>
                 <View style={styles.itemTextContainer}>
-                  <Text style={styles.itemTitle}>Register as Transporter</Text>
-                  <Text style={styles.itemSub}>Agro-logistics & cold freight fleet</Text>
+                  <Text style={styles.itemTitle}>Transporter Network</Text>
                 </View>
+                <ChevronRight size={16} color="#A3A3A3" strokeWidth={2} />
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -287,9 +288,9 @@ export default function ProfileHeaderMenu() {
                   <TrendingUp size={18} color="#7c3aed" strokeWidth={2.2} />
                 </View>
                 <View style={styles.itemTextContainer}>
-                  <Text style={styles.itemTitle}>AgroVestor Crowdlending 🚀</Text>
-                  <Text style={styles.itemSub}>Yield collateral campaigns & credit scoring</Text>
+                  <Text style={styles.itemTitle}>AgroVestor & Credit</Text>
                 </View>
+                <ChevronRight size={16} color="#A3A3A3" strokeWidth={2} />
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -301,9 +302,9 @@ export default function ProfileHeaderMenu() {
                   <Crown size={18} color={Colors.gold} strokeWidth={2.2} />
                 </View>
                 <View style={styles.itemTextContainer}>
-                  <Text style={styles.itemTitle}>AgroPatron Feed ⭐</Text>
-                  <Text style={styles.itemSub}>Exclusive updates from patronized farms</Text>
+                  <Text style={styles.itemTitle}>AgroPatron Feed</Text>
                 </View>
+                <ChevronRight size={16} color="#A3A3A3" strokeWidth={2} />
               </TouchableOpacity>
 
               <View style={styles.divider} />
@@ -317,9 +318,9 @@ export default function ProfileHeaderMenu() {
                   <Settings size={18} color={Colors.text.secondary} strokeWidth={2.2} />
                 </View>
                 <View style={styles.itemTextContainer}>
-                  <Text style={styles.itemTitle}>Settings & Privacy</Text>
-                  <Text style={styles.itemSub}>Account security, permissions & legal</Text>
+                  <Text style={styles.itemTitle}>Settings</Text>
                 </View>
+                <ChevronRight size={16} color="#A3A3A3" strokeWidth={2} />
               </TouchableOpacity>
             </ScrollView>
           </Animated.View>
