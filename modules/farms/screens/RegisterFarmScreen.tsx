@@ -77,7 +77,7 @@ const SAMPLE_COVERS = [
 
 export default function RegisterFarmScreen() {
   const router = useRouter();
-  const { user, updateUser } = useAuthStore();
+  const { user, isAuthenticated, updateUser } = useAuthStore();
   const setActiveFarmId = useUIStore((s) => s.setActiveFarmId);
 
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
@@ -371,6 +371,39 @@ export default function RegisterFarmScreen() {
       ]
     );
   };
+
+  // If in Guest Mode, prompt to sign in
+  if (!isAuthenticated && !user) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={{ flex: 1, paddingHorizontal: 20, justifyContent: 'center' }}>
+          <View style={{ backgroundColor: '#FFF', borderRadius: 24, borderWidth: 1, borderColor: '#CCEBD5', padding: 24, alignItems: 'center' }}>
+            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: '#EEF8F1', borderWidth: 1, borderColor: '#CCEBD5', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+              <Building2 size={32} color={Colors.cultivated} />
+            </View>
+            <Text style={{ fontSize: 18, fontFamily: Fonts.displayBold, color: '#173A20', textAlign: 'center', marginBottom: 8 }}>
+              Sign in to Register your AgroFarm
+            </Text>
+            <Text style={{ fontSize: 13, fontFamily: Fonts.bodyRegular, color: '#5C5245', textAlign: 'center', marginBottom: 20, lineHeight: 18 }}>
+              Registering an AgroFarm enterprise unlocks direct harvest sales on AgroMarket, video stories on AgroFeed, and Tabi Credit Scoring.
+            </Text>
+            <TouchableOpacity
+              style={{ width: '100%', backgroundColor: Colors.cultivated, paddingVertical: 14, borderRadius: 30, alignItems: 'center', marginBottom: 10 }}
+              onPress={() => router.push('/(tabs)/profile')}
+            >
+              <Text style={{ color: '#FFF', fontFamily: Fonts.bodyBold, fontSize: 14 }}>Sign In</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ width: '100%', backgroundColor: '#EEF8F1', borderWidth: 1, borderColor: '#CCEBD5', paddingVertical: 14, borderRadius: 30, alignItems: 'center' }}
+              onPress={() => router.back()}
+            >
+              <Text style={{ color: '#173A20', fontFamily: Fonts.bodyBold, fontSize: 14 }}>Go Back</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>

@@ -62,7 +62,7 @@ const SAMPLE_COVERS = [
 export default function RegisterStoreScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { user } = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
 
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -266,6 +266,37 @@ export default function RegisterStoreScreen() {
       setSubmitting(false);
     }
   };
+
+  // If in Guest Mode, prompt to sign in (matches Farm Wizard behavior)
+  if (!isAuthenticated && !user) {
+    return (
+      <View style={[styles.container, { paddingTop: Math.max(insets.top, 16), paddingHorizontal: 20, justifyContent: 'center' }]}>
+        <View style={{ backgroundColor: '#FFF', borderRadius: 24, borderWidth: 1, borderColor: '#CCEBD5', padding: 24, alignItems: 'center' }}>
+          <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: '#FFF9EE', borderWidth: 1, borderColor: '#F2DCAA', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+            <Building2 size={32} color="#E2A63C" />
+          </View>
+          <Text style={{ fontSize: 18, fontFamily: Fonts.displayBold, color: '#173A20', textAlign: 'center', marginBottom: 8 }}>
+            Sign in to Register your AgroStore
+          </Text>
+          <Text style={{ fontSize: 13, fontFamily: Fonts.bodyRegular, color: '#5C5245', textAlign: 'center', marginBottom: 20, lineHeight: 18 }}>
+            Registering an AgroStore enterprise unlocks wholesale lot publishing, multi-depot inventory tracking, and Smart Escrow pickup settlement.
+          </Text>
+          <TouchableOpacity
+            style={{ width: '100%', backgroundColor: Colors.cultivated, paddingVertical: 14, borderRadius: 30, alignItems: 'center', marginBottom: 10 }}
+            onPress={() => router.push('/(tabs)/profile')}
+          >
+            <Text style={{ color: '#FFF', fontFamily: Fonts.bodyBold, fontSize: 14 }}>Sign In</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={{ width: '100%', backgroundColor: '#EEF8F1', borderWidth: 1, borderColor: '#CCEBD5', paddingVertical: 14, borderRadius: 30, alignItems: 'center' }}
+            onPress={() => router.back()}
+          >
+            <Text style={{ color: '#173A20', fontFamily: Fonts.bodyBold, fontSize: 14 }}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { paddingTop: Math.max(insets.top, 16) }]}>

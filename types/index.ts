@@ -49,6 +49,7 @@ export interface User {
   isAdmin?: boolean;
   isVerified?: boolean;
   farms?: any[];
+  stores?: any[];
   creditScore?: number | string;
   farmerProfile?: FarmerProfile;
   wholesalerProfile?: WholesalerProfile;

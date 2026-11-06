@@ -28,7 +28,7 @@ export default function AgroYieldsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
-  const [sourceFilter, setSourceFilter] = useState<'all' | 'farms' | 'stores' | 'combos'>('all');
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'farms' | 'stores'>('all');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
   const [yieldsList, setYieldsList] = useState<AgroYield[]>([]);
@@ -89,19 +89,12 @@ export default function AgroYieldsScreen() {
       catName.toLowerCase().includes(selectedCategory.toLowerCase()) ||
       item.title.toLowerCase().includes(selectedCategory.toLowerCase());
 
-    const isMealCombo = Boolean(
-      item.isMealCombo ||
-      catName.toLowerCase().includes('combo') ||
-      item.title.toLowerCase().includes('combo') ||
-      item.title.toLowerCase().includes('meal pack')
-    );
-    const isWholesale = Boolean(item.isWholesaleBulkAvailable || item.storeId);
+    const isStoreProduce = Boolean(item.storeId || item.sourceType === 'STORE');
 
     const matchesSource =
       sourceFilter === 'all' ||
-      (sourceFilter === 'farms' && !isMealCombo && !isWholesale) ||
-      (sourceFilter === 'stores' && isWholesale) ||
-      (sourceFilter === 'combos' && isMealCombo);
+      (sourceFilter === 'farms' && !isStoreProduce) ||
+      (sourceFilter === 'stores' && isStoreProduce);
 
     return matchesSearch && matchesCategory && matchesSource;
   });
@@ -140,7 +133,7 @@ export default function AgroYieldsScreen() {
         </View>
       </View>
 
-      {/* Master Source Segment: All | Direct Farms | AgroStores | Meal Combos */}
+      {/* Master Source Segment: All | Direct Farms | In Stores */}
       <View style={styles.sourceSegmentContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sourceSegmentScroll}>
           <TouchableOpacity
@@ -148,7 +141,7 @@ export default function AgroYieldsScreen() {
             onPress={() => setSourceFilter('all')}
           >
             <Text style={[styles.sourceBtnText, sourceFilter === 'all' && styles.sourceBtnTextActive]}>
-              All Harvests
+              All Sources
             </Text>
           </TouchableOpacity>
 
@@ -166,16 +159,7 @@ export default function AgroYieldsScreen() {
             onPress={() => setSourceFilter('stores')}
           >
             <Text style={[styles.sourceBtnText, sourceFilter === 'stores' && styles.sourceBtnTextActive]}>
-              🏪 AgroStores & Depots
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.sourceBtn, sourceFilter === 'combos' && styles.sourceBtnComboActive]}
-            onPress={() => setSourceFilter('combos')}
-          >
-            <Text style={[styles.sourceBtnText, sourceFilter === 'combos' && styles.sourceBtnComboTextActive]}>
-              🍲 Meal Combos
+              🏪 In Stores
             </Text>
           </TouchableOpacity>
         </ScrollView>

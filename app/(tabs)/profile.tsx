@@ -52,6 +52,7 @@ import {
   CheckCircle2,
   ChevronRight,
   AlertTriangle,
+  Store,
 } from 'lucide-react-native';
 import { fetchMyOrdersApi } from '@/components/api/orders';
 import { useAuthStore } from '@/store/authStore';
@@ -64,6 +65,7 @@ import PostCard from '@/components/PostCard';
 import YieldCard from '@/components/YieldCard';
 import FarmsList from '@/components/FarmsList';
 import { fetchMyFarmsApi } from '@/modules/farms/api';
+import { fetchMyStoresApi } from '@/components/api/wholesaler';
 import Colors, { Radii, Shadows } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
 import MeetingLeafLogo from '@/components/MeetingLeafLogo';
@@ -207,6 +209,8 @@ export default function ProfileScreen() {
     });
   };
 
+  const [userStoresList, setUserStoresList] = useState<any[]>([]);
+
   // Determine if viewing own profile or another user's profile
   const isOwner = Boolean(
     !params.userId || (currentUser?.id && params.userId === currentUser.id)
@@ -214,15 +218,22 @@ export default function ProfileScreen() {
 
   const targetUser = isOwner
     ? {
-        ...profileData,
-        ...currentUser,
-        farms:
-          currentUser?.farms && currentUser.farms.length > 0
-            ? currentUser.farms
-            : profileData?.farms,
-      }
+      ...profileData,
+      ...currentUser,
+      farms:
+        currentUser?.farms && currentUser.farms.length > 0
+          ? currentUser.farms
+          : profileData?.farms,
+      stores:
+        currentUser?.stores && currentUser.stores.length > 0
+          ? currentUser.stores
+          : userStoresList.length > 0
+            ? userStoresList
+            : profileData?.stores,
+    }
     : profileData;
   const userHasFarm = Boolean(targetUser?.farms && targetUser.farms.length > 0);
+  const userHasStore = Boolean((targetUser?.stores && targetUser.stores.length > 0) || userStoresList.length > 0);
 
   useEffect(() => {
     setAvatarError(false);
@@ -232,15 +243,20 @@ export default function ProfileScreen() {
     if (isOwner) {
       if (isAuthenticated) {
         try {
-          const [freshUser, freshFarms] = await Promise.all([
+          const [freshUser, freshFarms, freshStores] = await Promise.all([
             fetchCurrentUserApi().catch(() => null),
             fetchMyFarmsApi().catch(() => null),
+            fetchMyStoresApi().catch(() => []),
           ]);
+          if (Array.isArray(freshStores) && freshStores.length > 0) {
+            setUserStoresList(freshStores);
+          }
           if (freshUser) {
-            const combinedUser =
-              freshFarms && Array.isArray(freshFarms)
-                ? { ...freshUser, farms: freshFarms }
-                : freshUser;
+            const combinedUser = {
+              ...freshUser,
+              ...(freshFarms && Array.isArray(freshFarms) ? { farms: freshFarms } : {}),
+              ...(Array.isArray(freshStores) && freshStores.length > 0 ? { stores: freshStores } : {}),
+            };
             updateUser(combinedUser);
             setProfileData(combinedUser);
           } else if (freshFarms && Array.isArray(freshFarms)) {
@@ -464,13 +480,38 @@ export default function ProfileScreen() {
     );
   }
 
-  // Tab Definitions (Farms first, Orders, then Posts, then Wishlist)
+  // Intelligent Tabs:
+  // - Shopper without farm or store: Orders & Wishlist only
+  // - Creator with farm: Farms & Posts
+  // - Creator with store: Stores
   const allTabs = [
-    {
-      key: 'farms',
-      label: 'Farms',
-      icon: (color: string) => <Warehouse size={19} color={color} strokeWidth={2} />,
-    },
+    ...(userHasFarm
+      ? [
+        {
+          key: 'farms',
+          label: 'Farms',
+          icon: (color: string) => <Warehouse size={19} color={color} strokeWidth={2} />,
+        },
+      ]
+      : []),
+    ...(userHasStore
+      ? [
+        {
+          key: 'stores',
+          label: 'Stores',
+          icon: (color: string) => <Store size={19} color={color} strokeWidth={2} />,
+        },
+      ]
+      : []),
+    ...(userHasFarm || userHasStore
+      ? [
+        {
+          key: 'posts',
+          label: 'Stories',
+          icon: (color: string) => <Sparkles size={19} color={color} strokeWidth={2} />,
+        },
+      ]
+      : []),
     ...(isOwner
       ? [
         {
@@ -480,11 +521,6 @@ export default function ProfileScreen() {
         },
       ]
       : []),
-    {
-      key: 'posts',
-      label: 'Posts',
-      icon: (color: string) => <Sparkles size={19} color={color} strokeWidth={2} />,
-    },
     ...(isOwner
       ? [
         {
@@ -495,6 +531,18 @@ export default function ProfileScreen() {
       ]
       : []),
   ];
+
+  // Auto-switch to first valid tab if activeTab is not available
+  useEffect(() => {
+    const validKeys = allTabs.map((t) => t.key);
+    if (!validKeys.includes(activeTab)) {
+      if (validKeys.includes('orders')) {
+        setActiveTab('orders' as any);
+      } else if (validKeys.length > 0) {
+        setActiveTab(validKeys[0] as any);
+      }
+    }
+  }, [userHasFarm, userHasStore, isOwner]);
 
   return (
     <View style={styles.container}>
@@ -512,7 +560,7 @@ export default function ProfileScreen() {
       >
         {/* Header Section */}
         <View style={[styles.header, { paddingTop: Math.max(insets.top + 8, 16) }]}>
-          {/* 1. Top Bar Navigation: Edit Profile on Top Left, 3-Bar Menu on Top Right */}
+          {/* 1. Top Bar Navigation: Back on Left (if visiting another profile), Message / Edit Profile on Top Right */}
           <View style={styles.topNavBar}>
             {isOwner ? (
               <TouchableOpacity
@@ -529,11 +577,24 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             )}
 
-            {isOwner && (
-              <View style={styles.topRightMenuWrapper}>
-                <ProfileHeaderMenu />
-              </View>
-            )}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              {!isOwner && (
+                <TouchableOpacity
+                  style={[styles.messageBtn, { height: 34, paddingHorizontal: 14, backgroundColor: Colors.cultivated, borderWidth: 0 }]}
+                  onPress={() => router.push(`/chat/${targetUser.id}` as any)}
+                  activeOpacity={0.85}
+                >
+                  <MessageCircle size={15} color={Colors.white} strokeWidth={2.2} />
+                  <Text style={[styles.messageBtnText, { color: Colors.white, fontSize: 12 }]}>Message</Text>
+                </TouchableOpacity>
+              )}
+
+              {isOwner && (
+                <View style={styles.topRightMenuWrapper}>
+                  <ProfileHeaderMenu />
+                </View>
+              )}
+            </View>
           </View>
 
           {/* 2. Profile Info Row: Avatar on Left, Large Name, Email, Bio on Right */}
@@ -582,76 +643,39 @@ export default function ProfileScreen() {
             </View>
           </View>
 
-          {/* 3. Realtime Stats Bar (Farms, AgroPatrons, Patronized Farms, AgroVestors) */}
-          <View style={styles.statsBar}>
-            <View style={styles.statCol}>
-              <Text style={styles.statNumber}>{targetUser?.farms?.length ?? targetUser?.farmsCount ?? targetUser?._count?.farms ?? 0}</Text>
-              <Text style={styles.statLabel}>Farms</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <TouchableOpacity
-              style={styles.statCol}
-              onPress={() => router.push('/notifications/followers')}
-              activeOpacity={0.75}
-            >
-              <Text style={styles.statNumber}>{targetUser?.followersCount ?? targetUser?._count?.followers ?? targetUser?.farmerProfile?.totalFollowers ?? 0}</Text>
-              <Text style={styles.statLabel}>AgroPatrons</Text>
-            </TouchableOpacity>
-            <View style={styles.statDivider} />
-            <TouchableOpacity
-              style={styles.statCol}
-              onPress={() => router.push('/notifications/followers')}
-              activeOpacity={0.75}
-            >
-              <Text style={styles.statNumber}>{targetUser?.followingCount ?? targetUser?._count?.following ?? 0}</Text>
-              <Text style={styles.statLabel}>Patronized Farms</Text>
-            </TouchableOpacity>
-            <View style={styles.statDivider} />
-            <TouchableOpacity
-              style={styles.statCol}
-              onPress={() => router.push('/fintech/loans')}
-              activeOpacity={0.75}
-            >
-              <Text style={styles.statNumber}>{(targetUser as any)?.agroVestorsCount ?? 0}</Text>
-              <Text style={styles.statLabel}>AgroVestors</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* 4. VISITOR ACTION BAR (Back & Message) */}
-          {!isOwner && (
-            <View style={styles.visitorActionsRow}>
+          {/* 3. Realtime Stats Bar - ONLY for Creator profiles with farms or stores */}
+          {(userHasFarm || userHasStore) && (
+            <View style={styles.statsBar}>
+              <View style={styles.statCol}>
+                <Text style={styles.statNumber}>{targetUser?.farms?.length ?? targetUser?.farmsCount ?? targetUser?._count?.farms ?? 0}</Text>
+                <Text style={styles.statLabel}>Farms</Text>
+              </View>
+              <View style={styles.statDivider} />
               <TouchableOpacity
-                style={[styles.followBtn, isFollowing && styles.followBtnActive]}
-                onPress={() => {
-                  if (isFollowing) {
-                    handleToggleFollow();
-                  } else {
-                    setPatronModalVisible(true);
-                  }
-                }}
-                disabled={followLoading}
-                activeOpacity={0.85}
+                style={styles.statCol}
+                onPress={() => router.push('/notifications/followers')}
+                activeOpacity={0.75}
               >
-                {isFollowing ? (
-                  <>
-                    <UserCheck size={16} color={Colors.cultivated} strokeWidth={2.2} />
-                    <Text style={styles.followBtnTextActive}>AgroPatron ⭐</Text>
-                  </>
-                ) : (
-                  <>
-                    <UserPlus size={16} color={Colors.white} strokeWidth={2.2} />
-                    <Text style={styles.followBtnText}>Become an AgroPatron ($2)</Text>
-                  </>
-                )}
+                <Text style={styles.statNumber}>{targetUser?.followersCount ?? targetUser?._count?.followers ?? targetUser?.farmerProfile?.totalFollowers ?? 0}</Text>
+                <Text style={styles.statLabel}>AgroPatrons</Text>
               </TouchableOpacity>
-
+              <View style={styles.statDivider} />
               <TouchableOpacity
-                style={styles.messageBtn}
-                onPress={() => router.push(`/chat/${targetUser.id}` as any)}
-                activeOpacity={0.85}
+                style={styles.statCol}
+                onPress={() => router.push('/notifications/followers')}
+                activeOpacity={0.75}
               >
-                <MessageCircle size={16} color={Colors.espresso} strokeWidth={2.2} />
-                <Text style={styles.messageBtnText}>Message</Text>
+                <Text style={styles.statNumber}>{targetUser?.followingCount ?? targetUser?._count?.following ?? 0}</Text>
+                <Text style={styles.statLabel}>Patronized Farms</Text>
+              </TouchableOpacity>
+              <View style={styles.statDivider} />
+              <TouchableOpacity
+                style={styles.statCol}
+                onPress={() => router.push('/fintech/loans')}
+                activeOpacity={0.75}
+              >
+                <Text style={styles.statNumber}>{(targetUser as any)?.agroVestorsCount ?? 0}</Text>
+                <Text style={styles.statLabel}>AgroVestors</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -798,6 +822,84 @@ export default function ProfileScreen() {
                 <FarmsList farms={targetUser?.farms} isOwner={isOwner} />
               </View>
             )}
+          </View>
+        )}
+
+        {/* TAB 2.5: STORES */}
+        {activeTab === 'stores' && (
+          <View style={styles.tabContent}>
+            <View style={{ width: '100%' }}>
+              {isOwner && (
+                <TouchableOpacity
+                  style={[styles.farmHubBanner, { backgroundColor: '#FFF9EE', borderColor: '#F2DCAA' }]}
+                  onPress={() => router.push('/store')}
+                  activeOpacity={0.88}
+                  accessibilityRole="button"
+                  accessibilityLabel="Manage Commercial AgroStores"
+                >
+                  <View style={styles.farmHubBannerLeft}>
+                    <View style={[styles.farmHubIconBox, { backgroundColor: '#E2A63C' }]}>
+                      <Store size={22} color={Colors.white} strokeWidth={2.2} />
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                      <Text style={[styles.farmHubTitle, { color: '#241A12' }]}>Store Management</Text>
+                      <Text style={{ fontSize: 11, color: '#5C5245', fontFamily: Fonts.bodyRegular }}>
+                        Depot sites, wholesale lots & dispatch pickup points
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={[styles.farmHubArrowCircle, { borderColor: '#F2DCAA' }]}>
+                    <ChevronRight size={18} color="#E2A63C" strokeWidth={2.5} />
+                  </View>
+                </TouchableOpacity>
+              )}
+
+              {/* Stores List */}
+              <View style={{ marginTop: 12 }}>
+                {(targetUser?.stores || []).map((st: any) => (
+                  <TouchableOpacity
+                    key={st.id}
+                    onPress={() => router.push(`/store/${st.slug || st.id}`)}
+                    activeOpacity={0.85}
+                    style={{
+                      backgroundColor: '#FFF',
+                      borderRadius: 16,
+                      borderWidth: 1,
+                      borderColor: '#F2DCAA',
+                      padding: 14,
+                      marginBottom: 10,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: 12,
+                        backgroundColor: '#FFF9EE',
+                        borderWidth: 1,
+                        borderColor: '#F2DCAA',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginRight: 12,
+                      }}
+                    >
+                      <Store size={22} color="#E2A63C" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontFamily: Fonts.bodyBold, fontSize: 14, color: '#241A12' }}>
+                        {st.name}
+                      </Text>
+                      <Text style={{ fontFamily: Fonts.bodyRegular, fontSize: 11, color: '#5C5245', marginTop: 2 }}>
+                        {st.address || st.city || 'Commercial Depot'} • {(st.sites || []).length} Depot Sites
+                      </Text>
+                    </View>
+                    <ChevronRight size={18} color="#5C5245" />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
           </View>
         )}
 
