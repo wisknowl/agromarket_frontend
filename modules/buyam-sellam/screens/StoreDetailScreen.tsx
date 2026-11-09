@@ -83,7 +83,7 @@ export default function StoreDetailScreen() {
   if (!store) {
     return (
       <SafeAreaView style={[styles.container, styles.center]}>
-        <Store size={48} color={Colors.accent} />
+        <Store size={48} color={Colors.primary} />
         <Text style={styles.notFoundTitle}>Store Depot Not Found</Text>
         <Text style={styles.notFoundSubtitle}>
           The store or commercial depot you are looking for does not exist.
@@ -117,7 +117,7 @@ export default function StoreDetailScreen() {
         <View style={styles.headerRight}>
           {isOwner && (
             <TouchableOpacity style={styles.iconBtn} onPress={() => router.push('/agro-store')}>
-              <Settings size={18} color={Colors.accent} />
+              <Settings size={18} color={Colors.canopy || '#173A20'} />
             </TouchableOpacity>
           )}
           <TouchableOpacity style={styles.iconBtn} onPress={handleShare}>
@@ -215,7 +215,7 @@ export default function StoreDetailScreen() {
           <View style={styles.tabContent}>
             {storeYields.length === 0 ? (
               <View style={styles.emptyCard}>
-                <Package size={36} color={Colors.accent} />
+                <Package size={36} color={Colors.primary} />
                 <Text style={styles.emptyTitle}>No Produce Stocked Yet</Text>
                 <Text style={styles.emptySubtitle}>
                   This depot has not listed active wholesale lots yet.
@@ -310,12 +310,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: Radii.full,
-    backgroundColor: Colors.accent,
+    backgroundColor: Colors.primary,
   },
   returnBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: Colors.text,
+    color: '#FFFFFF',
   },
   header: {
     flexDirection: 'row',
@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#F2DCAA',
+    borderBottomColor: '#CCEBD5',
   },
   headerTitle: {
     flex: 1,
@@ -342,9 +342,9 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#FFF9EE',
+    backgroundColor: '#EEF8F1',
     borderWidth: 1,
-    borderColor: '#F2DCAA',
+    borderColor: '#CCEBD5',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
   bannerContainer: {
     height: 180,
     position: 'relative',
-    backgroundColor: '#241A12',
+    backgroundColor: '#173A20',
   },
   coverImage: {
     width: '100%',
@@ -385,7 +385,7 @@ const styles = StyleSheet.create({
   },
   locationText: {
     fontSize: 12,
-    color: '#FFF9EE',
+    color: '#EEF8F1',
   },
   linkedFarmCard: {
     flexDirection: 'row',
@@ -416,10 +416,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginHorizontal: 16,
     marginTop: 12,
-    backgroundColor: '#FFF9EE',
+    backgroundColor: '#EEF8F1',
     borderRadius: Radii.lg,
     borderWidth: 1,
-    borderColor: '#F2DCAA',
+    borderColor: '#CCEBD5',
     padding: 10,
   },
   statBox: {
@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderBottomColor: '#F2DCAA',
+    borderBottomColor: '#CCEBD5',
     marginHorizontal: 16,
     marginTop: 16,
   },
@@ -453,7 +453,7 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   tabItemActive: {
-    borderBottomColor: Colors.accent,
+    borderBottomColor: Colors.primary,
   },
   tabText: {
     fontSize: 13,
@@ -469,11 +469,11 @@ const styles = StyleSheet.create({
   },
   emptyCard: {
     alignItems: 'center',
-    backgroundColor: '#FFF9EE',
+    backgroundColor: '#EEF8F1',
     padding: 24,
     borderRadius: Radii.xl,
     borderWidth: 1,
-    borderColor: '#F2DCAA',
+    borderColor: '#CCEBD5',
     marginTop: 8,
   },
   emptyTitle: {
@@ -494,7 +494,7 @@ const styles = StyleSheet.create({
   siteCard: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#F2DCAA',
+    borderColor: '#CCEBD5',
     borderRadius: Radii.lg,
     padding: 12,
     marginBottom: 10,
@@ -513,8 +513,10 @@ const styles = StyleSheet.create({
   siteType: {
     fontSize: 10,
     fontWeight: '700',
-    color: Colors.accent,
-    backgroundColor: '#FFF9EE',
+    color: '#173A20',
+    backgroundColor: '#EEF8F1',
+    borderWidth: 1,
+    borderColor: '#CCEBD5',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: Radii.sm,
@@ -527,7 +529,7 @@ const styles = StyleSheet.create({
   infoCard: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#F2DCAA',
+    borderColor: '#CCEBD5',
     borderRadius: Radii.lg,
     padding: 14,
     marginBottom: 12,

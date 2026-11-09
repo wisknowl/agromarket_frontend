@@ -37,6 +37,7 @@ import {
 } from '@/components/api/wholesaler';
 import { createYieldApi } from '@/components/api/yields';
 import { Yield } from '@/types';
+import { resolveMediaUrl } from '@/utils/media';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/store/authStore';
@@ -80,9 +81,9 @@ export default function WholesalerHubScreen() {
     activeStore?.sites && Array.isArray(activeStore.sites) && activeStore.sites.length > 0
       ? activeStore.sites
       : [
-          { id: 'site-1', name: 'Dock 4 Cold Room', location: 'Quai 4 Cold Section', facilityType: 'COLD_ROOM' },
-          { id: 'site-2', name: 'Exterior Dry Warehouse', location: 'Hangar B Loading Shed', facilityType: 'AMBIENT_SHED' },
-        ];
+        { id: 'site-1', name: 'Dock 4 Cold Room', location: 'Quai 4 Cold Section', facilityType: 'COLD_ROOM' },
+        { id: 'site-2', name: 'Exterior Dry Warehouse', location: 'Hangar B Loading Shed', facilityType: 'AMBIENT_SHED' },
+      ];
 
   const loadData = useCallback(async () => {
     try {
@@ -343,11 +344,11 @@ export default function WholesalerHubScreen() {
                     if (s.sites?.[0]?.id) setSelectedSiteId(s.sites[0].id);
                     fetchWholesaleDealsApi({ storeId: s.id })
                       .then((deals) => setBulkYields(deals))
-                      .catch(() => {});
+                      .catch(() => { });
                   }}
                   activeOpacity={0.8}
                 >
-                  <Store size={13} color={isSelected ? '#241A12' : Colors.canopy} />
+                  <Store size={13} color={isSelected ? '#FFFFFF' : Colors.canopy} />
                   <Text style={[styles.storeChipText, isSelected && styles.storeChipTextActive]} numberOfLines={1}>
                     {s.name}
                   </Text>
@@ -370,7 +371,15 @@ export default function WholesalerHubScreen() {
         <View style={styles.storeProfileCard}>
           <View style={styles.storeProfileRow}>
             <View style={styles.storeIconCircle}>
-              <Store size={24} color={Colors.gold} strokeWidth={2.2} />
+              {activeStore?.avatarPhoto || activeStore?.coverPhoto ? (
+                <Image
+                  source={{ uri: resolveMediaUrl(activeStore.avatarPhoto || activeStore.coverPhoto) }}
+                  style={styles.storeImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Store size={26} color={Colors.cultivated} strokeWidth={2.2} />
+              )}
             </View>
             <View style={styles.storeTextCol}>
               <View style={styles.storeTitleRow}>
@@ -434,7 +443,7 @@ export default function WholesalerHubScreen() {
               onPress={() => setIsAddLotModalOpen(true)}
               activeOpacity={0.8}
             >
-              <Plus size={15} color="#241A12" strokeWidth={2.4} />
+              <Plus size={15} color="#FFFFFF" strokeWidth={2.4} />
               <Text style={styles.addLotBtnText}>+ Add Store Lot</Text>
             </TouchableOpacity>
 
@@ -443,7 +452,7 @@ export default function WholesalerHubScreen() {
               onPress={() => setIsStoreModalOpen(true)}
               activeOpacity={0.8}
             >
-              <Settings size={14} color="#241A12" />
+              <Settings size={14} color="#173A20" />
               <Text style={styles.editStoreBtnText}>Store Settings</Text>
             </TouchableOpacity>
           </View>
@@ -455,7 +464,7 @@ export default function WholesalerHubScreen() {
             style={[styles.tabBtn, activeTab === 'inventory' && styles.tabBtnActive]}
             onPress={() => setActiveTab('inventory')}
           >
-            <Package size={14} color={activeTab === 'inventory' ? '#241A12' : Colors.espresso} />
+            <Package size={14} color={activeTab === 'inventory' ? '#FFFFFF' : Colors.espresso} />
             <Text style={[styles.tabText, activeTab === 'inventory' && styles.tabTextActive]}>
               Depot Lots ({bulkYields.length})
             </Text>
@@ -465,7 +474,7 @@ export default function WholesalerHubScreen() {
             style={[styles.tabBtn, activeTab === 'tenders' && styles.tabBtnActive]}
             onPress={() => setActiveTab('tenders')}
           >
-            <ShieldCheck size={14} color={activeTab === 'tenders' ? '#241A12' : Colors.espresso} />
+            <ShieldCheck size={14} color={activeTab === 'tenders' ? '#FFFFFF' : Colors.espresso} />
             <Text style={[styles.tabText, activeTab === 'tenders' && styles.tabTextActive]}>
               Supply Tenders ({TENDERS.length})
             </Text>
@@ -475,7 +484,7 @@ export default function WholesalerHubScreen() {
             style={[styles.tabBtn, activeTab === 'settings' && styles.tabBtnActive]}
             onPress={() => setActiveTab('settings')}
           >
-            <Settings size={14} color={activeTab === 'settings' ? '#241A12' : Colors.espresso} />
+            <Settings size={14} color={activeTab === 'settings' ? '#FFFFFF' : Colors.espresso} />
             <Text style={[styles.tabText, activeTab === 'settings' && styles.tabTextActive]}>
               Settings
             </Text>
@@ -921,21 +930,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: Radii.pill,
-    backgroundColor: '#FFF9EE',
+    backgroundColor: '#EEF8F1',
     borderWidth: 1,
-    borderColor: '#F2DCAA',
+    borderColor: '#CCEBD5',
   },
   storeChipActive: {
-    backgroundColor: '#E2A63C',
-    borderColor: '#E2A63C',
+    backgroundColor: '#173A20',
+    borderColor: '#173A20',
   },
   storeChipText: {
     fontFamily: Fonts.bodyBold,
     fontSize: 12,
-    color: '#7A4A2D',
+    color: '#173A20',
   },
   storeChipTextActive: {
-    color: '#241A12',
+    color: '#FFFFFF',
   },
   newStoreBtn: {
     flexDirection: 'row',
@@ -954,11 +963,11 @@ const styles = StyleSheet.create({
     color: Colors.canopy,
   },
   storeProfileCard: {
-    backgroundColor: '#FFFDF9',
+    backgroundColor: '#FFFFFF',
     borderRadius: Radii.card,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#F2DCAA',
+    borderColor: '#CCEBD5',
     marginBottom: 16,
     ...Shadows.subtle,
   },
@@ -968,14 +977,19 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   storeIconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: '#FEF2D8',
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: '#EEF8F1',
     borderWidth: 1,
-    borderColor: '#F2DCAA',
+    borderColor: '#CCEBD5',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  storeImage: {
+    width: '100%',
+    height: '100%',
   },
   storeTextCol: {
     flex: 1,
@@ -1048,28 +1062,28 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   siteMiniPill: {
-    backgroundColor: '#FEF6E8',
+    backgroundColor: '#EEF8F1',
     paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#F2DCAA',
+    borderColor: '#CCEBD5',
   },
   siteMiniPillText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 10,
-    color: '#7A4A2D',
+    color: '#173A20',
   },
   metricsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    backgroundColor: '#FFF9EE',
+    backgroundColor: '#EEF8F1',
     borderRadius: Radii.sm,
     paddingVertical: 10,
     marginTop: 14,
     borderWidth: 1,
-    borderColor: '#F2DCAA',
+    borderColor: '#CCEBD5',
   },
   metricItem: {
     alignItems: 'center',
@@ -1078,12 +1092,12 @@ const styles = StyleSheet.create({
   metricDivider: {
     borderLeftWidth: 1,
     borderRightWidth: 1,
-    borderColor: '#F2DCAA',
+    borderColor: '#CCEBD5',
   },
   metricVal: {
     fontFamily: Fonts.monoBold,
     fontSize: 15,
-    color: '#7A4A2D',
+    color: '#173A20',
   },
   metricLbl: {
     fontFamily: Fonts.body,
@@ -1104,31 +1118,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#E2A63C',
+    backgroundColor: Colors.cultivated,
     paddingVertical: 10,
     borderRadius: Radii.sm,
   },
   addLotBtnText: {
     fontFamily: Fonts.bodyBold,
     fontSize: 12,
-    color: '#241A12',
+    color: '#FFFFFF',
   },
   editStoreBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#FEF2D8',
+    backgroundColor: '#EEF8F1',
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderRadius: Radii.sm,
     borderWidth: 1,
-    borderColor: '#F2DCAA',
+    borderColor: '#CCEBD5',
   },
   editStoreBtnText: {
     fontFamily: Fonts.bodyBold,
     fontSize: 12,
-    color: '#241A12',
+    color: '#173A20',
   },
   tabContainer: {
     flexDirection: 'row',
@@ -1146,19 +1160,19 @@ const styles = StyleSheet.create({
     borderRadius: Radii.sm,
     backgroundColor: Colors.white,
     borderWidth: 1,
-    borderColor: '#F2DCAA',
+    borderColor: '#CCEBD5',
   },
   tabBtnActive: {
-    backgroundColor: '#E2A63C',
-    borderColor: '#E2A63C',
+    backgroundColor: '#173A20',
+    borderColor: '#173A20',
   },
   tabText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 11,
-    color: Colors.espresso,
+    color: '#173A20',
   },
   tabTextActive: {
-    color: '#241A12',
+    color: '#FFFFFF',
     fontFamily: Fonts.bodyBold,
   },
   dealsList: {
@@ -1275,17 +1289,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#FEF6E8',
+    backgroundColor: '#EEF8F1',
     padding: 12,
     borderRadius: Radii.sm,
     borderWidth: 1,
-    borderColor: '#F2DCAA',
+    borderColor: '#CCEBD5',
   },
   tenderIntroText: {
     flex: 1,
     fontFamily: Fonts.body,
     fontSize: 11,
-    color: '#7A4A2D',
+    color: '#173A20',
     lineHeight: 16,
   },
   demandCard: {

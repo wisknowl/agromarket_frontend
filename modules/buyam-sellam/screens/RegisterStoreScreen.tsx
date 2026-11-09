@@ -272,8 +272,8 @@ export default function RegisterStoreScreen() {
     return (
       <View style={[styles.container, { paddingTop: Math.max(insets.top, 16), paddingHorizontal: 20, justifyContent: 'center' }]}>
         <View style={{ backgroundColor: '#FFF', borderRadius: 24, borderWidth: 1, borderColor: '#CCEBD5', padding: 24, alignItems: 'center' }}>
-          <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: '#FFF9EE', borderWidth: 1, borderColor: '#F2DCAA', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
-            <Building2 size={32} color="#E2A63C" />
+          <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: '#EEF8F1', borderWidth: 1, borderColor: '#CCEBD5', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+            <Building2 size={32} color="#4E8B3F" />
           </View>
           <Text style={{ fontSize: 18, fontFamily: Fonts.displayBold, color: '#173A20', textAlign: 'center', marginBottom: 8 }}>
             Sign in to Register your AgroStore
@@ -704,11 +704,11 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   card: {
-    backgroundColor: '#FFFDF9',
+    backgroundColor: '#FFFFFF',
     borderRadius: Radii.card,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#F2DCAA',
+    borderColor: '#CCEBD5',
     ...Shadows.subtle,
   },
   stepTitle: {
@@ -934,18 +934,18 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   summaryBox: {
-    backgroundColor: '#FEF6E8',
+    backgroundColor: '#EEF8F1',
     borderRadius: Radii.sm,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#F2DCAA',
+    borderColor: '#CCEBD5',
     marginTop: 12,
     gap: 4,
   },
   summaryTitle: {
     fontFamily: Fonts.bodyBold,
     fontSize: 12,
-    color: '#7A4A2D',
+    color: '#173A20',
     marginBottom: 4,
   },
   summaryText: {
@@ -988,7 +988,7 @@ const styles = StyleSheet.create({
   },
   submitBtn: {
     flex: 2,
-    backgroundColor: '#E2A63C',
+    backgroundColor: Colors.cultivated,
     paddingVertical: 12,
     borderRadius: Radii.sm,
     alignItems: 'center',
@@ -997,7 +997,7 @@ const styles = StyleSheet.create({
   submitBtnText: {
     fontFamily: Fonts.bodyBold,
     fontSize: 13,
-    color: '#241A12',
+    color: Colors.white,
   },
 });
 
