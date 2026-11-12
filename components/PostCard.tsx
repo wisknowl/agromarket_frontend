@@ -373,12 +373,33 @@ export default function PostCard({
 
   return (
     <View style={[styles.container, fullScreen && styles.fullScreen]}>
+      {/* 1. Ambient Blurred Backdrop for 16:9, landscape, or non-9:16 media */}
+      <View style={[StyleSheet.absoluteFill, { overflow: 'hidden', backgroundColor: '#000' }]} pointerEvents="none">
+        {isVideoMedia ? (
+          <VideoView
+            player={player}
+            style={[StyleSheet.absoluteFill, { opacity: 0.35, transform: [{ scale: 1.25 }] }]}
+            contentFit="cover"
+            nativeControls={false}
+          />
+        ) : (
+          <Image
+            source={{ uri: mediaSource }}
+            style={[StyleSheet.absoluteFill, { opacity: 0.35, transform: [{ scale: 1.25 }] }]}
+            resizeMode="cover"
+            blurRadius={Platform.OS === 'ios' ? 25 : 15}
+          />
+        )}
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.4)' }]} />
+      </View>
+
+      {/* 2. Main Sharp Media (Preserves aspect ratio without cropping) */}
       {isVideoMedia ? (
         <Pressable style={[styles.media, fullScreen && styles.fullScreenMedia]} onPress={togglePlayPause}>
           <VideoView
             player={player}
             style={StyleSheet.absoluteFill}
-            contentFit="cover"
+            contentFit={fullScreen ? 'contain' : 'cover'}
             nativeControls={false}
           />
           {isUserPaused && (
@@ -393,7 +414,7 @@ export default function PostCard({
         <Image
           source={{ uri: mediaSource }}
           style={[styles.media, fullScreen && styles.fullScreenMedia]}
-          resizeMode="cover"
+          resizeMode={fullScreen ? 'contain' : 'cover'}
           onError={() => {
             console.warn(`[PostCard] Failed to load image from "${mediaSource}". Falling back.`);
             setImageError(true);

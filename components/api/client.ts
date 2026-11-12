@@ -42,7 +42,7 @@ export const getBackendOrigin = (): string => {
 
 export const apiClient = axios.create({
   baseURL: getBaseUrl(),
-  timeout: 15000,
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },
