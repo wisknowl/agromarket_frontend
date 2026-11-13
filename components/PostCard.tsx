@@ -169,10 +169,10 @@ export default function PostCard({
   // Author check
   const isAuthor = Boolean(
     isOwnerProp ||
-      (currentUser?.id &&
-        (currentUser.id === post.userId ||
-          currentUser.id === post.farmerId ||
-          (post.farm?.userId && currentUser.id === post.farm.userId)))
+    (currentUser?.id &&
+      (currentUser.id === post.userId ||
+        currentUser.id === post.farmerId ||
+        (post.farm?.userId && currentUser.id === post.farm.userId)))
   );
 
   useEffect(() => {
@@ -196,7 +196,7 @@ export default function PostCard({
         .then((data) => {
           if (data) setLinkedYield(data);
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [post.linkedYieldId]);
 
@@ -347,8 +347,8 @@ export default function PostCard({
     typeof post.comments === 'number'
       ? post.comments
       : Array.isArray(post.comments)
-      ? post.comments.length
-      : post.commentsCount ?? 0;
+        ? post.comments.length
+        : post.commentsCount ?? 0;
 
   // Sits comfortably down at the bottom of the card
   const bottomPosition = 12;
