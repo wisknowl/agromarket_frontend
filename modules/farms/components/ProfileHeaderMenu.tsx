@@ -209,6 +209,7 @@ export default function ProfileHeaderMenu() {
                 if (langDropdownOpen) setLangDropdownOpen(false);
               }}
             >
+              {/* AgroWallet link commented out
               <TouchableOpacity
                 style={styles.menuItem}
                 onPress={() => handleNavigate('/wallet')}
@@ -222,6 +223,7 @@ export default function ProfileHeaderMenu() {
                 </View>
                 <ChevronRight size={16} color="#A3A3A3" strokeWidth={2} />
               </TouchableOpacity>
+              */}
 
               <TouchableOpacity
                 style={styles.menuItem}
