@@ -171,6 +171,7 @@ export default function FarmManagementScreen() {
   );
   const [farmData, setFarmData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [isSwitchingFarm, setIsSwitchingFarm] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   // 1. Fetch user's registered farms from DB
@@ -205,6 +206,7 @@ export default function FarmManagementScreen() {
       console.warn('Failed to fetch selected farm details:', err);
     } finally {
       setLoading(false);
+      setIsSwitchingFarm(false);
     }
   }, []);
 
@@ -216,6 +218,8 @@ export default function FarmManagementScreen() {
   }, [selectedFarmId, loadSelectedFarmDetails]);
 
   const handleSelectFarm = (farmId: string) => {
+    if (farmId === selectedFarmId) return;
+    setIsSwitchingFarm(true);
     setSelectedFarmId(farmId);
     setActiveFarmId(farmId);
   };
@@ -669,6 +673,66 @@ export default function FarmManagementScreen() {
       Alert.alert('Update Failed', err?.response?.data?.message || err.message || 'Could not update harvest inventory.');
     } finally {
       setUpdatingStock(false);
+    }
+  };
+
+  // Dedicated Delivery Reach Modal State & Handlers
+  const [showDeliveryReachModal, setShowDeliveryReachModal] = useState(false);
+  const [selectedReachYield, setSelectedReachYield] = useState<any>(null);
+  const [savingReach, setSavingReach] = useState(false);
+  const [reachForm, setReachForm] = useState({
+    deliveryCities: ['Douala', 'Yaoundé'] as string[],
+    deliveryHubs: [] as string[],
+    deliveryQuartiers: [] as string[],
+    customDepot: '',
+    allowFarmGate: true,
+  });
+
+  const openDeliveryReachModal = (yieldItem: any) => {
+    setSelectedReachYield(yieldItem);
+    const parsed = parseDeliveryReach(yieldItem.dispatchSiteName);
+    setReachForm({
+      deliveryCities: parsed.supportedCities.length > 0 ? parsed.supportedCities : ['Douala', 'Yaoundé'],
+      deliveryHubs: parsed.supportedHubs || [],
+      deliveryQuartiers: parsed.supportedQuartiers || [],
+      customDepot: parsed.customHubOrDepot || '',
+      allowFarmGate: parsed.allowFarmGatePickup ?? true,
+    });
+    setShowDeliveryReachModal(true);
+  };
+
+  const handleSaveDeliveryReach = async () => {
+    if (!selectedReachYield?.id) return;
+    try {
+      setSavingReach(true);
+      const dispatchSiteName = formatDeliveryReachSummary({
+        supportedCities: reachForm.deliveryCities,
+        supportedHubs: reachForm.deliveryHubs,
+        supportedQuartiers: reachForm.deliveryQuartiers,
+        customHubOrDepot: reachForm.customDepot,
+        allowFarmGatePickup: reachForm.allowFarmGate,
+      });
+
+      await updateProduceApi(selectedReachYield.id, { dispatchSiteName });
+
+      if (farmData && farmData.yields) {
+        setFarmData({
+          ...farmData,
+          yields: farmData.yields.map((y: any) =>
+            y.id === selectedReachYield.id ? { ...y, dispatchSiteName } : y
+          ),
+        });
+      }
+
+      Alert.alert(
+        'Delivery Corridors Updated! 🚚',
+        `Delivery reach configured for "${selectedReachYield.title}".`
+      );
+      setShowDeliveryReachModal(false);
+    } catch (err: any) {
+      Alert.alert('Save Failed', err?.message || 'Could not update delivery reach.');
+    } finally {
+      setSavingReach(false);
     }
   };
 
@@ -1188,7 +1252,7 @@ export default function FarmManagementScreen() {
             <TouchableOpacity
               onPress={() => router.push(`/farmer/${activeFarm.slug || activeFarm.id}` as any)}
               style={styles.headerIconBtn}
-              accessibilityLabel="View Public Storefront"
+              accessibilityLabel="View Public Farm Page"
             >
               <ExternalLink size={18} color={Colors.cultivated} strokeWidth={2.2} />
             </TouchableOpacity>
@@ -1224,8 +1288,14 @@ export default function FarmManagementScreen() {
           />
         )}
 
-        {/* Farm Profile Card (Parity with Store Card) */}
-        <View style={styles.farmProfileCard}>
+        {isSwitchingFarm ? (
+          <View style={{ paddingVertical: 48, alignItems: 'center', justifyContent: 'center' }}>
+            <ActivityIndicator size="small" color={Colors.cultivated} />
+          </View>
+        ) : (
+          <>
+            {/* Farm Profile Card (Parity with Store Card) */}
+            <View style={styles.farmProfileCard}>
           <View style={styles.farmProfileRow}>
             <View style={styles.farmIconCircle}>
               {activeFarm?.avatarPhoto || activeFarm?.coverPhoto ? (
@@ -1372,7 +1442,7 @@ export default function FarmManagementScreen() {
                     <TouchableOpacity
                       style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
                       activeOpacity={0.88}
-                      onPress={() => openEditProduceModal(yieldItem)}
+                      onPress={() => router.push(`/yield/${yieldItem.id}` as any)}
                     >
                       <Image
                         source={{
@@ -1437,34 +1507,48 @@ export default function FarmManagementScreen() {
                     </TouchableOpacity>
 
                     <View style={styles.yieldCardActionsCol}>
-                      <TouchableOpacity
-                        style={styles.yieldEditActionBtn}
-                        onPress={() => openEditProduceModal(yieldItem)}
-                        activeOpacity={0.8}
-                        accessibilityLabel="Edit Produce"
-                      >
-                        <Edit3 size={12} color={Colors.cultivated} strokeWidth={2.4} />
-                        <Text style={styles.yieldEditActionText}>Edit</Text>
-                      </TouchableOpacity>
+                      <View style={styles.yieldActionsButtonGroup}>
+                        <TouchableOpacity
+                          style={styles.yieldEditActionBtn}
+                          onPress={() => openEditProduceModal(yieldItem)}
+                          activeOpacity={0.8}
+                          accessibilityLabel="Edit Produce"
+                        >
+                          <Edit3 size={11} color={Colors.cultivated} strokeWidth={2.4} />
+                          <Text style={styles.yieldEditActionText}>Edit</Text>
+                        </TouchableOpacity>
 
-                      <TouchableOpacity
-                        style={styles.yieldStockActionBtn}
-                        onPress={() => openStockModal(yieldItem)}
-                        activeOpacity={0.8}
-                        accessibilityLabel="Manage Stock"
-                      >
-                        <Sliders size={12} color={Colors.espresso} strokeWidth={2.4} />
-                        <Text style={styles.yieldStockActionText}>Stock</Text>
-                      </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.yieldStockActionBtn}
+                          onPress={() => openStockModal(yieldItem)}
+                          activeOpacity={0.8}
+                          accessibilityLabel="Manage Stock"
+                        >
+                          <Sliders size={11} color={Colors.espresso} strokeWidth={2.4} />
+                          <Text style={styles.yieldStockActionText}>Stock</Text>
+                        </TouchableOpacity>
+                      </View>
 
-                      <TouchableOpacity
-                        style={styles.yieldDeleteActionBtn}
-                        onPress={() => handleDeleteProduce(yieldItem)}
-                        activeOpacity={0.8}
-                        accessibilityLabel="Delete Produce"
-                      >
-                        <Trash2 size={12} color="#DC2626" strokeWidth={2.2} />
-                      </TouchableOpacity>
+                      <View style={styles.yieldActionsButtonGroup}>
+                        <TouchableOpacity
+                          style={styles.yieldReachActionBtn}
+                          onPress={() => openDeliveryReachModal(yieldItem)}
+                          activeOpacity={0.8}
+                          accessibilityLabel="Delivery Reach"
+                        >
+                          <Truck size={11} color={Colors.cultivated} strokeWidth={2.4} />
+                          <Text style={styles.yieldReachActionText}>Reach</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={styles.yieldDeleteActionBtn}
+                          onPress={() => handleDeleteProduce(yieldItem)}
+                          activeOpacity={0.8}
+                          accessibilityLabel="Delete Produce"
+                        >
+                          <Trash2 size={12} color="#DC2626" strokeWidth={2.2} />
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   </View>
                 );
@@ -1575,6 +1659,8 @@ export default function FarmManagementScreen() {
               </Text>
             </TouchableOpacity>
           </View>
+        )}
+          </>
         )}
       </ScrollView>
 
@@ -1985,9 +2071,6 @@ export default function FarmManagementScreen() {
                 </View>
               </TouchableOpacity>
 
-              {/* Delivery Reach & Dispatch Corridors */}
-              {renderDeliveryReachSection(produceForm, setProduceForm)}
-
               {/* 10. Produce Description & Field Notes */}
               <Text style={[styles.inputLabel, { marginTop: 14 }]}>Harvest Notes & Quality Description</Text>
               <TextInput
@@ -2300,6 +2383,195 @@ export default function FarmManagementScreen() {
               >
                 <Edit3 size={14} color={Colors.cultivated} />
                 <Text style={styles.editProduceFromStockText}>Edit Full Produce Details (Price, Photo, Info) →</Text>
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </Modal>
+
+      {/* DEDICATED DELIVERY REACH & DISPATCH HUBS MODAL */}
+      <Modal
+        visible={showDeliveryReachModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowDeliveryReachModal(false)}
+      >
+        <SafeAreaView style={styles.modalSafeArea} edges={['top', 'left', 'right']}>
+          {/* Header */}
+          <View style={styles.modalHeader}>
+            <View style={styles.modalHeaderTitleRow}>
+              <View style={[styles.modalHeaderIconBadge, { backgroundColor: '#eef8f1' }]}>
+                <Truck size={18} color={Colors.cultivated} />
+              </View>
+              <View>
+                <Text style={styles.modalTitle}>Delivery Corridors</Text>
+                <Text style={styles.modalHeaderSub} numberOfLines={1}>
+                  {selectedReachYield?.title || 'Produce Reach'}
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.modalCloseBtn}
+              onPress={() => setShowDeliveryReachModal(false)}
+              accessibilityLabel="Close"
+            >
+              <X size={20} color={Colors.espresso} />
+            </TouchableOpacity>
+          </View>
+
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={{ flex: 1 }}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 24 : 0}
+          >
+            <ScrollView style={styles.modalBody} contentContainerStyle={styles.modalBodyContent}>
+              {/* Snapshot Card */}
+              {selectedReachYield && (
+                <View style={styles.stockSummaryCard}>
+                  <Image
+                    source={{
+                      uri:
+                        resolveMediaUrl(selectedReachYield.image || selectedReachYield.mediaUrls?.[0]) ||
+                        'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=500',
+                    }}
+                    style={styles.stockSummaryThumb}
+                  />
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <Text style={styles.stockSummaryTitle} numberOfLines={1}>
+                      {selectedReachYield.title}
+                    </Text>
+                    <Text style={styles.stockSummarySubtitle}>
+                      {selectedReachYield.unit} packaging • {selectedReachYield.originRegion || activeFarm?.city || 'Cameroon'}
+                    </Text>
+                    <Text style={{ fontFamily: Fonts.body, fontSize: 11, color: Colors.cultivated }}>
+                      Configure which towns, regional commercial hubs, and quartiers can receive this produce.
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {/* 1. Cities */}
+              <Text style={[styles.inputLabel, { marginTop: 12 }]}>Supported Cities / Corridors</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.reachChipsScroll}>
+                {CAMEROON_DELIVERY_CORRIDORS.map((c) => {
+                  const isSelected = reachForm.deliveryCities.includes(c.name);
+                  return (
+                    <TouchableOpacity
+                      key={c.name}
+                      style={[styles.reachChip, isSelected && styles.reachChipActive]}
+                      onPress={() => {
+                        const next = isSelected
+                          ? reachForm.deliveryCities.filter((x) => x !== c.name)
+                          : [...reachForm.deliveryCities, c.name];
+                        setReachForm((p) => ({ ...p, deliveryCities: next }));
+                      }}
+                    >
+                      <Text style={[styles.reachChipText, isSelected && styles.reachChipTextActive]}>
+                        {isSelected ? '✓ ' : '+ '}
+                        {c.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
+              {/* 2. Hubs & Markets */}
+              <Text style={[styles.inputLabel, { marginTop: 14 }]}>Commercial Markets & Bus Agency Depots</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.reachChipsScroll}>
+                {CAMEROON_DELIVERY_CORRIDORS.filter(
+                  (c) => reachForm.deliveryCities.length === 0 || reachForm.deliveryCities.includes(c.name)
+                )
+                  .flatMap((c) => c.hubs)
+                  .map((hub) => {
+                    const isSelected = reachForm.deliveryHubs.includes(hub.name);
+                    return (
+                      <TouchableOpacity
+                        key={hub.id}
+                        style={[styles.reachChip, isSelected && styles.reachChipActiveHub]}
+                        onPress={() => {
+                          const next = isSelected
+                            ? reachForm.deliveryHubs.filter((x) => x !== hub.name)
+                            : [...reachForm.deliveryHubs, hub.name];
+                          setReachForm((p) => ({ ...p, deliveryHubs: next }));
+                        }}
+                      >
+                        <Text style={[styles.reachChipText, isSelected && styles.reachChipTextActive]}>
+                          {isSelected ? '✓ ' : ''}
+                          {hub.name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+              </ScrollView>
+
+              {/* 3. Quartiers */}
+              <Text style={[styles.inputLabel, { marginTop: 14 }]}>Serviced Quartiers (e.g. Bonanjo, Bonapriso, Bastos, Mile 4)</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.reachChipsScroll}>
+                {CAMEROON_DELIVERY_CORRIDORS.filter(
+                  (c) => reachForm.deliveryCities.length === 0 || reachForm.deliveryCities.includes(c.name)
+                )
+                  .flatMap((c) => c.quartiers)
+                  .filter((val, idx, self) => self.indexOf(val) === idx)
+                  .map((q) => {
+                    const isSelected = reachForm.deliveryQuartiers.includes(q);
+                    return (
+                      <TouchableOpacity
+                        key={q}
+                        style={[styles.reachChip, isSelected && styles.reachChipActiveQtr]}
+                        onPress={() => {
+                          const next = isSelected
+                            ? reachForm.deliveryQuartiers.filter((x) => x !== q)
+                            : [...reachForm.deliveryQuartiers, q];
+                          setReachForm((p) => ({ ...p, deliveryQuartiers: next }));
+                        }}
+                      >
+                        <Text style={[styles.reachChipText, isSelected && styles.reachChipTextActive]}>
+                          {isSelected ? '✓ ' : ''}
+                          {q}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+              </ScrollView>
+
+              {/* 4. Custom Depot */}
+              <Text style={[styles.inputLabel, { marginTop: 14 }]}>Custom Depot / Cold Room (Optional)</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="e.g. Mile 16 Cold Hub, Bafoussam Coop Depot"
+                placeholderTextColor={Colors.text.muted}
+                value={reachForm.customDepot}
+                onChangeText={(t) => setReachForm((p) => ({ ...p, customDepot: t }))}
+              />
+
+              {/* 5. Farm-gate Toggle */}
+              <TouchableOpacity
+                style={[styles.toggleRow, { marginTop: 14, marginBottom: 20 }]}
+                onPress={() => setReachForm((p) => ({ ...p, allowFarmGate: !p.allowFarmGate }))}
+              >
+                <View style={[styles.checkbox, reachForm.allowFarmGate && styles.checkboxActive]}>
+                  {reachForm.allowFarmGate && <Check size={14} color={Colors.white} strokeWidth={3} />}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.toggleTitle}>Allow Farm-Gate / Store Pickup (0 XAF for buyer)</Text>
+                </View>
+              </TouchableOpacity>
+            </ScrollView>
+
+            <View style={[styles.modalFooter, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+              <TouchableOpacity
+                style={[styles.modalSubmitBtn, savingReach && { opacity: 0.7 }]}
+                onPress={handleSaveDeliveryReach}
+                disabled={savingReach}
+              >
+                {savingReach ? (
+                  <ActivityIndicator color={Colors.white} />
+                ) : (
+                  <View style={styles.modalSubmitContent}>
+                    <CheckCircle2 size={18} color={Colors.white} />
+                    <Text style={styles.modalSubmitBtnText}>Save Delivery Reach</Text>
+                  </View>
+                )}
               </TouchableOpacity>
             </View>
           </KeyboardAvoidingView>
@@ -2632,9 +2904,6 @@ export default function FarmManagementScreen() {
                   <Text style={styles.toggleTitle}>Certified Organic / GAP</Text>
                 </View>
               </TouchableOpacity>
-
-              {/* Delivery Reach & Dispatch Corridors */}
-              {renderDeliveryReachSection(editProduceForm, setEditProduceForm)}
 
               {/* Availability Switch */}
               <View style={[styles.availabilityRow, { marginTop: 16 }]}>
@@ -4409,6 +4678,11 @@ const styles = StyleSheet.create({
     gap: 6,
     marginLeft: 8,
   },
+  yieldActionsButtonGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   yieldEditActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -4444,6 +4718,24 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.bodyBold,
     fontSize: 10.5,
     color: Colors.espresso,
+  },
+  yieldReachActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+    borderRadius: Radii.sm,
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    gap: 3,
+    minWidth: 54,
+  },
+  yieldReachActionText: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 10.5,
+    color: Colors.cultivated,
   },
   yieldDeleteActionBtn: {
     alignItems: 'center',
