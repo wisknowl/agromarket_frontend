@@ -86,7 +86,7 @@ export default function ProfileScreen() {
   const savedYieldIds = useFavoritesStore((s) => s.yields);
   const savedPostIds = useFavoritesStore((s) => s.posts);
 
-  const [activeTab, setActiveTab] = useState<'posts' | 'farms' | 'orders' | 'wishlist'>('farms');
+  const [activeTab, setActiveTab] = useState<'posts' | 'farms' | 'stores' | 'orders' | 'wishlist'>('farms');
   const [profileData, setProfileData] = useState<any>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [userPosts, setUserPosts] = useState<Post[]>([]);

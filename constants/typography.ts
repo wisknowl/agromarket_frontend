@@ -16,6 +16,7 @@ export const Fonts = {
 
   // Inter (UI & Body)
   body: 'Inter_400Regular',
+  bodyRegular: 'Inter_400Regular',
   bodyMedium: 'Inter_500Medium',
   bodySemiBold: 'Inter_600SemiBold',
   bodyBold: 'Inter_700Bold',

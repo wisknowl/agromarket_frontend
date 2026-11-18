@@ -49,7 +49,14 @@ import {
   Edit3,
   Camera,
   Trash2,
+  Truck,
+  Store,
 } from 'lucide-react-native';
+import {
+  CAMEROON_DELIVERY_CORRIDORS,
+  formatDeliveryReachSummary,
+  parseDeliveryReach,
+} from '@/constants/deliveryLocations';
 import * as ImagePicker from 'expo-image-picker';
 import Colors, { Radii, Shadows } from '@/constants/colors';
 import { Fonts } from '@/constants/typography';
@@ -274,6 +281,11 @@ export default function FarmManagementScreen() {
     bulkPricePerUnit: '',
     mediaUrl: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800',
     mediaUrls: [] as string[],
+    deliveryCities: ['Douala', 'Yaoundé'] as string[],
+    deliveryHubs: [] as string[],
+    deliveryQuartiers: [] as string[],
+    customDepot: '',
+    allowFarmGate: true,
   });
 
   // Edit Produce Modal State
@@ -301,6 +313,11 @@ export default function FarmManagementScreen() {
     mediaUrl: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800',
     mediaUrls: [] as string[],
     isAvailable: true,
+    deliveryCities: ['Douala', 'Yaoundé'] as string[],
+    deliveryHubs: [] as string[],
+    deliveryQuartiers: [] as string[],
+    customDepot: '',
+    allowFarmGate: true,
   });
 
   const handleAddSite = async () => {
@@ -661,6 +678,7 @@ export default function FarmManagementScreen() {
     const parcelMatch = activeParcels.find((p: any) =>
       yieldItem.originRegion && yieldItem.originRegion.includes(p.name)
     );
+    const parsedReach = parseDeliveryReach(yieldItem.dispatchSiteName);
     setEditProduceForm({
       title: yieldItem.title || '',
       description: yieldItem.description || '',
@@ -685,6 +703,11 @@ export default function FarmManagementScreen() {
         ? yieldItem.mediaUrls
         : [yieldItem.image || 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800']).filter(Boolean),
       isAvailable: yieldItem.isAvailable !== false,
+      deliveryCities: parsedReach.supportedCities.length > 0 ? parsedReach.supportedCities : ['Douala', 'Yaoundé'],
+      deliveryHubs: parsedReach.supportedHubs,
+      deliveryQuartiers: parsedReach.supportedQuartiers,
+      customDepot: parsedReach.customHubOrDepot || '',
+      allowFarmGate: parsedReach.allowFarmGatePickup,
     });
     setShowEditProduceModal(true);
   };
@@ -795,6 +818,14 @@ export default function FarmManagementScreen() {
         ? `${chosenParcel.name} (${chosenParcel.city}, ${chosenParcel.region})`
         : `${activeFarm.city || 'Cameroon'}, ${activeFarm.region || ''}`.trim();
 
+      const dispatchSiteName = formatDeliveryReachSummary({
+        supportedCities: editProduceForm.deliveryCities,
+        supportedHubs: editProduceForm.deliveryHubs,
+        supportedQuartiers: editProduceForm.deliveryQuartiers,
+        customHubOrDepot: editProduceForm.customDepot,
+        allowFarmGatePickup: editProduceForm.allowFarmGate,
+      });
+
       const updated = await updateProduceApi(editingProduceItem.id, {
         title: editProduceForm.title.trim(),
         description: editProduceForm.description.trim(),
@@ -803,6 +834,7 @@ export default function FarmManagementScreen() {
         pricePerUnit: parseFloat(editProduceForm.pricePerUnit),
         unit: editProduceForm.unit === 'CUSTOM' ? 'KG' : editProduceForm.unit,
         originRegion: originDisplay,
+        dispatchSiteName,
         stockQuantity: parseFloat(editProduceForm.stockQuantity || '0'),
         minOrderQuantity: parseFloat(editProduceForm.minOrderQuantity || '1'),
         isOrganic: editProduceForm.isOrganic,
@@ -910,6 +942,14 @@ export default function FarmManagementScreen() {
         ? `${chosenParcel.name} (${chosenParcel.city}, ${chosenParcel.region})`
         : `${activeFarm.city || 'Cameroon'}, ${activeFarm.region || ''}`.trim();
 
+      const dispatchSiteName = formatDeliveryReachSummary({
+        supportedCities: produceForm.deliveryCities,
+        supportedHubs: produceForm.deliveryHubs,
+        supportedQuartiers: produceForm.deliveryQuartiers,
+        customHubOrDepot: produceForm.customDepot,
+        allowFarmGatePickup: produceForm.allowFarmGate,
+      });
+
       await createProduceApi({
         farmId: activeFarm.id,
         categoryId: categoryObj.id,
@@ -917,6 +957,7 @@ export default function FarmManagementScreen() {
         title: produceForm.title.trim(),
         description: produceForm.description.trim() || `Freshly harvested ${produceForm.title.trim()} from ${chosenParcel?.name || activeFarm.name}.`,
         originRegion: originDisplay,
+        dispatchSiteName,
         pricePerUnit: parseFloat(produceForm.pricePerUnit),
         unit: produceForm.unit === 'CUSTOM' ? 'KG' : produceForm.unit,
         customUnit: produceForm.unit === 'CUSTOM' ? produceForm.customUnit.trim() : undefined,
@@ -954,6 +995,11 @@ export default function FarmManagementScreen() {
         bulkPricePerUnit: '',
         mediaUrl: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800',
         mediaUrls: [],
+        deliveryCities: ['Douala', 'Yaoundé'],
+        deliveryHubs: [],
+        deliveryQuartiers: [],
+        customDepot: '',
+        allowFarmGate: true,
       });
       loadSelectedFarmDetails(activeFarm.id);
     } catch (error: any) {
@@ -961,6 +1007,127 @@ export default function FarmManagementScreen() {
     } finally {
       setSavingProduce(false);
     }
+  };
+
+  const renderDeliveryReachSection = (form: any, setForm: any) => {
+    return (
+      <View style={styles.deliveryReachContainer}>
+        <View style={styles.deliveryReachHeader}>
+          <Truck size={16} color={Colors.cultivated} strokeWidth={2.2} />
+          <Text style={styles.deliveryReachTitle}>Delivery Reach & Dispatch Hubs</Text>
+        </View>
+        <Text style={styles.deliveryReachSubtitle}>
+          Define where this harvest can be delivered (cities, markets & quartiers).
+        </Text>
+
+        {/* 1. Cities */}
+        <Text style={[styles.inputLabel, { marginTop: 8 }]}>Supported Cities / Corridors</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.reachChipsScroll}>
+          {CAMEROON_DELIVERY_CORRIDORS.map((c) => {
+            const isSelected = form.deliveryCities.includes(c.name);
+            return (
+              <TouchableOpacity
+                key={c.name}
+                style={[styles.reachChip, isSelected && styles.reachChipActive]}
+                onPress={() => {
+                  const next = isSelected
+                    ? form.deliveryCities.filter((x: string) => x !== c.name)
+                    : [...form.deliveryCities, c.name];
+                  setForm((p: any) => ({ ...p, deliveryCities: next }));
+                }}
+              >
+                <Text style={[styles.reachChipText, isSelected && styles.reachChipTextActive]}>
+                  {isSelected ? '✓ ' : '+ '}
+                  {c.name}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        {/* 2. Hubs & Markets */}
+        <Text style={[styles.inputLabel, { marginTop: 8 }]}>Commercial Markets & Bus Agency Depots</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.reachChipsScroll}>
+          {CAMEROON_DELIVERY_CORRIDORS.filter(
+            (c) => form.deliveryCities.length === 0 || form.deliveryCities.includes(c.name)
+          )
+            .flatMap((c) => c.hubs)
+            .map((hub) => {
+              const isSelected = form.deliveryHubs.includes(hub.name);
+              return (
+                <TouchableOpacity
+                  key={hub.id}
+                  style={[styles.reachChip, isSelected && styles.reachChipActiveHub]}
+                  onPress={() => {
+                    const next = isSelected
+                      ? form.deliveryHubs.filter((x: string) => x !== hub.name)
+                      : [...form.deliveryHubs, hub.name];
+                    setForm((p: any) => ({ ...p, deliveryHubs: next }));
+                  }}
+                >
+                  <Text style={[styles.reachChipText, isSelected && styles.reachChipTextActive]}>
+                    {isSelected ? '✓ ' : ''}
+                    {hub.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+        </ScrollView>
+
+        {/* 3. Quartiers */}
+        <Text style={[styles.inputLabel, { marginTop: 8 }]}>Serviced Quartiers (e.g. Bonanjo, Bonapriso, Bastos, Mile 4)</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.reachChipsScroll}>
+          {CAMEROON_DELIVERY_CORRIDORS.filter(
+            (c) => form.deliveryCities.length === 0 || form.deliveryCities.includes(c.name)
+          )
+            .flatMap((c) => c.quartiers)
+            .filter((val, idx, self) => self.indexOf(val) === idx)
+            .map((q) => {
+              const isSelected = form.deliveryQuartiers.includes(q);
+              return (
+                <TouchableOpacity
+                  key={q}
+                  style={[styles.reachChip, isSelected && styles.reachChipActiveQtr]}
+                  onPress={() => {
+                    const next = isSelected
+                      ? form.deliveryQuartiers.filter((x: string) => x !== q)
+                      : [...form.deliveryQuartiers, q];
+                    setForm((p: any) => ({ ...p, deliveryQuartiers: next }));
+                  }}
+                >
+                  <Text style={[styles.reachChipText, isSelected && styles.reachChipTextActive]}>
+                    {isSelected ? '✓ ' : ''}
+                    {q}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+        </ScrollView>
+
+        {/* 4. Custom Depot */}
+        <Text style={[styles.inputLabel, { marginTop: 8 }]}>Custom Depot / Cold Room (Optional)</Text>
+        <TextInput
+          style={styles.textInput}
+          placeholder="e.g. Mile 16 Cold Hub, Bafoussam Coop Depot"
+          placeholderTextColor={Colors.text.muted}
+          value={form.customDepot}
+          onChangeText={(t) => setForm((p: any) => ({ ...p, customDepot: t }))}
+        />
+
+        {/* 5. Farm-gate Toggle */}
+        <TouchableOpacity
+          style={[styles.toggleRow, { marginTop: 8 }]}
+          onPress={() => setForm((p: any) => ({ ...p, allowFarmGate: !p.allowFarmGate }))}
+        >
+          <View style={[styles.checkbox, form.allowFarmGate && styles.checkboxActive]}>
+            {form.allowFarmGate && <Check size={14} color={Colors.white} strokeWidth={3} />}
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.toggleTitle}>Allow Farm-Gate / Store Pickup (0 XAF for buyer)</Text>
+          </View>
+        </TouchableOpacity>
+      </View>
+    );
   };
 
   if (loading && farmsList.length === 0) {
@@ -1818,6 +1985,9 @@ export default function FarmManagementScreen() {
                 </View>
               </TouchableOpacity>
 
+              {/* Delivery Reach & Dispatch Corridors */}
+              {renderDeliveryReachSection(produceForm, setProduceForm)}
+
               {/* 10. Produce Description & Field Notes */}
               <Text style={[styles.inputLabel, { marginTop: 14 }]}>Harvest Notes & Quality Description</Text>
               <TextInput
@@ -2387,7 +2557,7 @@ export default function FarmManagementScreen() {
               {/* Description */}
               <Text style={styles.inputLabel}>Farmer Notes & Description</Text>
               <TextInput
-                style={[styles.textInput, styles.textAreaInput]}
+                style={[styles.textInput, { height: 80, textAlignVertical: 'top', paddingTop: 10 }]}
                 placeholder="Describe freshness, harvest time, packaging, sweetness, and grading..."
                 placeholderTextColor={Colors.text.muted}
                 multiline
@@ -2462,6 +2632,9 @@ export default function FarmManagementScreen() {
                   <Text style={styles.toggleTitle}>Certified Organic / GAP</Text>
                 </View>
               </TouchableOpacity>
+
+              {/* Delivery Reach & Dispatch Corridors */}
+              {renderDeliveryReachSection(editProduceForm, setEditProduceForm)}
 
               {/* Availability Switch */}
               <View style={[styles.availabilityRow, { marginTop: 16 }]}>
@@ -2787,7 +2960,7 @@ export default function FarmManagementScreen() {
 
               {/* Danger Zone: Delete Farm */}
               <View style={styles.dangerZone}>
-                <Text style={styles.dangerZoneTitle}>Danger Zone</Text>
+                <Text style={styles.dangerZoneFarmTitle}>Danger Zone</Text>
                 <Text style={styles.dangerZoneSubtitle}>
                   Permanently remove this farm enterprise from your AgroMarket portfolio. Any active produce listed under this farm will be detached.
                 </Text>
@@ -5034,7 +5207,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#FECACA',
   },
-  dangerZoneTitle: {
+  dangerZoneFarmTitle: {
     fontFamily: Fonts.displayBold,
     fontSize: 14,
     color: '#991B1B',
@@ -5489,6 +5662,64 @@ const styles = StyleSheet.create({
   delExecuteBtnText: {
     fontFamily: Fonts.bodyBold,
     fontSize: 13.5,
+    color: Colors.white,
+  },
+  deliveryReachContainer: {
+    backgroundColor: '#EEF8F1',
+    borderRadius: Radii.card,
+    borderWidth: 1,
+    borderColor: '#CCEBD5',
+    padding: 14,
+    marginTop: 14,
+  },
+  deliveryReachHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  deliveryReachTitle: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 13,
+    color: '#173A20',
+  },
+  deliveryReachSubtitle: {
+    fontFamily: Fonts.body,
+    fontSize: 11,
+    color: Colors.text.secondary,
+    marginTop: 2,
+  },
+  reachChipsScroll: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingVertical: 4,
+  },
+  reachChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: Radii.pill,
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: '#CCEBD5',
+  },
+  reachChipActive: {
+    backgroundColor: Colors.cultivated,
+    borderColor: Colors.cultivated,
+  },
+  reachChipActiveHub: {
+    backgroundColor: '#173A20',
+    borderColor: '#173A20',
+  },
+  reachChipActiveQtr: {
+    backgroundColor: '#E2A63C',
+    borderColor: '#E2A63C',
+  },
+  reachChipText: {
+    fontFamily: Fonts.body,
+    fontSize: 11,
+    color: Colors.text.primary,
+  },
+  reachChipTextActive: {
+    fontFamily: Fonts.bodyBold,
     color: Colors.white,
   },
 });

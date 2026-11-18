@@ -38,6 +38,7 @@ import {
   registerForPushNotificationsAsync,
   addNotificationResponseListener,
 } from '@/services/notifications';
+import { useInAppUpdateChecker } from '@/services/inAppUpdates';
 
 export const unstable_settings = {
   initialRouteName: 'auth/login',
@@ -119,6 +120,9 @@ function NavigationLogger() {
 function RootLayoutNav() {
   const router = useRouter();
   const { isAuthenticated, user } = useAuthStore();
+
+  // Automatic Google Play & App Store in-app update check
+  useInAppUpdateChecker();
 
   // Auto-register device for push notifications when user is signed in
   useEffect(() => {

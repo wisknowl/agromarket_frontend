@@ -61,3 +61,9 @@ export const isVideoMedia = (url?: string | null, isVideoFlag?: boolean): boolea
 
   return false;
 };
+
+export const formatXaf = (amount?: number | string | null): string => {
+  const num = typeof amount === 'number' ? amount : parseFloat(String(amount || 0));
+  if (isNaN(num)) return '0 XAF';
+  return `${num.toLocaleString('fr-FR')} XAF`;
+};

@@ -215,6 +215,11 @@ export interface Yield {
   bulkPricePerUnit?: number;
   isOrganic?: boolean;
   available?: boolean;
+  seasonality?: string;
+  shelfLifeDays?: number | string;
+  lifecycleStatus?: string;
+  expectedHarvestWindow?: string;
+  nextCycleMonth?: string;
   isMealCombo?: boolean;
   comboItems?: string[];
   storeId?: string;

@@ -26,8 +26,11 @@ import {
   Lock,
   Globe2,
   Shield,
+  Store,
+  Check,
 } from 'lucide-react-native';
 import { PaymentMethod } from '@/types';
+import { CAMEROON_DELIVERY_CORRIDORS } from '@/constants/deliveryLocations';
 
 export default function CheckoutScreen() {
   const router = useRouter();
@@ -42,8 +45,11 @@ export default function CheckoutScreen() {
     activeBlocConfig,
   } = useLocale();
 
+  const [deliveryMode, setDeliveryMode] = useState<'HUB' | 'DOORSTEP' | 'FARM_GATE'>('HUB');
   const [deliveryAddress, setDeliveryAddress] = useState('Bonapriso, Avenue de Gaulle');
   const [deliveryCity, setDeliveryCity] = useState('Douala');
+  const [selectedHub, setSelectedHub] = useState('Marché Sandaga (Fruit & Vegetable Terminal)');
+  const [selectedQuartier, setSelectedQuartier] = useState('Bonapriso');
   const [deliveryPhone, setDeliveryPhone] = useState('+237 670 000 000');
   const [deliveryNotes, setDeliveryNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
@@ -63,9 +69,14 @@ export default function CheckoutScreen() {
 
   const itemCount = getItemCount();
   const rawSubtotalXaf = getTotalPrice();
+  const baseDeliveryFee = deliveryMode === 'FARM_GATE' ? 0 : deliveryMode === 'HUB' ? 1000 : 2000;
   // Free delivery threshold if 10+ items or order > 50,000 FCFA
-  const rawDeliveryFeeXaf = itemCount >= 10 || rawSubtotalXaf > 50000 ? 0 : 1500;
+  const rawDeliveryFeeXaf = itemCount >= 10 || rawSubtotalXaf > 50000 ? 0 : baseDeliveryFee;
   const rawTotalAmountXaf = rawSubtotalXaf + rawDeliveryFeeXaf;
+
+  const currentCorridor =
+    CAMEROON_DELIVERY_CORRIDORS.find((c) => c.name.toLowerCase() === deliveryCity.toLowerCase()) ||
+    CAMEROON_DELIVERY_CORRIDORS[0];
 
   const REGION_DEFAULTS: Record<string, { city: string; phone: string }> = {
     CM: { city: 'Douala', phone: '+237 670 000 000' },
@@ -102,17 +113,24 @@ export default function CheckoutScreen() {
       return;
     }
 
-    if (!deliveryAddress.trim() || !deliveryPhone.trim()) {
-      Alert.alert('Missing Details', 'Please provide a valid delivery address and contact phone.');
+    if (!deliveryPhone.trim()) {
+      Alert.alert('Missing Details', 'Please provide a valid contact phone number.');
       return;
     }
+
+    const finalAddress =
+      deliveryMode === 'HUB'
+        ? `Pickup Hub: ${selectedHub} (${deliveryCity})`
+        : deliveryMode === 'DOORSTEP'
+        ? `${selectedQuartier}, ${deliveryAddress ? deliveryAddress + ', ' : ''}${deliveryCity}`
+        : `Farm-Gate Direct Pickup (${items[0]?.yield?.originRegion || deliveryCity})`;
 
     const startTime = Date.now();
     setLoading(true);
     try {
       const resOrder = await checkoutOrderApi({
         items: items.map((i) => ({ yieldId: i.yieldId, quantity: i.quantity })),
-        deliveryAddress,
+        deliveryAddress: finalAddress,
         deliveryCity,
         deliveryPhone,
         deliveryNotes,
@@ -214,38 +232,165 @@ export default function CheckoutScreen() {
         </View>
 
         {/* ========================================================================= */}
-        {/* SECTION 1: DELIVERY DESTINATION */}
+        {/* SECTION 1: DELIVERY DESTINATION & CORRIDORS */}
         {/* ========================================================================= */}
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeaderRow}>
             <MapPin size={18} color={Colors.cultivated} strokeWidth={2.2} />
-            <Text style={styles.sectionHeading}>Delivery Destination</Text>
+            <Text style={styles.sectionHeading}>Delivery Method & Destination</Text>
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>City / Corridor</Text>
-            <TextInput
-              style={styles.textInput}
-              value={deliveryCity}
-              onChangeText={setDeliveryCity}
-              placeholder="e.g. Douala, Yaoundé, Lagos, Nairobi, New York"
-              placeholderTextColor={Colors.text.muted}
-            />
+          {/* Delivery Mode 3-Way Tabs */}
+          <View style={styles.deliveryTabsRow}>
+            <TouchableOpacity
+              style={[styles.deliveryTabBtn, deliveryMode === 'HUB' && styles.deliveryTabBtnActive]}
+              onPress={() => setDeliveryMode('HUB')}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.deliveryTabTitle, deliveryMode === 'HUB' && styles.deliveryTabTitleActive]}>
+                Market / Hub
+              </Text>
+              <Text style={[styles.deliveryTabFee, deliveryMode === 'HUB' && styles.deliveryTabFeeActive]}>
+                {rawDeliveryFeeXaf === 0 ? 'FREE' : '1,000 XAF'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.deliveryTabBtn, deliveryMode === 'DOORSTEP' && styles.deliveryTabBtnActive]}
+              onPress={() => setDeliveryMode('DOORSTEP')}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.deliveryTabTitle, deliveryMode === 'DOORSTEP' && styles.deliveryTabTitleActive]}>
+                Doorstep
+              </Text>
+              <Text style={[styles.deliveryTabFee, deliveryMode === 'DOORSTEP' && styles.deliveryTabFeeActive]}>
+                {rawDeliveryFeeXaf === 0 ? 'FREE' : '2,000 XAF'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.deliveryTabBtn, deliveryMode === 'FARM_GATE' && styles.deliveryTabBtnActive]}
+              onPress={() => setDeliveryMode('FARM_GATE')}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.deliveryTabTitle, deliveryMode === 'FARM_GATE' && styles.deliveryTabTitleActive]}>
+                Farm-Gate
+              </Text>
+              <Text style={[styles.deliveryTabFee, deliveryMode === 'FARM_GATE' && styles.deliveryTabFeeActive]}>
+                0 XAF (Free)
+              </Text>
+            </TouchableOpacity>
           </View>
 
+          {/* Corridor / City Horizontal Selection */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Address & Street Landmark</Text>
-            <TextInput
-              style={styles.textInput}
-              value={deliveryAddress}
-              onChangeText={setDeliveryAddress}
-              placeholder="e.g. Bonapriso / Sandaga Market / Victoria Island"
-              placeholderTextColor={Colors.text.muted}
-            />
+            <Text style={styles.inputLabel}>Destination City / Corridor</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsScroll}>
+              {CAMEROON_DELIVERY_CORRIDORS.map((c) => {
+                const isSelected = deliveryCity.toLowerCase() === c.name.toLowerCase();
+                return (
+                  <TouchableOpacity
+                    key={c.name}
+                    style={[styles.chipItem, isSelected && styles.chipItemActive]}
+                    onPress={() => {
+                      setDeliveryCity(c.name);
+                      if (c.hubs.length > 0) setSelectedHub(c.hubs[0].name);
+                      if (c.quartiers.length > 0) setSelectedQuartier(c.quartiers[0]);
+                    }}
+                  >
+                    <Text style={[styles.chipItemText, isSelected && styles.chipItemTextActive]}>
+                      {c.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
           </View>
 
+          {/* Mode 1: HUB PICKUP */}
+          {deliveryMode === 'HUB' && (
+            <View style={styles.subCardBox}>
+              <Text style={styles.inputLabel}>Select Pickup Market / Bus Agency Hub</Text>
+              <View style={styles.verticalPillsContainer}>
+                {currentCorridor.hubs.map((hub) => {
+                  const isSelected = selectedHub === hub.name;
+                  return (
+                    <TouchableOpacity
+                      key={hub.id}
+                      style={[styles.hubOptionCard, isSelected && styles.hubOptionCardActive]}
+                      onPress={() => setSelectedHub(hub.name)}
+                    >
+                      <View style={styles.hubOptionInfo}>
+                        <Text style={[styles.hubOptionName, isSelected && styles.hubOptionNameActive]}>
+                          {hub.type === 'BUS_AGENCY' ? '🚌 ' : '🏢 '}
+                          {hub.name}
+                        </Text>
+                        <Text style={styles.hubOptionCity}>{hub.city} ({hub.region} Region)</Text>
+                      </View>
+                      {isSelected && <Check size={16} color={Colors.cultivated} strokeWidth={2.5} />}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <Text style={styles.helperNotice}>
+                Fresh harvest dispatched via pooled bus agency or market cold stall. Lowest pooled logistics cost!
+              </Text>
+            </View>
+          )}
+
+          {/* Mode 2: DOORSTEP DELIVERY */}
+          {deliveryMode === 'DOORSTEP' && (
+            <View style={styles.subCardBox}>
+              <Text style={styles.inputLabel}>Quartier / Neighborhood</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsScroll}>
+                {currentCorridor.quartiers.map((q) => {
+                  const isSelected = selectedQuartier === q;
+                  return (
+                    <TouchableOpacity
+                      key={q}
+                      style={[styles.chipItem, isSelected && styles.chipItemActive]}
+                      onPress={() => setSelectedQuartier(q)}
+                    >
+                      <Text style={[styles.chipItemText, isSelected && styles.chipItemTextActive]}>
+                        {q}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
+              <View style={[styles.inputGroup, { marginTop: 10 }]}>
+                <Text style={styles.inputLabel}>Street Address & Landmark</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={deliveryAddress}
+                  onChangeText={setDeliveryAddress}
+                  placeholder="e.g. Rue Njo-Njo, Opposite Pharmacy, 2nd gate"
+                  placeholderTextColor={Colors.text.muted}
+                />
+              </View>
+            </View>
+          )}
+
+          {/* Mode 3: FARM-GATE DIRECT PICKUP */}
+          {deliveryMode === 'FARM_GATE' && (
+            <View style={styles.farmGateBanner}>
+              <Store size={20} color={Colors.cultivated} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.farmGateTitle}>Direct Farm-Gate Pickup (0 XAF)</Text>
+                <Text style={styles.farmGateText}>
+                  Collect directly at the cooperative parcel:{' '}
+                  <Text style={{ fontFamily: Fonts.bodyBold }}>
+                    {items[0]?.yield?.originRegion || deliveryCity}
+                  </Text>
+                  . Zero logistics fees applied.
+                </Text>
+              </View>
+            </View>
+          )}
+
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Recipient Phone</Text>
+            <Text style={styles.inputLabel}>Recipient Phone (MoMo / Dispatch Contact)</Text>
             <TextInput
               style={styles.textInput}
               value={deliveryPhone}
@@ -257,12 +402,12 @@ export default function CheckoutScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Special Instructions (Optional)</Text>
+            <Text style={styles.inputLabel}>Special Instructions / Custom Hub Request</Text>
             <TextInput
               style={[styles.textInput, styles.notesInput]}
               value={deliveryNotes}
               onChangeText={setDeliveryNotes}
-              placeholder="e.g. Morning delivery, inspect crates before unloading"
+              placeholder="e.g. Ask farmer if they can drop at Mile 16 Cold Hub"
               placeholderTextColor={Colors.text.muted}
               multiline
             />
@@ -769,5 +914,141 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.bodyBold,
     fontSize: 14.5,
     color: Colors.white,
+  },
+  deliveryTabsRow: {
+    flexDirection: 'row',
+    gap: 6,
+    backgroundColor: '#EEF8F1',
+    padding: 4,
+    borderRadius: Radii.lg,
+    marginBottom: 12,
+  },
+  deliveryTabBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderRadius: Radii.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deliveryTabBtnActive: {
+    backgroundColor: Colors.cultivated,
+    ...Shadows.subtle,
+  },
+  deliveryTabTitle: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 11.5,
+    color: Colors.text.primary,
+  },
+  deliveryTabTitleActive: {
+    color: Colors.white,
+  },
+  deliveryTabFee: {
+    fontFamily: Fonts.mono,
+    fontSize: 9.5,
+    color: Colors.text.secondary,
+    marginTop: 2,
+  },
+  deliveryTabFeeActive: {
+    color: '#D4ECD5',
+  },
+  chipsScroll: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingVertical: 4,
+  },
+  chipItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: Radii.pill,
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: '#CCEBD5',
+  },
+  chipItemActive: {
+    backgroundColor: Colors.cultivated,
+    borderColor: Colors.cultivated,
+  },
+  chipItemText: {
+    fontFamily: Fonts.body,
+    fontSize: 12,
+    color: Colors.text.primary,
+  },
+  chipItemTextActive: {
+    fontFamily: Fonts.bodyBold,
+    color: Colors.white,
+  },
+  subCardBox: {
+    backgroundColor: '#FAFDFB',
+    borderRadius: Radii.md,
+    borderWidth: 1,
+    borderColor: '#CCEBD5',
+    padding: 10,
+    marginBottom: 12,
+  },
+  verticalPillsContainer: {
+    gap: 6,
+    marginTop: 6,
+  },
+  hubOptionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 10,
+    borderRadius: Radii.sm,
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: '#E0EDE3',
+  },
+  hubOptionCardActive: {
+    borderColor: Colors.cultivated,
+    backgroundColor: '#EEF8F1',
+  },
+  hubOptionInfo: {
+    flex: 1,
+  },
+  hubOptionName: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 12,
+    color: Colors.text.primary,
+  },
+  hubOptionNameActive: {
+    color: Colors.cultivated,
+  },
+  hubOptionCity: {
+    fontFamily: Fonts.body,
+    fontSize: 10.5,
+    color: Colors.text.muted,
+    marginTop: 2,
+  },
+  helperNotice: {
+    fontFamily: Fonts.body,
+    fontSize: 10.5,
+    color: Colors.text.muted,
+    marginTop: 8,
+    lineHeight: 14,
+  },
+  farmGateBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#EEF8F1',
+    borderRadius: Radii.md,
+    borderWidth: 1,
+    borderColor: '#CCEBD5',
+    padding: 12,
+    marginBottom: 12,
+  },
+  farmGateTitle: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 13,
+    color: Colors.cultivated,
+  },
+  farmGateText: {
+    fontFamily: Fonts.body,
+    fontSize: 11,
+    color: Colors.text.secondary,
+    marginTop: 2,
+    lineHeight: 15,
   },
 });

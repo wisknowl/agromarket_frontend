@@ -15,19 +15,22 @@ import { useLocale } from '@/context/LocaleContext';
 import { resolveMediaUrl, FALLBACK_POST_IMAGE } from '@/utils/media';
 
 interface YieldCardProps {
-  item: AgroYield;
-  popoverVisible: boolean;
-  onOpenPopover: () => void;
-  onClosePopover: () => void;
+  item?: AgroYield;
+  yieldItem?: AgroYield;
+  popoverVisible?: boolean;
+  onOpenPopover?: () => void;
+  onClosePopover?: () => void;
 }
 
 export default function YieldCard({
-  item,
-  popoverVisible,
-  onOpenPopover,
-  onClosePopover,
+  item: propsItem,
+  yieldItem,
+  popoverVisible = false,
+  onOpenPopover = () => { },
+  onClosePopover = () => { },
 }: YieldCardProps) {
   const router = useRouter();
+  const item = (propsItem || yieldItem)!;
   const { formatCurrency } = useLocale();
   const { addToCart } = useCartStore();
   const { addYield, removeYield, isYieldFavorite } = useFavoritesStore();

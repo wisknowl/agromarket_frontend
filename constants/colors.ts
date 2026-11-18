@@ -58,6 +58,8 @@ export const BrandColors = {
   error: '#B54A34',        // Clay
   warning: '#E2A63C',      // Harvest Gold
   info: '#4E8B3F',
+  textMuted: '#8E8271',
+  canopyLight: '#3D7030',
 };
 
 export const Radii = {
@@ -66,6 +68,9 @@ export const Radii = {
   input: 12,  // Form fields & search bars
   chip: 10,   // Filter chips
   sm: 8,      // Small tags
+  md: 12,     // Medium containers
+  lg: 16,     // Large cards & modals
+  xs: 6,
 };
 
 export const Shadows = {

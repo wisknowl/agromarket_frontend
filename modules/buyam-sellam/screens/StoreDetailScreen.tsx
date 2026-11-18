@@ -109,7 +109,7 @@ export default function StoreDetailScreen() {
       {/* Top Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.iconBtn} onPress={() => router.back()}>
-          <ArrowLeft size={20} color={Colors.text} />
+          <ArrowLeft size={20} color={Colors.text.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>
           {store.name}
@@ -121,7 +121,7 @@ export default function StoreDetailScreen() {
             </TouchableOpacity>
           )}
           <TouchableOpacity style={styles.iconBtn} onPress={handleShare}>
-            <Share2 size={18} color={Colors.text} />
+            <Share2 size={18} color={Colors.text.primary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -133,7 +133,7 @@ export default function StoreDetailScreen() {
             source={{
               uri: resolveMediaUrl(store.coverPhoto || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=1000'),
             }}
-            style={styles.coverImage}
+            style={styles.coverImage as any}
           />
           <View style={styles.bannerOverlay} />
           <View style={styles.bannerInfo}>
@@ -296,7 +296,7 @@ const styles = StyleSheet.create({
   notFoundTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: Colors.text,
+    color: Colors.text.primary,
     marginTop: 12,
   },
   notFoundSubtitle: {
@@ -309,8 +309,8 @@ const styles = StyleSheet.create({
   returnBtn: {
     paddingHorizontal: 20,
     paddingVertical: 10,
-    borderRadius: Radii.full,
-    backgroundColor: Colors.primary,
+    borderRadius: Radii.pill,
+    backgroundColor: Colors.cultivated,
   },
   returnBtnText: {
     fontSize: 13,
@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontWeight: '700',
-    color: Colors.text,
+    color: Colors.text.primary,
     marginHorizontal: 12,
   },
   headerRight: {
@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   bannerOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...(StyleSheet.absoluteFill as any),
     backgroundColor: 'rgba(0,0,0,0.45)',
   },
   bannerInfo: {
@@ -410,7 +410,7 @@ const styles = StyleSheet.create({
   linkedFarmTitle: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.text,
+    color: Colors.text.primary,
   },
   statsRow: {
     flexDirection: 'row',
@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
   statVal: {
     fontSize: 14,
     fontWeight: '800',
-    color: Colors.text,
+    color: Colors.text.primary,
     marginTop: 2,
   },
   tabBar: {
@@ -453,7 +453,7 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   tabItemActive: {
-    borderBottomColor: Colors.primary,
+    borderBottomColor: Colors.cultivated,
   },
   tabText: {
     fontSize: 13,
@@ -461,7 +461,7 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
   },
   tabTextActive: {
-    color: Colors.text,
+    color: Colors.text.primary,
     fontWeight: '700',
   },
   tabContent: {
@@ -471,7 +471,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#EEF8F1',
     padding: 24,
-    borderRadius: Radii.xl,
+    borderRadius: Radii.card,
     borderWidth: 1,
     borderColor: '#CCEBD5',
     marginTop: 8,
@@ -479,7 +479,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: Colors.text,
+    color: Colors.text.primary,
     marginTop: 8,
   },
   emptySubtitle: {
@@ -508,7 +508,7 @@ const styles = StyleSheet.create({
   siteName: {
     fontSize: 14,
     fontWeight: '700',
-    color: Colors.text,
+    color: Colors.text.primary,
   },
   siteType: {
     fontSize: 10,
@@ -537,7 +537,7 @@ const styles = StyleSheet.create({
   infoTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: Colors.text,
+    color: Colors.text.primary,
     marginBottom: 6,
   },
   infoDesc: {
