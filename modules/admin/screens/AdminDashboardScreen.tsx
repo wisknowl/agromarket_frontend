@@ -58,6 +58,8 @@ import {
   CreditCard,
   Clock,
   Percent,
+  Truck,
+  Warehouse,
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
@@ -86,12 +88,23 @@ import {
   AdminLoan,
   AdminFinancialInstitution,
   DisputedOrder,
+  fetchAdminCorridorsApi,
+  createAdminMarketApi,
+  deleteAdminMarketApi,
+  createAdminCityApi,
+  fetchAdminCustomDepotsApi,
+  approveAdminCustomDepotApi,
+  rejectAdminCustomDepotApi,
+  AdminCityCorridor,
+  AdminCustomDepot,
+  DeliveryHubItem,
 } from '@/components/api/admin';
+import { CAMEROON_DELIVERY_CORRIDORS } from '@/constants/deliveryLocations';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const DRAWER_WIDTH = Math.min(SCREEN_WIDTH * 0.78, 300);
 
-type AdminSection = 'overview' | 'users' | 'disputes' | 'farms' | 'loans' | 'flags';
+type AdminSection = 'overview' | 'users' | 'disputes' | 'farms' | 'corridors' | 'flags';
 
 export default function AdminDashboardScreen() {
   const router = useRouter();
@@ -118,6 +131,21 @@ export default function AdminDashboardScreen() {
   const [loanStatusFilter, setLoanStatusFilter] = useState('ALL');
   const [fintechTab, setFintechTab] = useState<'applications' | 'institutions' | 'escrow' | 'products'>('applications');
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+
+  // Corridors & Markets state
+  const [corridors, setCorridors] = useState<AdminCityCorridor[]>(CAMEROON_DELIVERY_CORRIDORS as AdminCityCorridor[]);
+  const [customDepots, setCustomDepots] = useState<AdminCustomDepot[]>([]);
+  const [selectedCorridorCity, setSelectedCorridorCity] = useState<string>('Douala');
+  const [corridorsTab, setCorridorsTab] = useState<'corridors' | 'customDepots'>('corridors');
+  const [addMarketModalOpen, setAddMarketModalOpen] = useState(false);
+  const [newMarketCity, setNewMarketCity] = useState('Douala');
+  const [newMarketName, setNewMarketName] = useState('');
+  const [newMarketType, setNewMarketType] = useState<'WHOLESALE_MARKET' | 'BUS_AGENCY' | 'COOP_DEPOT'>('WHOLESALE_MARKET');
+  const [newMarketRegion, setNewMarketRegion] = useState('Littoral');
+  const [addCityModalOpen, setAddCityModalOpen] = useState(false);
+  const [newCityName, setNewCityName] = useState('');
+  const [newCityRegion, setNewCityRegion] = useState('West');
+  const [newCityQuartiers, setNewCityQuartiers] = useState('');
 
   // Edit User Modal State
   const [editUserModalVisible, setEditUserModalVisible] = useState(false);
@@ -154,7 +182,17 @@ export default function AdminDashboardScreen() {
 
   const loadAllData = async () => {
     try {
-      const [statsRes, usersRes, farmsRes, loansRes, disputesRes, flagsRes, institutionsRes] = await Promise.all([
+      const [
+        statsRes,
+        usersRes,
+        farmsRes,
+        loansRes,
+        disputesRes,
+        flagsRes,
+        institutionsRes,
+        corridorsRes,
+        depotsRes,
+      ] = await Promise.all([
         fetchAdminStatsApi().catch(() => null),
         fetchAdminUsersApi().catch(() => []),
         fetchAdminFarmsApi().catch(() => []),
@@ -162,6 +200,8 @@ export default function AdminDashboardScreen() {
         fetchDisputesApi().catch(() => []),
         fetchFeatureFlagsApi().catch(() => ({})),
         fetchAdminFinancialInstitutionsApi().catch(() => []),
+        fetchAdminCorridorsApi().catch(() => []),
+        fetchAdminCustomDepotsApi().catch(() => []),
       ]);
 
       if (statsRes) setStats(statsRes);
@@ -171,6 +211,8 @@ export default function AdminDashboardScreen() {
       if (disputesRes) setDisputes(disputesRes);
       if (flagsRes) setFeatureFlags(flagsRes);
       if (institutionsRes) setInstitutions(institutionsRes);
+      if (corridorsRes && corridorsRes.length > 0) setCorridors(corridorsRes);
+      if (depotsRes && depotsRes.length > 0) setCustomDepots(depotsRes);
     } catch (err) {
       console.warn('Failed to load admin dashboard data:', err);
     } finally {
@@ -417,6 +459,143 @@ export default function AdminDashboardScreen() {
     }
   };
 
+  // --- ACTIONS: CORRIDORS & MARKETS ---
+  const handleAddMarket = async () => {
+    if (!newMarketName.trim()) {
+      Alert.alert('Required Field', 'Please enter a market or depot name.');
+      return;
+    }
+    try {
+      setActionLoadingId('add-market');
+      const targetCorridor = corridors.find((c) => c.name.toLowerCase() === newMarketCity.toLowerCase());
+      const region = targetCorridor?.region || newMarketRegion || 'Littoral';
+      const res = await createAdminMarketApi({
+        city: newMarketCity,
+        name: newMarketName.trim(),
+        type: newMarketType,
+        region,
+      });
+
+      setCorridors((prev) =>
+        prev.map((c) => {
+          if (c.name.toLowerCase() === newMarketCity.toLowerCase()) {
+            return {
+              ...c,
+              hubs: [...c.hubs, res.hub],
+            };
+          }
+          return c;
+        })
+      );
+      setNewMarketName('');
+      setAddMarketModalOpen(false);
+      Alert.alert('Success', `"${res.hub.name}" registered to ${newMarketCity} corridor!`);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to register market');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleDeleteMarket = (hubId: string, hubName: string, city: string) => {
+    Alert.alert(
+      'Remove Commercial Hub',
+      `Are you sure you want to remove "${hubName}" from the ${city} delivery corridor?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setActionLoadingId(hubId);
+              await deleteAdminMarketApi(hubId);
+              setCorridors((prev) =>
+                prev.map((c) => ({
+                  ...c,
+                  hubs: c.hubs.filter((h) => h.id !== hubId),
+                }))
+              );
+            } catch (err: any) {
+              Alert.alert('Error', err.message || 'Failed to remove market');
+            } finally {
+              setActionLoadingId(null);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleAddCity = async () => {
+    if (!newCityName.trim() || !newCityRegion.trim()) {
+      Alert.alert('Required Fields', 'City name and region are required.');
+      return;
+    }
+    try {
+      setActionLoadingId('add-city');
+      const quartiersList = newCityQuartiers
+        .split(',')
+        .map((q) => q.trim())
+        .filter(Boolean);
+      const res = await createAdminCityApi({
+        name: newCityName.trim(),
+        region: newCityRegion.trim(),
+        isMajor: false,
+        quartiers: quartiersList.length > 0 ? quartiersList : ['Centre Urbain'],
+      });
+      setCorridors((prev) => [...prev, res.city]);
+      setSelectedCorridorCity(res.city.name);
+      setNewCityName('');
+      setNewCityQuartiers('');
+      setAddCityModalOpen(false);
+      Alert.alert('Success', `Corridor "${res.city.name}" created!`);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to add city corridor');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleApproveCustomDepot = async (depot: AdminCustomDepot) => {
+    try {
+      setActionLoadingId(depot.id);
+      const res = await approveAdminCustomDepotApi(depot.id);
+      setCustomDepots((prev) =>
+        prev.map((d) => (d.id === depot.id ? { ...d, status: 'APPROVED' } : d))
+      );
+      if (res.hub) {
+        setCorridors((prev) =>
+          prev.map((c) => {
+            if (c.name.toLowerCase() === res.hub.city.toLowerCase()) {
+              return { ...c, hubs: [...c.hubs, res.hub] };
+            }
+            return c;
+          })
+        );
+      }
+      Alert.alert('Approved', `"${depot.name}" is now live in the Master ${depot.city} Delivery Corridor!`);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to approve custom depot');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleRejectCustomDepot = async (depotId: string) => {
+    try {
+      setActionLoadingId(depotId);
+      await rejectAdminCustomDepotApi(depotId);
+      setCustomDepots((prev) =>
+        prev.map((d) => (d.id === depotId ? { ...d, status: 'REJECTED' } : d))
+      );
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to reject custom depot');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
   const handleLogout = () => {
     logout();
     router.replace('/auth/login');
@@ -455,10 +634,13 @@ export default function AdminDashboardScreen() {
     },
     { key: 'farms', label: 'Farm Directory', icon: Store, badge: farms.length ? String(farms.length) : null },
     {
-      key: 'loans',
-      label: 'Financial Institutions & MFIs',
-      icon: Building2,
-      badge: loans.length > 0 ? `${loans.length} Loans` : 'Credit Desk',
+      key: 'corridors',
+      label: 'Corridors & Markets',
+      icon: MapPin,
+      badge:
+        customDepots.filter((d) => d.status === 'PENDING').length > 0
+          ? `${customDepots.filter((d) => d.status === 'PENDING').length} NEW`
+          : `${corridors.length || 8} Corridors`,
     },
     { key: 'flags', label: 'Modular Kill-Switches', icon: ToggleLeft, badge: 'Remote' },
   ];
@@ -591,16 +773,18 @@ export default function AdminDashboardScreen() {
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={[styles.statCard, { borderLeftColor: Colors.clay }]}
-                    onPress={() => setActiveSection('loans')}
+                    style={[styles.statCard, { borderLeftColor: Colors.cultivated }]}
+                    onPress={() => setActiveSection('corridors')}
                     activeOpacity={0.8}
                   >
                     <View style={styles.statCardHeader}>
-                      <Building2 size={18} color={Colors.clay} />
-                      <Text style={styles.statCardCount}>{loans.length || 4}</Text>
+                      <MapPin size={18} color={Colors.cultivated} />
+                      <Text style={styles.statCardCount}>{corridors.length || 8}</Text>
                     </View>
-                    <Text style={styles.statCardTitle}>Financial Institutions</Text>
-                    <Text style={styles.statCardSub}>MFI Credit & Underwriting</Text>
+                    <Text style={styles.statCardTitle}>Delivery Corridors</Text>
+                    <Text style={styles.statCardSub}>
+                      {corridors.reduce((acc, c) => acc + (c.hubs?.length || 0), 0) || 32} Commercial Hubs
+                    </Text>
                   </TouchableOpacity>
                 </View>
 
@@ -971,9 +1155,694 @@ export default function AdminDashboardScreen() {
             )}
 
             {/* ============================================================ */}
-            {/* TAB 5: FINANCIAL INSTITUTIONS & MFI CREDIT DESK */}
+            {/* TAB 5: DELIVERY CORRIDORS, COMMERCIAL MARKETS & CUSTOM DEPOTS */}
             {/* ============================================================ */}
-            {activeSection === 'loans' && (
+            {activeSection === 'corridors' && (
+              <View style={styles.sectionWrap}>
+                {/* Notice & Hero Banner */}
+                <View style={styles.disputeNoticeCard}>
+                  <Truck size={24} color={Colors.cultivated} strokeWidth={2.2} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.disputeNoticeTitle}>Delivery Corridors & Commercial Hubs</Text>
+                    <Text style={styles.disputeNoticeSub}>
+                      Configure inter-city commercial transit corridors, wholesale terminals, bus agency drop points, and approve farmer-submitted custom depots.
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Top Metric Summary */}
+                <View style={styles.fintechSummaryGrid}>
+                  <View style={styles.fintechSummaryCard}>
+                    <Text style={styles.fintechSummaryLabel}>Transit Corridors</Text>
+                    <Text style={styles.fintechSummaryVal}>
+                      {corridors.length} <Text style={styles.fintechSummaryUnit}>Cities</Text>
+                    </Text>
+                    <Text style={styles.fintechSummarySub}>
+                      {corridors.filter((c) => c.isMajor).length} Major Corridors
+                    </Text>
+                  </View>
+                  <View style={styles.fintechSummaryCard}>
+                    <Text style={styles.fintechSummaryLabel}>Commercial Hubs</Text>
+                    <Text style={[styles.fintechSummaryVal, { color: Colors.cultivated }]}>
+                      {corridors.reduce((acc, c) => acc + (c.hubs?.length || 0), 0)}{' '}
+                      <Text style={styles.fintechSummaryUnit}>Active</Text>
+                    </Text>
+                    <Text style={styles.fintechSummarySub}>Markets & Bus Agences</Text>
+                  </View>
+                  <View style={styles.fintechSummaryCard}>
+                    <Text style={styles.fintechSummaryLabel}>Farmer Custom Depots</Text>
+                    <Text style={[styles.fintechSummaryVal, { color: Colors.gold }]}>
+                      {customDepots.filter((d) => d.status === 'PENDING').length}{' '}
+                      <Text style={styles.fintechSummaryUnit}>Pending</Text>
+                    </Text>
+                    <Text style={styles.fintechSummarySub}>
+                      {customDepots.filter((d) => d.status === 'APPROVED').length} Approved
+                    </Text>
+                  </View>
+                </View>
+
+                {/* 2-Tab Navigation Selector */}
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.fintechTabsScroll}>
+                  {[
+                    {
+                      key: 'corridors',
+                      label: 'Master Corridors & Hubs',
+                      count: corridors.reduce((acc, c) => acc + (c.hubs?.length || 0), 0),
+                    },
+                    {
+                      key: 'customDepots',
+                      label: 'Farmer Custom Depots',
+                      count: customDepots.filter((d) => d.status === 'PENDING').length || null,
+                    },
+                  ].map((tab) => {
+                    const isTabActive = corridorsTab === tab.key;
+                    return (
+                      <TouchableOpacity
+                        key={tab.key}
+                        style={[styles.fintechSubTab, isTabActive && styles.fintechSubTabActive]}
+                        onPress={() => setCorridorsTab(tab.key as any)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={[styles.fintechSubTabText, isTabActive && styles.fintechSubTabTextActive]}>
+                          {tab.label}
+                        </Text>
+                        {tab.count !== null && (
+                          <View style={[styles.fintechSubTabBadge, isTabActive && styles.fintechSubTabBadgeActive]}>
+                            <Text
+                              style={[
+                                styles.fintechSubTabBadgeText,
+                                isTabActive && styles.fintechSubTabBadgeTextActive,
+                              ]}
+                            >
+                              {tab.count}
+                            </Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+
+                {/* SUB-VIEW 1: MASTER CORRIDORS & COMMERCIAL HUBS */}
+                {corridorsTab === 'corridors' && (
+                  <View style={{ gap: 14 }}>
+                    {/* Action Buttons Row */}
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <TouchableOpacity
+                        style={{
+                          backgroundColor: Colors.cultivated,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 6,
+                          paddingHorizontal: 14,
+                          paddingVertical: 10,
+                          borderRadius: Radii.pill,
+                        }}
+                        onPress={() => {
+                          setNewMarketCity(selectedCorridorCity);
+                          setAddMarketModalOpen(true);
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Store size={15} color={Colors.white} />
+                        <Text style={{ fontFamily: Fonts.bodySemiBold, color: Colors.white, fontSize: 13 }}>
+                          + Add Market / Hub
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={{
+                          backgroundColor: Colors.parchment,
+                          borderColor: Colors.parchmentDim,
+                          borderWidth: 1,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 6,
+                          paddingHorizontal: 14,
+                          paddingVertical: 10,
+                          borderRadius: Radii.pill,
+                        }}
+                        onPress={() => setAddCityModalOpen(true)}
+                        activeOpacity={0.8}
+                      >
+                        <MapPin size={15} color={Colors.espresso} />
+                        <Text style={{ fontFamily: Fonts.bodyMedium, color: Colors.espresso, fontSize: 13 }}>
+                          + Add City Axis
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Horizontal City Corridor Selector */}
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 4 }}>
+                      {corridors.map((c) => {
+                        const isSelected = selectedCorridorCity.toLowerCase() === c.name.toLowerCase();
+                        return (
+                          <TouchableOpacity
+                            key={c.name}
+                            style={[
+                              {
+                                backgroundColor: isSelected ? Colors.canopy : Colors.parchment,
+                                borderWidth: 1,
+                                borderColor: isSelected ? Colors.canopy : Colors.parchmentDim,
+                                borderRadius: Radii.pill,
+                                paddingHorizontal: 14,
+                                paddingVertical: 8,
+                                marginRight: 8,
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: 6,
+                              },
+                            ]}
+                            onPress={() => setSelectedCorridorCity(c.name)}
+                            activeOpacity={0.8}
+                          >
+                            <Text
+                              style={{
+                                fontFamily: isSelected ? Fonts.bodySemiBold : Fonts.bodyMedium,
+                                fontSize: 13,
+                                color: isSelected ? Colors.white : Colors.espresso,
+                              }}
+                            >
+                              {c.name}
+                            </Text>
+                            <View
+                              style={{
+                                backgroundColor: isSelected ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.06)',
+                                paddingHorizontal: 6,
+                                paddingVertical: 1,
+                                borderRadius: 10,
+                              }}
+                            >
+                              <Text
+                                style={{
+                                  fontFamily: Fonts.monoBold,
+                                  fontSize: 11,
+                                  color: isSelected ? Colors.white : Colors.text.secondary,
+                                }}
+                              >
+                                {c.hubs?.length || 0}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+
+                    {/* Active Corridor Card & Hubs List */}
+                    {(() => {
+                      const activeCorridor =
+                        corridors.find(
+                          (c) => c.name.toLowerCase() === selectedCorridorCity.toLowerCase()
+                        ) || corridors[0];
+                      if (!activeCorridor) return null;
+
+                      return (
+                        <View style={styles.cardContainer}>
+                          {/* Corridor Card Header */}
+                          <View
+                            style={{
+                              flexDirection: 'row',
+                              justifyContent: 'space-between',
+                              alignItems: 'flex-start',
+                              marginBottom: 12,
+                            }}
+                          >
+                            <View>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                <Text style={styles.cardHeaderTitle}>{activeCorridor.name}</Text>
+                                <View
+                                  style={{
+                                    backgroundColor: Colors.parchmentDim,
+                                    paddingHorizontal: 8,
+                                    paddingVertical: 2,
+                                    borderRadius: 6,
+                                  }}
+                                >
+                                  <Text
+                                    style={{
+                                      fontFamily: Fonts.bodySemiBold,
+                                      fontSize: 11,
+                                      color: Colors.text.secondary,
+                                    }}
+                                  >
+                                    {activeCorridor.region} Region
+                                  </Text>
+                                </View>
+                                {activeCorridor.isMajor && (
+                                  <View
+                                    style={{
+                                      backgroundColor: 'rgba(78, 139, 63, 0.12)',
+                                      paddingHorizontal: 8,
+                                      paddingVertical: 2,
+                                      borderRadius: 6,
+                                    }}
+                                  >
+                                    <Text
+                                      style={{
+                                        fontFamily: Fonts.bodySemiBold,
+                                        fontSize: 11,
+                                        color: Colors.cultivated,
+                                      }}
+                                    >
+                                      ★ Major Corridor
+                                    </Text>
+                                  </View>
+                                )}
+                              </View>
+                              <Text style={styles.cardHeaderSub}>
+                                Serving {activeCorridor.hubs?.length || 0} commercial hubs and{' '}
+                                {activeCorridor.quartiers?.length || 0} delivery zones
+                              </Text>
+                            </View>
+
+                            <TouchableOpacity
+                              onPress={() => {
+                                setNewMarketCity(activeCorridor.name);
+                                setAddMarketModalOpen(true);
+                              }}
+                              style={{
+                                backgroundColor: 'rgba(78, 139, 63, 0.12)',
+                                paddingHorizontal: 10,
+                                paddingVertical: 6,
+                                borderRadius: Radii.pill,
+                              }}
+                            >
+                              <Text
+                                style={{
+                                  fontFamily: Fonts.bodySemiBold,
+                                  fontSize: 12,
+                                  color: Colors.cultivated,
+                                }}
+                              >
+                                + Add Hub
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+
+                          {/* Hubs List */}
+                          <View style={{ gap: 8, marginBottom: 16 }}>
+                            <Text
+                              style={{
+                                fontFamily: Fonts.bodySemiBold,
+                                fontSize: 12,
+                                color: Colors.text.muted,
+                                textTransform: 'uppercase',
+                                letterSpacing: 0.5,
+                              }}
+                            >
+                              Registered Markets & Bus Agencies
+                            </Text>
+
+                            {(!activeCorridor.hubs || activeCorridor.hubs.length === 0) && (
+                              <View
+                                style={{
+                                  padding: 16,
+                                  backgroundColor: Colors.parchment,
+                                  borderRadius: 12,
+                                  alignItems: 'center',
+                                }}
+                              >
+                                <Text style={{ fontFamily: Fonts.body, color: Colors.text.muted, fontSize: 13 }}>
+                                  No commercial hubs registered for {activeCorridor.name} yet.
+                                </Text>
+                              </View>
+                            )}
+
+                            {activeCorridor.hubs?.map((hub) => {
+                              const isAgency = hub.type === 'BUS_AGENCY';
+                              const isCoop = hub.type === 'COOP_DEPOT';
+
+                              return (
+                                <View
+                                  key={hub.id}
+                                  style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    backgroundColor: Colors.parchment,
+                                    borderRadius: 12,
+                                    padding: 12,
+                                    borderWidth: 1,
+                                    borderColor: Colors.parchmentDim,
+                                  }}
+                                >
+                                  <View
+                                    style={{
+                                      flexDirection: 'row',
+                                      alignItems: 'center',
+                                      gap: 10,
+                                      flex: 1,
+                                      marginRight: 10,
+                                    }}
+                                  >
+                                    <View
+                                      style={{
+                                        width: 36,
+                                        height: 36,
+                                        borderRadius: 18,
+                                        backgroundColor: isAgency
+                                          ? 'rgba(37, 99, 235, 0.12)'
+                                          : isCoop
+                                          ? 'rgba(226, 166, 60, 0.15)'
+                                          : 'rgba(78, 139, 63, 0.12)',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                      }}
+                                    >
+                                      {isAgency ? (
+                                        <Truck size={17} color="#2563EB" />
+                                      ) : isCoop ? (
+                                        <Warehouse size={17} color={Colors.gold} />
+                                      ) : (
+                                        <Store size={17} color={Colors.cultivated} />
+                                      )}
+                                    </View>
+
+                                    <View style={{ flex: 1 }}>
+                                      <Text
+                                        style={{
+                                          fontFamily: Fonts.bodySemiBold,
+                                          fontSize: 13.5,
+                                          color: Colors.espresso,
+                                        }}
+                                        numberOfLines={1}
+                                      >
+                                        {hub.name}
+                                      </Text>
+                                      <View
+                                        style={{
+                                          flexDirection: 'row',
+                                          alignItems: 'center',
+                                          gap: 6,
+                                          marginTop: 2,
+                                        }}
+                                      >
+                                        <View
+                                          style={{
+                                            backgroundColor: isAgency
+                                              ? 'rgba(37, 99, 235, 0.1)'
+                                              : isCoop
+                                              ? 'rgba(226, 166, 60, 0.12)'
+                                              : 'rgba(78, 139, 63, 0.1)',
+                                            paddingHorizontal: 6,
+                                            paddingVertical: 1,
+                                            borderRadius: 4,
+                                          }}
+                                        >
+                                          <Text
+                                            style={{
+                                              fontFamily: Fonts.monoBold,
+                                              fontSize: 9.5,
+                                              color: isAgency ? '#2563EB' : isCoop ? Colors.gold : Colors.cultivated,
+                                            }}
+                                          >
+                                            {isAgency ? 'BUS AGENCY' : isCoop ? 'COOP COLD DEPOT' : 'WHOLESALE MARKET'}
+                                          </Text>
+                                        </View>
+                                        <Text style={{ fontFamily: Fonts.body, fontSize: 11, color: Colors.text.muted }}>
+                                          {hub.city}
+                                        </Text>
+                                      </View>
+                                    </View>
+                                  </View>
+
+                                  <TouchableOpacity
+                                    onPress={() =>
+                                      handleDeleteMarket(hub.id, hub.name, activeCorridor.name)
+                                    }
+                                    style={{
+                                      padding: 8,
+                                      borderRadius: 8,
+                                      backgroundColor: 'rgba(220, 38, 38, 0.08)',
+                                    }}
+                                    accessibilityLabel={`Remove ${hub.name}`}
+                                  >
+                                    {actionLoadingId === hub.id ? (
+                                      <ActivityIndicator size="small" color="#DC2626" />
+                                    ) : (
+                                      <X size={15} color="#DC2626" />
+                                    )}
+                                  </TouchableOpacity>
+                                </View>
+                              );
+                            })}
+                          </View>
+
+                          {/* Quartiers / Residential Drop Zones */}
+                          <View>
+                            <Text
+                              style={{
+                                fontFamily: Fonts.bodySemiBold,
+                                fontSize: 12,
+                                color: Colors.text.muted,
+                                textTransform: 'uppercase',
+                                letterSpacing: 0.5,
+                                marginBottom: 8,
+                              }}
+                            >
+                              Supported Quartiers & Neighborhoods
+                            </Text>
+
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                              {activeCorridor.quartiers?.map((q) => (
+                                <View
+                                  key={q}
+                                  style={{
+                                    backgroundColor: Colors.parchment,
+                                    borderWidth: 1,
+                                    borderColor: Colors.parchmentDim,
+                                    paddingHorizontal: 8,
+                                    paddingVertical: 3,
+                                    borderRadius: 8,
+                                  }}
+                                >
+                                  <Text style={{ fontFamily: Fonts.body, fontSize: 11.5, color: Colors.text.secondary }}>
+                                    {q}
+                                  </Text>
+                                </View>
+                              ))}
+                            </View>
+                          </View>
+                        </View>
+                      );
+                    })()}
+                  </View>
+                )}
+
+                {/* SUB-VIEW 2: FARMER CUSTOM DEPOTS SUBMISSIONS */}
+                {corridorsTab === 'customDepots' && (
+                  <View style={{ gap: 12 }}>
+                    <View
+                      style={{
+                        padding: 12,
+                        backgroundColor: 'rgba(226, 166, 60, 0.08)',
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: 'rgba(226, 166, 60, 0.25)',
+                      }}
+                    >
+                      <Text style={{ fontFamily: Fonts.bodySemiBold, fontSize: 13, color: Colors.espresso }}>
+                        Proposals from Producers & Cooperatives
+                      </Text>
+                      <Text style={{ fontFamily: Fonts.body, fontSize: 11.5, color: Colors.text.secondary, marginTop: 2 }}>
+                        When farmers specify a private cold hub or rural drop-point during dispatch reach setup, it appears here for administrative verification and promotion into the official Cameroon Master Corridors.
+                      </Text>
+                    </View>
+
+                    {customDepots.length === 0 ? (
+                      <View style={[styles.cardContainer, { alignItems: 'center', paddingVertical: 24 }]}>
+                        <CheckCircle2 size={32} color={Colors.cultivated} />
+                        <Text style={{ fontFamily: Fonts.bodySemiBold, fontSize: 14, color: Colors.espresso, marginTop: 8 }}>
+                          All Custom Depots Handled
+                        </Text>
+                        <Text style={{ fontFamily: Fonts.body, fontSize: 12, color: Colors.text.muted, marginTop: 2 }}>
+                          No pending farmer-submitted hubs awaiting review.
+                        </Text>
+                      </View>
+                    ) : (
+                      customDepots.map((depot) => {
+                        const isPending = depot.status === 'PENDING';
+                        const isApproved = depot.status === 'APPROVED';
+
+                        return (
+                          <View
+                            key={depot.id}
+                            style={[
+                              styles.cardContainer,
+                              {
+                                borderLeftWidth: 4,
+                                borderLeftColor: isApproved
+                                  ? Colors.cultivated
+                                  : isPending
+                                  ? Colors.gold
+                                  : Colors.text.muted,
+                              },
+                            ]}
+                          >
+                            <View
+                              style={{
+                                flexDirection: 'row',
+                                justifyContent: 'space-between',
+                                alignItems: 'flex-start',
+                                marginBottom: 6,
+                              }}
+                            >
+                              <View style={{ flex: 1, marginRight: 8 }}>
+                                <Text
+                                  style={{
+                                    fontFamily: Fonts.displayBold,
+                                    fontSize: 15,
+                                    color: Colors.espresso,
+                                  }}
+                                >
+                                  {depot.name}
+                                </Text>
+                                <View
+                                  style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                    marginTop: 4,
+                                  }}
+                                >
+                                  <View
+                                    style={{
+                                      backgroundColor: Colors.parchmentDim,
+                                      paddingHorizontal: 7,
+                                      paddingVertical: 2,
+                                      borderRadius: 4,
+                                    }}
+                                  >
+                                    <Text style={{ fontFamily: Fonts.monoBold, fontSize: 10, color: Colors.espresso }}>
+                                      {depot.city} • {depot.region}
+                                    </Text>
+                                  </View>
+                                  <View
+                                    style={{
+                                      backgroundColor: 'rgba(78, 139, 63, 0.1)',
+                                      paddingHorizontal: 7,
+                                      paddingVertical: 2,
+                                      borderRadius: 4,
+                                    }}
+                                  >
+                                    <Text
+                                      style={{
+                                        fontFamily: Fonts.monoBold,
+                                        fontSize: 10,
+                                        color: Colors.cultivated,
+                                      }}
+                                    >
+                                      {depot.type}
+                                    </Text>
+                                  </View>
+                                </View>
+                              </View>
+
+                              <View
+                                style={{
+                                  backgroundColor: isApproved
+                                    ? 'rgba(78, 139, 63, 0.12)'
+                                    : isPending
+                                    ? 'rgba(226, 166, 60, 0.15)'
+                                    : 'rgba(0,0,0,0.06)',
+                                  paddingHorizontal: 8,
+                                  paddingVertical: 3,
+                                  borderRadius: Radii.pill,
+                                }}
+                              >
+                                <Text
+                                  style={{
+                                    fontFamily: Fonts.monoBold,
+                                    fontSize: 10.5,
+                                    color: isApproved
+                                      ? Colors.cultivated
+                                      : isPending
+                                      ? Colors.gold
+                                      : Colors.text.muted,
+                                  }}
+                                >
+                                  {depot.status}
+                                </Text>
+                              </View>
+                            </View>
+
+                            <View
+                              style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                marginTop: 8,
+                                paddingTop: 8,
+                                borderTopWidth: 1,
+                                borderTopColor: Colors.parchmentDim,
+                              }}
+                            >
+                              <Text style={{ fontFamily: Fonts.body, fontSize: 12, color: Colors.text.secondary }}>
+                                Proposed by: <Text style={{ fontFamily: Fonts.bodySemiBold, color: Colors.espresso }}>{depot.submittedByFarmer || 'Local Cooperative'}</Text>
+                              </Text>
+
+                              {isPending && (
+                                <View style={{ flexDirection: 'row', gap: 6 }}>
+                                  <TouchableOpacity
+                                    style={{
+                                      backgroundColor: 'rgba(220, 38, 38, 0.08)',
+                                      paddingHorizontal: 10,
+                                      paddingVertical: 6,
+                                      borderRadius: Radii.pill,
+                                    }}
+                                    onPress={() => handleRejectCustomDepot(depot.id)}
+                                  >
+                                    <Text style={{ fontFamily: Fonts.bodySemiBold, fontSize: 12, color: '#DC2626' }}>
+                                      Reject
+                                    </Text>
+                                  </TouchableOpacity>
+
+                                  <TouchableOpacity
+                                    style={{
+                                      backgroundColor: Colors.cultivated,
+                                      paddingHorizontal: 12,
+                                      paddingVertical: 6,
+                                      borderRadius: Radii.pill,
+                                      flexDirection: 'row',
+                                      alignItems: 'center',
+                                      gap: 4,
+                                    }}
+                                    onPress={() => handleApproveCustomDepot(depot)}
+                                  >
+                                    {actionLoadingId === depot.id ? (
+                                      <ActivityIndicator size="small" color={Colors.white} />
+                                    ) : (
+                                      <>
+                                        <Check size={14} color={Colors.white} />
+                                        <Text style={{ fontFamily: Fonts.bodySemiBold, fontSize: 12, color: Colors.white }}>
+                                          Approve to Master
+                                        </Text>
+                                      </>
+                                    )}
+                                  </TouchableOpacity>
+                                </View>
+                              )}
+
+                              {isApproved && (
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                  <CheckCircle2 size={15} color={Colors.cultivated} />
+                                  <Text style={{ fontFamily: Fonts.bodySemiBold, fontSize: 12, color: Colors.cultivated }}>
+                                    Active in Master Catalog
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
+                          </View>
+                        );
+                      })
+                    )}
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* TAB 5 (DE-PRIORITIZED): FINANCIAL INSTITUTIONS & MFI CREDIT DESK */}
+            {false && (
               <View style={styles.sectionWrap}>
                 {/* Notice & Hero Banner */}
                 <View style={styles.disputeNoticeCard}>
@@ -1843,6 +2712,219 @@ export default function AdminDashboardScreen() {
                   <>
                     <Check size={16} color="#FFF" />
                     <Text style={styles.adminSaveBtnText}>Save Changes</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ============================================================ */}
+      {/* 6. ADD COMMERCIAL MARKET / HUB MODAL */}
+      {/* ============================================================ */}
+      <Modal
+        visible={addMarketModalOpen}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setAddMarketModalOpen(false)}
+      >
+        <View style={styles.adminModalBackdrop}>
+          <View style={[styles.adminModalCard, { paddingBottom: Math.max(insets.bottom + 16, 24) }]}>
+            <View style={styles.adminModalHeader}>
+              <View>
+                <Text style={styles.adminModalTitle}>Register Commercial Hub</Text>
+                <Text style={styles.adminModalSub}>Add Market or Bus Agency to Corridor</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setAddMarketModalOpen(false)}
+                style={styles.adminModalCloseBtn}
+              >
+                <X size={20} color={Colors.espresso} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
+              {/* City Selection */}
+              <View style={styles.adminFormField}>
+                <Text style={styles.adminFieldLabel}>Transit Corridor / City</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 4 }}>
+                  {corridors.map((c) => {
+                    const isSelected = newMarketCity.toLowerCase() === c.name.toLowerCase();
+                    return (
+                      <TouchableOpacity
+                        key={c.name}
+                        style={[
+                          styles.adminRoleChip,
+                          isSelected && styles.adminRoleChipActive,
+                        ]}
+                        onPress={() => {
+                          setNewMarketCity(c.name);
+                          setNewMarketRegion(c.region);
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.adminRoleChipText,
+                            isSelected && styles.adminRoleChipTextActive,
+                          ]}
+                        >
+                          {c.name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+
+              {/* Hub Name */}
+              <View style={styles.adminFormField}>
+                <Text style={styles.adminFieldLabel}>Market or Terminal Name</Text>
+                <TextInput
+                  style={styles.adminFieldInput}
+                  value={newMarketName}
+                  onChangeText={setNewMarketName}
+                  placeholder="e.g. Marché Mboppi, Buca Voyages Bessengue"
+                  placeholderTextColor={Colors.text.muted}
+                />
+              </View>
+
+              {/* Hub Type */}
+              <View style={styles.adminFormField}>
+                <Text style={styles.adminFieldLabel}>Hub Category</Text>
+                <View style={styles.roleChipsWrap}>
+                  {[
+                    { label: 'Wholesale Food Market', val: 'WHOLESALE_MARKET' },
+                    { label: 'Bus Agency Cargo Depot', val: 'BUS_AGENCY' },
+                    { label: 'Cooperative Cold Hub', val: 'COOP_DEPOT' },
+                  ].map((t) => (
+                    <TouchableOpacity
+                      key={t.val}
+                      style={[
+                        styles.adminRoleChip,
+                        newMarketType === t.val && styles.adminRoleChipActive,
+                      ]}
+                      onPress={() => setNewMarketType(t.val as any)}
+                    >
+                      <Text
+                        style={[
+                          styles.adminRoleChipText,
+                          newMarketType === t.val && styles.adminRoleChipTextActive,
+                        ]}
+                      >
+                        {t.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </ScrollView>
+
+            <View style={styles.adminModalFooter}>
+              <TouchableOpacity
+                style={styles.adminCancelBtn}
+                onPress={() => setAddMarketModalOpen(false)}
+              >
+                <Text style={styles.adminCancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.adminSaveBtn}
+                onPress={handleAddMarket}
+                disabled={actionLoadingId === 'add-market'}
+              >
+                {actionLoadingId === 'add-market' ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <>
+                    <Check size={16} color="#FFF" />
+                    <Text style={styles.adminSaveBtnText}>Register Hub</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ============================================================ */}
+      {/* 7. ADD CITY CORRIDOR MODAL */}
+      {/* ============================================================ */}
+      <Modal
+        visible={addCityModalOpen}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setAddCityModalOpen(false)}
+      >
+        <View style={styles.adminModalBackdrop}>
+          <View style={[styles.adminModalCard, { paddingBottom: Math.max(insets.bottom + 16, 24) }]}>
+            <View style={styles.adminModalHeader}>
+              <View>
+                <Text style={styles.adminModalTitle}>Create Transit Corridor</Text>
+                <Text style={styles.adminModalSub}>Add New City Axis to Platform</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setAddCityModalOpen(false)}
+                style={styles.adminModalCloseBtn}
+              >
+                <X size={20} color={Colors.espresso} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
+              <View style={styles.adminFormField}>
+                <Text style={styles.adminFieldLabel}>City / Corridor Name</Text>
+                <TextInput
+                  style={styles.adminFieldInput}
+                  value={newCityName}
+                  onChangeText={setNewCityName}
+                  placeholder="e.g. Ebolowa, Bertoua, Maroua"
+                  placeholderTextColor={Colors.text.muted}
+                />
+              </View>
+
+              <View style={styles.adminFormField}>
+                <Text style={styles.adminFieldLabel}>Region</Text>
+                <TextInput
+                  style={styles.adminFieldInput}
+                  value={newCityRegion}
+                  onChangeText={setNewCityRegion}
+                  placeholder="e.g. South, East, Far North, West"
+                  placeholderTextColor={Colors.text.muted}
+                />
+              </View>
+
+              <View style={styles.adminFormField}>
+                <Text style={styles.adminFieldLabel}>Supported Quartiers (comma-separated)</Text>
+                <TextInput
+                  style={styles.adminFieldInput}
+                  value={newCityQuartiers}
+                  onChangeText={setNewCityQuartiers}
+                  placeholder="e.g. Centre Urbain, Nko'ovos, Angale"
+                  placeholderTextColor={Colors.text.muted}
+                />
+              </View>
+            </ScrollView>
+
+            <View style={styles.adminModalFooter}>
+              <TouchableOpacity
+                style={styles.adminCancelBtn}
+                onPress={() => setAddCityModalOpen(false)}
+              >
+                <Text style={styles.adminCancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.adminSaveBtn}
+                onPress={handleAddCity}
+                disabled={actionLoadingId === 'add-city'}
+              >
+                {actionLoadingId === 'add-city' ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <>
+                    <Check size={16} color="#FFF" />
+                    <Text style={styles.adminSaveBtnText}>Create Corridor</Text>
                   </>
                 )}
               </TouchableOpacity>

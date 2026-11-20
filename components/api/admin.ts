@@ -225,3 +225,79 @@ export const updateFeatureFlagApi = async (flagName: string, isEnabled: boolean)
   const res = await apiClient.post('/admin/feature-flags', { flagName, isEnabled });
   return res.data;
 };
+
+// ============================================================================
+// DELIVERY CORRIDORS, MARKETS & CUSTOM DEPOTS
+// ============================================================================
+export interface DeliveryHubItem {
+  id: string;
+  name: string;
+  type: 'WHOLESALE_MARKET' | 'BUS_AGENCY' | 'COOP_DEPOT';
+  city: string;
+  region: string;
+}
+
+export interface AdminCityCorridor {
+  name: string;
+  region: string;
+  isMajor: boolean;
+  hubs: DeliveryHubItem[];
+  quartiers: string[];
+}
+
+export interface AdminCustomDepot {
+  id: string;
+  name: string;
+  city: string;
+  region: string;
+  type: 'WHOLESALE_MARKET' | 'BUS_AGENCY' | 'COOP_DEPOT';
+  submittedByFarmer?: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  createdAt: string;
+}
+
+export const fetchAdminCorridorsApi = async (): Promise<AdminCityCorridor[]> => {
+  const res = await apiClient.get('/admin/delivery-corridors');
+  return res.data;
+};
+
+export const createAdminMarketApi = async (data: {
+  city: string;
+  name: string;
+  type: 'WHOLESALE_MARKET' | 'BUS_AGENCY' | 'COOP_DEPOT';
+  region?: string;
+}): Promise<{ message: string; hub: DeliveryHubItem }> => {
+  const res = await apiClient.post('/admin/delivery-corridors/market', data);
+  return res.data;
+};
+
+export const deleteAdminMarketApi = async (marketId: string): Promise<{ message: string }> => {
+  const res = await apiClient.delete(`/admin/delivery-corridors/market/${marketId}`);
+  return res.data;
+};
+
+export const createAdminCityApi = async (data: {
+  name: string;
+  region: string;
+  isMajor?: boolean;
+  quartiers?: string[];
+}): Promise<{ message: string; city: AdminCityCorridor }> => {
+  const res = await apiClient.post('/admin/delivery-corridors/city', data);
+  return res.data;
+};
+
+export const fetchAdminCustomDepotsApi = async (): Promise<AdminCustomDepot[]> => {
+  const res = await apiClient.get('/admin/custom-depots');
+  return res.data;
+};
+
+export const approveAdminCustomDepotApi = async (depotId: string): Promise<any> => {
+  const res = await apiClient.patch(`/admin/custom-depots/${depotId}/approve`);
+  return res.data;
+};
+
+export const rejectAdminCustomDepotApi = async (depotId: string): Promise<any> => {
+  const res = await apiClient.patch(`/admin/custom-depots/${depotId}/reject`);
+  return res.data;
+};
+
