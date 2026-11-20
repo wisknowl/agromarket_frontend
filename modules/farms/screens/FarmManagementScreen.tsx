@@ -736,6 +736,69 @@ export default function FarmManagementScreen() {
     }
   };
 
+  // Lifecycle Quick-Switch Modal State & Handlers
+  const [lifecycleModal, setLifecycleModal] = useState<{
+    item: any;
+    targetStatus: 'GROWING' | 'OFF_CYCLE';
+    value: string;
+  } | null>(null);
+  const [savingLifecycle, setSavingLifecycle] = useState(false);
+
+  const handleSetProduceLifecycle = async (item: any, newStatus: 'SELLING' | 'GROWING' | 'OFF_CYCLE') => {
+    if (newStatus === 'SELLING') {
+      await applyProduceLifecycle(item, 'SELLING', undefined, undefined);
+    } else {
+      setLifecycleModal({
+        item,
+        targetStatus: newStatus,
+        value:
+          newStatus === 'GROWING'
+            ? (item.expectedHarvestWindow || 'Within 30 Days')
+            : (item.nextCycleMonth || 'Next Season'),
+      });
+    }
+  };
+
+  const applyProduceLifecycle = async (
+    item: any,
+    newStatus: 'SELLING' | 'GROWING' | 'OFF_CYCLE',
+    windowVal?: string,
+    nextMonthVal?: string
+  ) => {
+    try {
+      setSavingLifecycle(true);
+      await updateProduceApi(item.id, {
+        lifecycleStatus: newStatus,
+        expectedHarvestWindow: windowVal,
+        nextCycleMonth: nextMonthVal,
+        isAvailable: true,
+      });
+
+      if (farmData && farmData.yields) {
+        setFarmData({
+          ...farmData,
+          yields: farmData.yields.map((y: any) =>
+            y.id === item.id
+              ? {
+                  ...y,
+                  lifecycleStatus: newStatus,
+                  expectedHarvestWindow: windowVal,
+                  nextCycleMonth: nextMonthVal,
+                  isAvailable: true,
+                }
+              : y
+          ),
+        });
+      }
+
+      setLifecycleModal(null);
+    } catch (err: any) {
+      Alert.alert('Update Failed', err?.message || 'Could not update produce lifecycle status.');
+    } finally {
+      setSavingLifecycle(false);
+    }
+  };
+
   const openEditProduceModal = (yieldItem: any) => {
     setEditingProduceItem(yieldItem);
     const catName = yieldItem.category?.name || 'Vegetables & Greens';
@@ -1296,370 +1359,485 @@ export default function FarmManagementScreen() {
           <>
             {/* Farm Profile Card (Parity with Store Card) */}
             <View style={styles.farmProfileCard}>
-          <View style={styles.farmProfileRow}>
-            <View style={styles.farmIconCircle}>
-              {activeFarm?.avatarPhoto || activeFarm?.coverPhoto ? (
-                <Image
-                  source={{ uri: resolveMediaUrl(activeFarm.avatarPhoto || activeFarm.coverPhoto) }}
-                  style={styles.farmImage}
-                  resizeMode="cover"
-                />
-              ) : (
-                <Sprout size={26} color={Colors.cultivated} strokeWidth={2.2} />
-              )}
-            </View>
+              <View style={styles.farmProfileRow}>
+                <View style={styles.farmIconCircle}>
+                  {activeFarm?.avatarPhoto || activeFarm?.coverPhoto ? (
+                    <Image
+                      source={{ uri: resolveMediaUrl(activeFarm.avatarPhoto || activeFarm.coverPhoto) }}
+                      style={styles.farmImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <Sprout size={26} color={Colors.cultivated} strokeWidth={2.2} />
+                  )}
+                </View>
 
-            <View style={styles.farmTextCol}>
-              <View style={styles.farmTitleRow}>
-                <Text style={styles.farmNameText} numberOfLines={1}>
-                  {activeFarm?.name || 'My AgroFarm'}
-                </Text>
-                <View style={styles.verifiedBadge}>
-                  <CheckCircle2 size={11} color={Colors.cultivated} />
-                  <Text style={styles.verifiedText}>Verified</Text>
+                <View style={styles.farmTextCol}>
+                  <View style={styles.farmTitleRow}>
+                    <Text style={styles.farmNameText} numberOfLines={1}>
+                      {activeFarm?.name || 'My AgroFarm'}
+                    </Text>
+                    <View style={styles.verifiedBadge}>
+                      <CheckCircle2 size={11} color={Colors.cultivated} />
+                      <Text style={styles.verifiedText}>Verified</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.metaRow}>
+                    <MapPin size={12} color={Colors.gold} />
+                    <Text style={styles.metaCityText}>{activeFarm?.city}, {activeFarm?.region}</Text>
+                    <Text style={styles.metaDot}>•</Text>
+                    <Text style={styles.metaCategoryText}>{activeFarm?.category || 'Crops'}</Text>
+                  </View>
+
+                  {/* Operating Sites Badges */}
+                  <View style={styles.sitesPillRow}>
+                    {activeParcels.map((p: any, idx: number) => (
+                      <View key={p.id || idx} style={styles.siteMiniPill}>
+                        <Text style={styles.siteMiniPillText}>
+                          📍 {p.name || `Plot ${idx + 1}`} ({p.sizeHectares || 1} Ha)
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
                 </View>
               </View>
 
-              <View style={styles.metaRow}>
-                <MapPin size={12} color={Colors.gold} />
-                <Text style={styles.metaCityText}>{activeFarm?.city}, {activeFarm?.region}</Text>
-                <Text style={styles.metaDot}>•</Text>
-                <Text style={styles.metaCategoryText}>{activeFarm?.category || 'Crops'}</Text>
+              {/* Quick Metrics Strip */}
+              <View style={styles.metricsRow}>
+                <View style={styles.metricItem}>
+                  <Text style={styles.metricVal}>{farmYields.length}</Text>
+                  <Text style={styles.metricLbl}>Yields</Text>
+                </View>
+                <View style={[styles.metricItem, styles.metricDivider]}>
+                  <Text style={styles.metricVal}>{activeFarm?.sizeHectares || 2.5} ha</Text>
+                  <Text style={styles.metricLbl}>Total Land</Text>
+                </View>
+                <View style={[styles.metricItem, styles.metricDivider]}>
+                  <Text style={styles.metricVal}>{activeFarm?.rating?.toFixed(1) || '5.0'} ★</Text>
+                  <Text style={styles.metricLbl}>Rating</Text>
+                </View>
+                <View style={styles.metricItem}>
+                  <Text style={styles.metricVal}>{user?.farmerProfile?.creditScore || 517}</Text>
+                  <Text style={styles.metricLbl}>Tabi Score</Text>
+                </View>
               </View>
-
-              {/* Operating Sites Badges */}
-              <View style={styles.sitesPillRow}>
-                {activeParcels.map((p: any, idx: number) => (
-                  <View key={p.id || idx} style={styles.siteMiniPill}>
-                    <Text style={styles.siteMiniPillText}>
-                      📍 {p.name || `Plot ${idx + 1}`} ({p.sizeHectares || 1} Ha)
-                    </Text>
-                  </View>
-                ))}
-              </View>
             </View>
-          </View>
 
-          {/* Quick Metrics Strip */}
-          <View style={styles.metricsRow}>
-            <View style={styles.metricItem}>
-              <Text style={styles.metricVal}>{farmYields.length}</Text>
-              <Text style={styles.metricLbl}>Yields</Text>
-            </View>
-            <View style={[styles.metricItem, styles.metricDivider]}>
-              <Text style={styles.metricVal}>{activeFarm?.sizeHectares || 2.5} ha</Text>
-              <Text style={styles.metricLbl}>Total Land</Text>
-            </View>
-            <View style={[styles.metricItem, styles.metricDivider]}>
-              <Text style={styles.metricVal}>{activeFarm?.rating?.toFixed(1) || '5.0'} ★</Text>
-              <Text style={styles.metricLbl}>Rating</Text>
-            </View>
-            <View style={styles.metricItem}>
-              <Text style={styles.metricVal}>{user?.farmerProfile?.creditScore || 517}</Text>
-              <Text style={styles.metricLbl}>Tabi Score</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Tab Navigation */}
-        <View style={styles.tabContainer}>
-          <TouchableOpacity
-            style={[styles.tabBtn, activeTab === 'produce' && styles.tabBtnActive]}
-            onPress={() => setActiveTab('produce')}
-          >
-            <Package size={14} color={activeTab === 'produce' ? '#FFFFFF' : Colors.espresso} />
-            <Text style={[styles.tabText, activeTab === 'produce' && styles.tabTextActive]}>
-              Produce ({farmYields.length})
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.tabBtn, activeTab === 'sites' && styles.tabBtnActive]}
-            onPress={() => setActiveTab('sites')}
-          >
-            <MapPin size={14} color={activeTab === 'sites' ? '#FFFFFF' : Colors.espresso} />
-            <Text style={[styles.tabText, activeTab === 'sites' && styles.tabTextActive]}>
-              Plots ({activeParcels.length})
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.tabBtn, activeTab === 'settings' && styles.tabBtnActive]}
-            onPress={() => setActiveTab('settings')}
-          >
-            <Sliders size={14} color={activeTab === 'settings' ? '#FFFFFF' : Colors.espresso} />
-            <Text style={[styles.tabText, activeTab === 'settings' && styles.tabTextActive]}>
-              Settings
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* TAB 1: PRODUCE */}
-        {activeTab === 'produce' && (
-          <View>
-            <View style={styles.sectionHeaderRow}>
-              <View>
-                <Text style={styles.sectionHeader}>Produce Produced on this Farm</Text>
-                <Text style={styles.itemCountText}>{farmYields.length} items listed</Text>
-              </View>
+            {/* Tab Navigation */}
+            <View style={styles.tabContainer}>
               <TouchableOpacity
-                style={styles.addProduceHeaderBtn}
-                onPress={() => setShowAddProduceModal(true)}
-                activeOpacity={0.85}
+                style={[styles.tabBtn, activeTab === 'produce' && styles.tabBtnActive]}
+                onPress={() => setActiveTab('produce')}
               >
-                <Plus size={14} color={Colors.white} strokeWidth={2.5} />
-                <Text style={styles.addProduceHeaderBtnText}>+ List Harvest</Text>
+                <Package size={14} color={activeTab === 'produce' ? '#FFFFFF' : Colors.espresso} />
+                <Text style={[styles.tabText, activeTab === 'produce' && styles.tabTextActive]}>
+                  Produce ({farmYields.length})
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.tabBtn, activeTab === 'sites' && styles.tabBtnActive]}
+                onPress={() => setActiveTab('sites')}
+              >
+                <MapPin size={14} color={activeTab === 'sites' ? '#FFFFFF' : Colors.espresso} />
+                <Text style={[styles.tabText, activeTab === 'sites' && styles.tabTextActive]}>
+                  Plots ({activeParcels.length})
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.tabBtn, activeTab === 'settings' && styles.tabBtnActive]}
+                onPress={() => setActiveTab('settings')}
+              >
+                <Sliders size={14} color={activeTab === 'settings' ? '#FFFFFF' : Colors.espresso} />
+                <Text style={[styles.tabText, activeTab === 'settings' && styles.tabTextActive]}>
+                  Settings
+                </Text>
               </TouchableOpacity>
             </View>
 
-            {loading && farmYields.length === 0 ? (
-              <View style={{ paddingVertical: 24, alignItems: 'center' }}>
-                <ActivityIndicator size="small" color={Colors.cultivated} />
-                <Text style={{ marginTop: 8, fontFamily: Fonts.bodyMedium, fontSize: 13, color: Colors.text.secondary }}>
-                  Loading farm harvests...
-                </Text>
-              </View>
-            ) : farmYields.length === 0 ? (
-              <View style={{ padding: 24, backgroundColor: '#EEF8F1', borderRadius: Radii.card, alignItems: 'center', borderWidth: 1, borderColor: '#CCEBD5' }}>
-                <Package size={32} color={Colors.cultivated} />
-                <Text style={{ fontFamily: Fonts.bodyBold, fontSize: 14, color: Colors.espresso, marginTop: 8 }}>
-                  No Produce Listed Yet
-                </Text>
-                <Text style={{ fontFamily: Fonts.body, fontSize: 12, color: Colors.text.secondary, textAlign: 'center', marginTop: 4 }}>
-                  List your freshly harvested produce to sell directly on AgroMarket.
-                </Text>
-              </View>
-            ) : (
-              farmYields.map((yieldItem: any) => {
-                const stockQty = yieldItem.stockQuantity ?? 0;
-                const isOutOfStock = stockQty <= 0;
-                const isPaused = yieldItem.isAvailable === false;
-                return (
-                  <View
-                    key={yieldItem.id}
-                    style={styles.yieldCardRow}
+            {/* TAB 1: PRODUCE */}
+            {activeTab === 'produce' && (
+              <View>
+                <View style={styles.sectionHeaderRow}>
+                  <View>
+                    <Text style={styles.sectionHeader}>Produce Produced on this Farm</Text>
+                    <Text style={styles.itemCountText}>{farmYields.length} items listed</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.addProduceHeaderBtn}
+                    onPress={() => setShowAddProduceModal(true)}
+                    activeOpacity={0.85}
                   >
-                    <TouchableOpacity
-                      style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
-                      activeOpacity={0.88}
-                      onPress={() => router.push(`/yield/${yieldItem.id}` as any)}
-                    >
-                      <Image
-                        source={{
-                          uri:
-                            resolveMediaUrl(yieldItem.image || yieldItem.mediaUrls?.[0]) ||
-                            'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=500',
-                        }}
-                        style={styles.yieldThumb}
-                      />
-                      <View style={styles.yieldMainCol}>
-                        <View style={styles.yieldTitleTop}>
-                          <Text style={styles.yieldItemTitle} numberOfLines={1}>
-                            {yieldItem.title}
-                          </Text>
-                          {yieldItem.isOrganic && (
-                            <View style={styles.miniOrganicBadge}>
-                              <Sparkles size={10} color={Colors.cultivated} />
-                              <Text style={styles.miniOrganicText}>Organic</Text>
+                    <Plus size={14} color={Colors.white} strokeWidth={2.5} />
+                    <Text style={styles.addProduceHeaderBtnText}>+ List Harvest</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {loading && farmYields.length === 0 ? (
+                  <View style={{ paddingVertical: 24, alignItems: 'center' }}>
+                    <ActivityIndicator size="small" color={Colors.cultivated} />
+                    <Text style={{ marginTop: 8, fontFamily: Fonts.bodyMedium, fontSize: 13, color: Colors.text.secondary }}>
+                      Loading farm harvests...
+                    </Text>
+                  </View>
+                ) : farmYields.length === 0 ? (
+                  <View style={{ padding: 24, backgroundColor: '#EEF8F1', borderRadius: Radii.card, alignItems: 'center', borderWidth: 1, borderColor: '#CCEBD5' }}>
+                    <Package size={32} color={Colors.cultivated} />
+                    <Text style={{ fontFamily: Fonts.bodyBold, fontSize: 14, color: Colors.espresso, marginTop: 8 }}>
+                      No Produce Listed Yet
+                    </Text>
+                    <Text style={{ fontFamily: Fonts.body, fontSize: 12, color: Colors.text.secondary, textAlign: 'center', marginTop: 4 }}>
+                      List your freshly harvested produce to sell directly on AgroMarket.
+                    </Text>
+                  </View>
+                ) : (
+                  farmYields.map((yieldItem: any) => {
+                    const stockQty = yieldItem.stockQuantity ?? 0;
+                    const isOutOfStock = stockQty <= 0;
+                    const isPaused = yieldItem.isAvailable === false;
+                    return (
+                      <View
+                        key={yieldItem.id}
+                        style={styles.yieldCardRow}
+                      >
+                        {/* ─────────────────────────────────────────────────────────────
+                            ROW BLOCK 1: Produce Thumbnail + Info (Left) & Actions (Right)
+                        ───────────────────────────────────────────────────────────── */}
+                        <View style={styles.yieldCardTopBlock}>
+                          <TouchableOpacity
+                            style={{ flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0 }}
+                            activeOpacity={0.88}
+                            onPress={() => router.push(`/yield/${yieldItem.id}` as any)}
+                          >
+                            <Image
+                              source={{
+                                uri:
+                                  resolveMediaUrl(yieldItem.image || yieldItem.mediaUrls?.[0]) ||
+                                  'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=500',
+                              }}
+                              style={styles.yieldThumb}
+                            />
+                            <View style={styles.yieldMainCol}>
+                              <View style={styles.yieldTitleTop}>
+                                <Text style={styles.yieldItemTitle} numberOfLines={1}>
+                                  {yieldItem.title}
+                                </Text>
+                                {yieldItem.isOrganic && (
+                                  <View style={styles.miniOrganicBadge}>
+                                    <Sparkles size={9} color={Colors.cultivated} />
+                                    <Text style={styles.miniOrganicText}>Organic</Text>
+                                  </View>
+                                )}
+                              </View>
+
+                              <View style={styles.yieldBottomRow}>
+                                <PriceTag
+                                  amount={yieldItem.price ?? yieldItem.pricePerUnit ?? 0}
+                                  unit={yieldItem.unit}
+                                  size="sm"
+                                />
+                              </View>
+                            </View>
+                          </TouchableOpacity>
+
+                          <View style={styles.yieldCardActionsCol}>
+                            <View style={styles.yieldActionsButtonGroup}>
+                              <TouchableOpacity
+                                style={styles.yieldStockActionBtn}
+                                onPress={() => openStockModal(yieldItem)}
+                                activeOpacity={0.8}
+                                accessibilityLabel="Manage Stock"
+                              >
+                                <Sliders size={11} color={Colors.espresso} strokeWidth={2.4} />
+                                <Text style={styles.yieldStockActionText}>Stock</Text>
+                              </TouchableOpacity>
+
+                              <TouchableOpacity
+                                style={styles.yieldReachActionBtn}
+                                onPress={() => openDeliveryReachModal(yieldItem)}
+                                activeOpacity={0.8}
+                                accessibilityLabel="Delivery Reach"
+                              >
+                                <Truck size={11} color={Colors.cultivated} strokeWidth={2.4} />
+                                <Text style={styles.yieldReachActionText}>Reach</Text>
+                              </TouchableOpacity>
+                            </View>
+
+                            <View style={styles.yieldActionsButtonGroup}>
+                              <TouchableOpacity
+                                style={styles.yieldEditActionBtn}
+                                onPress={() => openEditProduceModal(yieldItem)}
+                                activeOpacity={0.8}
+                                accessibilityLabel="Edit Produce"
+                              >
+                                <Edit3 size={11} color={Colors.cultivated} strokeWidth={2.4} />
+                                <Text style={styles.yieldEditActionText}>Edit</Text>
+                              </TouchableOpacity>
+
+                              <TouchableOpacity
+                                style={styles.yieldDeleteActionBtn}
+                                onPress={() => handleDeleteProduce(yieldItem)}
+                                activeOpacity={0.8}
+                                accessibilityLabel="Delete Produce"
+                              >
+                                <Trash2 size={12} color="#DC2626" strokeWidth={2.2} />
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                        </View>
+
+                        {/* ─────────────────────────────────────────────────────────────
+                            ROW BLOCK 2: Full-Width Produce Cycle & Harvest Info Banner
+                        ───────────────────────────────────────────────────────────── */}
+                        <View style={styles.yieldCycleBannerWrapper}>
+                          {yieldItem.lifecycleStatus === 'GROWING' ? (
+                            <TouchableOpacity
+                              style={styles.yieldCycleBannerGrowing}
+                              activeOpacity={0.8}
+                              onPress={() => handleSetProduceLifecycle(yieldItem, 'GROWING')}
+                            >
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                                <Clock size={12} color={Colors.cultivated} />
+                                <Text style={styles.yieldCycleBannerTextGrowing} numberOfLines={1}>
+                                  Harvest: {yieldItem.expectedHarvestWindow || 'Next Month'} ({stockQty} {yieldItem.unit})
+                                </Text>
+                              </View>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                                <Text style={styles.yieldCycleBannerActionGrowing}>Update</Text>
+                                <Edit3 size={10} color={Colors.cultivated} />
+                              </View>
+                            </TouchableOpacity>
+                          ) : yieldItem.lifecycleStatus === 'OFF_CYCLE' ? (
+                            <TouchableOpacity
+                              style={styles.yieldCycleBannerOffCycle}
+                              activeOpacity={0.8}
+                              onPress={() => handleSetProduceLifecycle(yieldItem, 'OFF_CYCLE')}
+                            >
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                                <Text style={{ fontSize: 12 }}>💤</Text>
+                                <Text style={styles.yieldCycleBannerTextOffCycle} numberOfLines={1}>
+                                  Off-Season • Next: {yieldItem.nextCycleMonth || 'Next Season'}
+                                </Text>
+                              </View>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                                <Text style={styles.yieldCycleBannerActionOffCycle}>Update</Text>
+                                <Edit3 size={10} color="#4B5563" />
+                              </View>
+                            </TouchableOpacity>
+                          ) : (
+                            <View style={styles.yieldCycleBannerSelling}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                                <View style={styles.yieldCycleDotSelling} />
+                                <Text style={styles.yieldCycleBannerTextSelling} numberOfLines={1}>
+                                  {isOutOfStock ? '⚠️ Out of Stock' : `📦 ${stockQty} ${yieldItem.unit} in stock`} • Immediate Orders Active
+                                </Text>
+                              </View>
+                              {isPaused && (
+                                <View style={styles.yieldPausedPill}>
+                                  <Text style={styles.yieldPausedPillText}>Paused</Text>
+                                </View>
+                              )}
                             </View>
                           )}
                         </View>
 
-                        <Text style={styles.yieldSubtitle} numberOfLines={1}>
-                          {yieldItem.originRegion || activeFarm?.city || 'Cameroon'}
-                        </Text>
-
-                        <View style={styles.yieldBottomRow}>
-                          <PriceTag
-                            amount={yieldItem.price ?? yieldItem.pricePerUnit ?? 0}
-                            unit={yieldItem.unit}
-                            size="sm"
-                          />
-                          <View
+                        {/* ─────────────────────────────────────────────────────────────
+                            ROW BLOCK 3: 3-State Lifecycle Segmented Control (Selling=Gold, Growing=Green, Off-Cycle=Gray)
+                        ───────────────────────────────────────────────────────────── */}
+                        <View style={styles.yieldLifecycleSegmentRow}>
+                          {/* 1. SELLING (Harvest Gold) */}
+                          <TouchableOpacity
                             style={[
-                              styles.stockStatusPill,
-                              isPaused
-                                ? styles.stockStatusPillPaused
-                                : isOutOfStock
-                                  ? styles.stockStatusPillOut
-                                  : styles.stockStatusPillActive,
+                              styles.lifecycleSegmentBtn,
+                              (yieldItem.lifecycleStatus === 'SELLING' || !yieldItem.lifecycleStatus) && !isPaused && styles.lifecycleSegmentSellingActive,
                             ]}
+                            activeOpacity={0.8}
+                            onPress={() => handleSetProduceLifecycle(yieldItem, 'SELLING')}
                           >
+                            <View
+                              style={[
+                                styles.lifecycleDot,
+                                (yieldItem.lifecycleStatus === 'SELLING' || !yieldItem.lifecycleStatus) && !isPaused
+                                  ? { backgroundColor: '#241A12' }
+                                  : { backgroundColor: '#E2A63C' },
+                              ]}
+                            />
                             <Text
                               style={[
-                                styles.stockStatusPillText,
-                                isPaused
-                                  ? styles.stockStatusPillTextPaused
-                                  : isOutOfStock
-                                    ? styles.stockStatusPillTextOut
-                                    : styles.stockStatusPillTextActive,
+                                styles.lifecycleSegmentText,
+                                (yieldItem.lifecycleStatus === 'SELLING' || !yieldItem.lifecycleStatus) && !isPaused && styles.lifecycleSegmentSellingTextActive,
                               ]}
                             >
-                              {isPaused
-                                ? '⏸ Paused'
-                                : isOutOfStock
-                                  ? '⚠️ Out of Stock'
-                                  : `📦 ${stockQty} ${yieldItem.unit}`}
+                              Selling
                             </Text>
-                          </View>
+                          </TouchableOpacity>
+
+                          {/* 2. GROWING (Botanical Green) */}
+                          <TouchableOpacity
+                            style={[
+                              styles.lifecycleSegmentBtn,
+                              yieldItem.lifecycleStatus === 'GROWING' && styles.lifecycleSegmentGrowingActive,
+                            ]}
+                            activeOpacity={0.8}
+                            onPress={() => handleSetProduceLifecycle(yieldItem, 'GROWING')}
+                          >
+                            <View
+                              style={[
+                                styles.lifecycleDot,
+                                yieldItem.lifecycleStatus === 'GROWING'
+                                  ? { backgroundColor: '#FFFFFF' }
+                                  : { backgroundColor: Colors.cultivated },
+                              ]}
+                            />
+                            <Text
+                              style={[
+                                styles.lifecycleSegmentText,
+                                yieldItem.lifecycleStatus === 'GROWING' && styles.lifecycleSegmentGrowingTextActive,
+                              ]}
+                            >
+                              Growing
+                            </Text>
+                          </TouchableOpacity>
+
+                          {/* 3. OFF-CYCLE (Neutral Gray) */}
+                          <TouchableOpacity
+                            style={[
+                              styles.lifecycleSegmentBtn,
+                              yieldItem.lifecycleStatus === 'OFF_CYCLE' && styles.lifecycleSegmentOffCycleActive,
+                            ]}
+                            activeOpacity={0.8}
+                            onPress={() => handleSetProduceLifecycle(yieldItem, 'OFF_CYCLE')}
+                          >
+                            <View
+                              style={[
+                                styles.lifecycleDot,
+                                yieldItem.lifecycleStatus === 'OFF_CYCLE'
+                                  ? { backgroundColor: '#FFFFFF' }
+                                  : { backgroundColor: '#9CA3AF' },
+                              ]}
+                            />
+                            <Text
+                              style={[
+                                styles.lifecycleSegmentText,
+                                yieldItem.lifecycleStatus === 'OFF_CYCLE' && styles.lifecycleSegmentOffCycleTextActive,
+                              ]}
+                            >
+                              Off-Cycle
+                            </Text>
+                          </TouchableOpacity>
                         </View>
                       </View>
-                    </TouchableOpacity>
-
-                    <View style={styles.yieldCardActionsCol}>
-                      <View style={styles.yieldActionsButtonGroup}>
-                        <TouchableOpacity
-                          style={styles.yieldEditActionBtn}
-                          onPress={() => openEditProduceModal(yieldItem)}
-                          activeOpacity={0.8}
-                          accessibilityLabel="Edit Produce"
-                        >
-                          <Edit3 size={11} color={Colors.cultivated} strokeWidth={2.4} />
-                          <Text style={styles.yieldEditActionText}>Edit</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          style={styles.yieldStockActionBtn}
-                          onPress={() => openStockModal(yieldItem)}
-                          activeOpacity={0.8}
-                          accessibilityLabel="Manage Stock"
-                        >
-                          <Sliders size={11} color={Colors.espresso} strokeWidth={2.4} />
-                          <Text style={styles.yieldStockActionText}>Stock</Text>
-                        </TouchableOpacity>
-                      </View>
-
-                      <View style={styles.yieldActionsButtonGroup}>
-                        <TouchableOpacity
-                          style={styles.yieldReachActionBtn}
-                          onPress={() => openDeliveryReachModal(yieldItem)}
-                          activeOpacity={0.8}
-                          accessibilityLabel="Delivery Reach"
-                        >
-                          <Truck size={11} color={Colors.cultivated} strokeWidth={2.4} />
-                          <Text style={styles.yieldReachActionText}>Reach</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          style={styles.yieldDeleteActionBtn}
-                          onPress={() => handleDeleteProduce(yieldItem)}
-                          activeOpacity={0.8}
-                          accessibilityLabel="Delete Produce"
-                        >
-                          <Trash2 size={12} color="#DC2626" strokeWidth={2.2} />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  </View>
-                );
-              })
-            )}
-          </View>
-        )}
-
-        {/* TAB 2: OPERATING SITES & PLOTS */}
-        {activeTab === 'sites' && (
-          <View>
-            <View style={styles.sectionHeaderRow}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <MapPin size={18} color={Colors.cultivated} />
-                <Text style={styles.sectionHeader}>
-                  Operating Sites & Plots ({activeParcels.length})
-                </Text>
+                    );
+                  })
+                )}
               </View>
-              <TouchableOpacity
-                style={styles.addSiteSmallBtn}
-                onPress={() => setShowAddSiteModal(true)}
-                activeOpacity={0.8}
-              >
-                <Plus size={14} color={Colors.cultivated} strokeWidth={2.5} />
-                <Text style={styles.addSiteSmallBtnText}>+ Add Site</Text>
-              </TouchableOpacity>
-            </View>
+            )}
 
-            <View style={styles.parcelsListContainer}>
-              {activeParcels.map((parcel: any, idx: number) => (
-                <View key={parcel.id || idx} style={styles.parcelCard}>
-                  <View style={styles.parcelCardLeft}>
-                    <View style={[styles.parcelIconBox, parcel.isHeadquarters && styles.parcelIconBoxHq]}>
-                      <MapPin size={16} color={parcel.isHeadquarters ? Colors.cultivated : Colors.soil} />
-                    </View>
-                    <View style={{ flex: 1, marginLeft: 10 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Text style={styles.parcelName} numberOfLines={1}>
-                          {parcel.name}
-                        </Text>
-                        {parcel.isHeadquarters ? (
-                          <View style={styles.hqBadge}>
-                            <Text style={styles.hqBadgeText}>HQ Base</Text>
-                          </View>
-                        ) : (
-                          <View style={styles.branchBadge}>
-                            <Text style={styles.branchBadgeText}>Branch Plot</Text>
-                          </View>
-                        )}
-                      </View>
-                      <Text style={styles.parcelLocation}>
-                        {parcel.city}, {parcel.region} {parcel.division ? `(${parcel.division})` : ''}
-                      </Text>
-                      {parcel.location ? (
-                        <Text style={styles.parcelLandmark} numberOfLines={1}>
-                          📍 {parcel.location}
-                        </Text>
-                      ) : null}
-                    </View>
+            {/* TAB 2: OPERATING SITES & PLOTS */}
+            {activeTab === 'sites' && (
+              <View>
+                <View style={styles.sectionHeaderRow}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <MapPin size={18} color={Colors.cultivated} />
+                    <Text style={styles.sectionHeader}>
+                      Operating Sites & Plots ({activeParcels.length})
+                    </Text>
                   </View>
-                  <View style={styles.parcelSizeBox}>
-                    <Text style={styles.parcelSizeVal}>{parcel.sizeHectares || 1.0}</Text>
-                    <Text style={styles.parcelSizeUnit}>Ha</Text>
-                  </View>
+                  <TouchableOpacity
+                    style={styles.addSiteSmallBtn}
+                    onPress={() => setShowAddSiteModal(true)}
+                    activeOpacity={0.8}
+                  >
+                    <Plus size={14} color={Colors.cultivated} strokeWidth={2.5} />
+                    <Text style={styles.addSiteSmallBtnText}>+ Add Site</Text>
+                  </TouchableOpacity>
                 </View>
-              ))}
-            </View>
-          </View>
-        )}
 
-        {/* TAB 3: SETTINGS */}
-        {activeTab === 'settings' && (
-          <View style={{ backgroundColor: '#FFFFFF', borderRadius: Radii.card, padding: 16, borderWidth: 1, borderColor: '#CCEBD5', gap: 12 }}>
-            <Text style={{ fontFamily: Fonts.bodyBold, fontSize: 16, color: Colors.espresso }}>
-              Farm Settings & Profile
-            </Text>
-            <View style={{ padding: 12, backgroundColor: '#EEF8F1', borderRadius: Radii.sm, borderWidth: 1, borderColor: '#CCEBD5' }}>
-              <Text style={{ fontFamily: Fonts.bodyBold, fontSize: 12, color: Colors.cultivated, textTransform: 'uppercase' }}>
-                {activeFarm?.name}
-              </Text>
-              <Text style={{ fontFamily: Fonts.body, fontSize: 12, color: Colors.espresso, marginTop: 4 }}>
-                {activeFarm?.city}, {activeFarm?.region} • {activeFarm?.sizeHectares || 1.0} Ha
-              </Text>
-              {activeFarm?.description ? (
-                <Text style={{ fontFamily: Fonts.body, fontSize: 11, color: Colors.text.secondary, marginTop: 4 }}>
-                  {activeFarm.description}
+                <View style={styles.parcelsListContainer}>
+                  {activeParcels.map((parcel: any, idx: number) => (
+                    <View key={parcel.id || idx} style={styles.parcelCard}>
+                      <View style={styles.parcelCardLeft}>
+                        <View style={[styles.parcelIconBox, parcel.isHeadquarters && styles.parcelIconBoxHq]}>
+                          <MapPin size={16} color={parcel.isHeadquarters ? Colors.cultivated : Colors.soil} />
+                        </View>
+                        <View style={{ flex: 1, marginLeft: 10 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Text style={styles.parcelName} numberOfLines={1}>
+                              {parcel.name}
+                            </Text>
+                            {parcel.isHeadquarters ? (
+                              <View style={styles.hqBadge}>
+                                <Text style={styles.hqBadgeText}>HQ Base</Text>
+                              </View>
+                            ) : (
+                              <View style={styles.branchBadge}>
+                                <Text style={styles.branchBadgeText}>Branch Plot</Text>
+                              </View>
+                            )}
+                          </View>
+                          <Text style={styles.parcelLocation}>
+                            {parcel.city}, {parcel.region} {parcel.division ? `(${parcel.division})` : ''}
+                          </Text>
+                          {parcel.location ? (
+                            <Text style={styles.parcelLandmark} numberOfLines={1}>
+                              📍 {parcel.location}
+                            </Text>
+                          ) : null}
+                        </View>
+                      </View>
+                      <View style={styles.parcelSizeBox}>
+                        <Text style={styles.parcelSizeVal}>{parcel.sizeHectares || 1.0}</Text>
+                        <Text style={styles.parcelSizeUnit}>Ha</Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {/* TAB 3: SETTINGS */}
+            {activeTab === 'settings' && (
+              <View style={{ backgroundColor: '#FFFFFF', borderRadius: Radii.card, padding: 16, borderWidth: 1, borderColor: '#CCEBD5', gap: 12 }}>
+                <Text style={{ fontFamily: Fonts.bodyBold, fontSize: 16, color: Colors.espresso }}>
+                  Farm Settings & Profile
                 </Text>
-              ) : null}
-            </View>
+                <View style={{ padding: 12, backgroundColor: '#EEF8F1', borderRadius: Radii.sm, borderWidth: 1, borderColor: '#CCEBD5' }}>
+                  <Text style={{ fontFamily: Fonts.bodyBold, fontSize: 12, color: Colors.cultivated, textTransform: 'uppercase' }}>
+                    {activeFarm?.name}
+                  </Text>
+                  <Text style={{ fontFamily: Fonts.body, fontSize: 12, color: Colors.espresso, marginTop: 4 }}>
+                    {activeFarm?.city}, {activeFarm?.region} • {activeFarm?.sizeHectares || 1.0} Ha
+                  </Text>
+                  {activeFarm?.description ? (
+                    <Text style={{ fontFamily: Fonts.body, fontSize: 11, color: Colors.text.secondary, marginTop: 4 }}>
+                      {activeFarm.description}
+                    </Text>
+                  ) : null}
+                </View>
 
-            <TouchableOpacity
-              onPress={handleOpenEditProfile}
-              style={{ backgroundColor: Colors.cultivated, paddingVertical: 12, borderRadius: Radii.pill, alignItems: 'center' }}
-              activeOpacity={0.8}
-            >
-              <Text style={{ fontFamily: Fonts.bodyBold, fontSize: 13, color: Colors.white }}>
-                Edit Farm Profile
-              </Text>
-            </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleOpenEditProfile}
+                  style={{ backgroundColor: Colors.cultivated, paddingVertical: 12, borderRadius: Radii.pill, alignItems: 'center' }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={{ fontFamily: Fonts.bodyBold, fontSize: 13, color: Colors.white }}>
+                    Edit Farm Profile
+                  </Text>
+                </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={() => handleDeleteFarm(activeFarm?.id)}
-              style={{ paddingVertical: 10, borderRadius: Radii.pill, alignItems: 'center', borderWidth: 1, borderColor: '#dc2626' }}
-              activeOpacity={0.8}
-            >
-              <Text style={{ fontFamily: Fonts.bodyBold, fontSize: 12, color: '#dc2626' }}>
-                Delete Farm
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
+                <TouchableOpacity
+                  onPress={() => handleDeleteFarm(activeFarm?.id)}
+                  style={{ paddingVertical: 10, borderRadius: Radii.pill, alignItems: 'center', borderWidth: 1, borderColor: '#dc2626' }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={{ fontFamily: Fonts.bodyBold, fontSize: 12, color: '#dc2626' }}>
+                    Delete Farm
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </>
         )}
       </ScrollView>
@@ -2570,6 +2748,130 @@ export default function FarmManagementScreen() {
                   <View style={styles.modalSubmitContent}>
                     <CheckCircle2 size={18} color={Colors.white} />
                     <Text style={styles.modalSubmitBtnText}>Save Delivery Reach</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </Modal>
+
+      {/* QUICK LIFECYCLE TARGET WINDOW MODAL */}
+      <Modal
+        visible={!!lifecycleModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setLifecycleModal(null)}
+      >
+        <SafeAreaView style={styles.modalSafeArea} edges={['top', 'left', 'right']}>
+          <View style={styles.modalHeader}>
+            <View style={styles.modalHeaderTitleRow}>
+              <View
+                style={[
+                  styles.modalHeaderIconBadge,
+                  { backgroundColor: lifecycleModal?.targetStatus === 'GROWING' ? '#eef8f1' : '#f3f4f6' },
+                ]}
+              >
+                {lifecycleModal?.targetStatus === 'GROWING' ? (
+                  <Sprout size={18} color={Colors.cultivated} />
+                ) : (
+                  <Clock size={18} color="#4B5563" />
+                )}
+              </View>
+              <View>
+                <Text style={styles.modalTitle}>
+                  {lifecycleModal?.targetStatus === 'GROWING' ? 'Set as Growing' : 'Set as Off-Cycle'}
+                </Text>
+                <Text style={styles.modalHeaderSub} numberOfLines={1}>
+                  {lifecycleModal?.item?.title || 'Produce Cycle'}
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.modalCloseBtn}
+              onPress={() => setLifecycleModal(null)}
+              accessibilityLabel="Close"
+            >
+              <X size={20} color={Colors.espresso} />
+            </TouchableOpacity>
+          </View>
+
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={{ flex: 1 }}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 24 : 0}
+          >
+            <ScrollView style={styles.modalBody} contentContainerStyle={styles.modalBodyContent}>
+              <Text style={[styles.inputLabel, { marginTop: 8 }]}>
+                {lifecycleModal?.targetStatus === 'GROWING'
+                  ? 'Expected Harvest Window (e.g. Next Month, Within 3 Weeks)'
+                  : 'Target Month / Next Season Cycle'}
+              </Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder={
+                  lifecycleModal?.targetStatus === 'GROWING'
+                    ? 'e.g. Next Month, Mid-December, Within 3 Weeks'
+                    : 'e.g. Next Season, March Planting, Rainy Season Cycle'
+                }
+                placeholderTextColor={Colors.text.muted}
+                value={lifecycleModal?.value || ''}
+                onChangeText={(t) =>
+                  setLifecycleModal((prev) => (prev ? { ...prev, value: t } : null))
+                }
+              />
+
+              {/* Quick suggestions */}
+              <Text style={[styles.inputLabel, { marginTop: 12 }]}>Quick Presets:</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.reachChipsScroll}>
+                {(lifecycleModal?.targetStatus === 'GROWING'
+                  ? ['Next Month', 'Within 2 Weeks', 'Within 30 Days', 'Mid Next Month', 'Early Rainy Season', 'Dry Season Harvest']
+                  : ['Next Month', 'Next Season', 'Rainy Season Cycle', 'Dry Season Cycle', 'March Planting', 'Next Year']
+                ).map((preset) => {
+                  const isSelected = lifecycleModal?.value === preset;
+                  return (
+                    <TouchableOpacity
+                      key={preset}
+                      style={[styles.reachChip, isSelected && (lifecycleModal?.targetStatus === 'GROWING' ? styles.reachChipActive : styles.reachChipActiveHub)]}
+                      onPress={() =>
+                        setLifecycleModal((prev) => (prev ? { ...prev, value: preset } : null))
+                      }
+                    >
+                      <Text style={[styles.reachChipText, isSelected && styles.reachChipTextActive]}>
+                        {preset}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </ScrollView>
+
+            <View style={[styles.modalFooter, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+              <TouchableOpacity
+                style={[
+                  styles.modalSubmitBtn,
+                  lifecycleModal?.targetStatus === 'GROWING' ? { backgroundColor: Colors.cultivated } : { backgroundColor: '#374151' },
+                  savingLifecycle && { opacity: 0.7 },
+                ]}
+                onPress={() => {
+                  if (!lifecycleModal) return;
+                  applyProduceLifecycle(
+                    lifecycleModal.item,
+                    lifecycleModal.targetStatus,
+                    lifecycleModal.targetStatus === 'GROWING' ? (lifecycleModal.value.trim() || 'Next Month') : undefined,
+                    lifecycleModal.targetStatus === 'OFF_CYCLE' ? (lifecycleModal.value.trim() || 'Next Season') : undefined
+                  );
+                }}
+                disabled={savingLifecycle || !lifecycleModal?.value.trim()}
+              >
+                {savingLifecycle ? (
+                  <ActivityIndicator color={Colors.white} />
+                ) : (
+                  <View style={styles.modalSubmitContent}>
+                    <CheckCircle2 size={18} color={Colors.white} />
+                    <Text style={styles.modalSubmitBtnText}>
+                      {lifecycleModal?.targetStatus === 'GROWING' ? 'Set as Growing' : 'Set as Off-Cycle'}
+                    </Text>
                   </View>
                 )}
               </TouchableOpacity>
@@ -4587,8 +4889,7 @@ const styles = StyleSheet.create({
 
   // Produce Catalog Rows
   yieldCardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'column',
     backgroundColor: Colors.white,
     borderRadius: Radii.card,
     padding: 12,
@@ -4596,6 +4897,140 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.parchmentDim,
     ...Shadows.subtle,
+  },
+  yieldCardTopBlock: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  yieldCycleBannerWrapper: {
+    width: '100%',
+    marginTop: 8,
+  },
+  yieldCycleBannerGrowing: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#EEF8F1',
+    borderWidth: 1,
+    borderColor: '#CCEBD5',
+    borderRadius: Radii.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  yieldCycleBannerTextGrowing: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 12,
+    color: '#173A20',
+  },
+  yieldCycleBannerActionGrowing: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 11,
+    color: Colors.cultivated,
+  },
+  yieldCycleBannerOffCycle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: Radii.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  yieldCycleBannerTextOffCycle: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 12,
+    color: '#374151',
+  },
+  yieldCycleBannerActionOffCycle: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 11,
+    color: '#4B5563',
+  },
+  yieldCycleBannerSelling: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FEF9EE',
+    borderWidth: 1,
+    borderColor: '#F2DCAA',
+    borderRadius: Radii.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  yieldCycleDotSelling: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#E2A63C',
+  },
+  yieldCycleBannerTextSelling: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 12,
+    color: '#92400E',
+  },
+  yieldPausedPill: {
+    backgroundColor: '#FEF2D8',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radii.pill,
+  },
+  yieldPausedPillText: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 10,
+    color: '#B87D1E',
+  },
+  yieldLifecycleSegmentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EEF8F1',
+    borderRadius: Radii.sm,
+    borderWidth: 1,
+    borderColor: '#CCEBD5',
+    padding: 3,
+    gap: 4,
+    marginTop: 8,
+    width: '100%',
+  },
+  lifecycleSegmentBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+    borderRadius: Radii.sm - 2,
+    gap: 4,
+  },
+  lifecycleSegmentSellingActive: {
+    backgroundColor: '#E2A63C',
+  },
+  lifecycleSegmentGrowingActive: {
+    backgroundColor: Colors.cultivated,
+  },
+  lifecycleSegmentOffCycleActive: {
+    backgroundColor: '#374151',
+  },
+  lifecycleDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+  },
+  lifecycleSegmentText: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 11,
+    color: '#5C5245',
+  },
+  lifecycleSegmentSellingTextActive: {
+    color: '#241A12',
+  },
+  lifecycleSegmentGrowingTextActive: {
+    color: '#FFFFFF',
+  },
+  lifecycleSegmentOffCycleTextActive: {
+    color: '#FFFFFF',
   },
   yieldThumb: {
     width: 64,
