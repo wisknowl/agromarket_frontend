@@ -220,9 +220,7 @@ export default function AgroYieldsScreen() {
           data={filteredYields}
           renderItem={renderYieldItem}
           keyExtractor={(item, index) => item.id || `yield-${index}`}
-          numColumns={2}
-          columnWrapperStyle={{ justifyContent: 'space-between', paddingHorizontal: 16 }}
-          contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 90, 100), paddingTop: 6 }}
+          contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 90, 100), paddingTop: 6, paddingHorizontal: 16 }}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.cultivated} />

@@ -616,8 +616,6 @@ export default function FarmDetailScreen() {
                 data={farmYields}
                 renderItem={renderYieldItem}
                 keyExtractor={(item) => item.id}
-                numColumns={2}
-                columnWrapperStyle={styles.columnWrapper}
                 scrollEnabled={false}
               />
             )}

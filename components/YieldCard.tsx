@@ -205,7 +205,7 @@ export default function YieldCard({
 
 const styles = StyleSheet.create({
   container: {
-    width: '48%',
+    width: '100%',
     backgroundColor: Colors.white,
     borderRadius: Radii.card,
     borderWidth: 1,
@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
   imageContainer: {
     position: 'relative',
     width: '100%',
-    height: 140,
+    height: 190,
     backgroundColor: Colors.parchment,
   },
   image: {
